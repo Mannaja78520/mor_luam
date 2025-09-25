@@ -1,0 +1,8 @@
+source;share/mor_luam/hook/cmake_prefix_path.ps1
+source;share/mor_luam/hook/cmake_prefix_path.dsv
+source;share/mor_luam/hook/cmake_prefix_path.sh
+source;share/mor_luam/local_setup.bash
+source;share/mor_luam/local_setup.dsv
+source;share/mor_luam/local_setup.ps1
+source;share/mor_luam/local_setup.sh
+source;share/mor_luam/local_setup.zsh
