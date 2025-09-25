@@ -10,7 +10,7 @@ def generate_launch_description():
         package="micro_ros_agent",
         executable="micro_ros_agent",
         output="screen",
-        arguments=["udp4", "--port", "8888"],
+        arguments=["serial", "--dev", "/dev/ttyUSB0"],
     )
     
     ld.add_action(node_microros)

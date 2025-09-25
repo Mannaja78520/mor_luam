@@ -8,7 +8,7 @@
 #include <Arduino.h>
 
 //---- Wi-Fi ----
-static const char* WIFI_SSID = "teelek_Iot";
+static const char* WIFI_SSID = "Teelek_IoT";
 static const char* WIFI_PASS = "12345678";
 
 //---- micro-ROS Agent ----

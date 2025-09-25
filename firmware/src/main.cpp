@@ -18,7 +18,9 @@
 #include <std_msgs/msg/float32.h>             
 #include <std_msgs/msg/int32.h>               
 
-#include <ESPmDNS.h>
+#if defined(MICROROS_TRANSPORT_WIFI)
+  #include <ESPmDNS.h>
+#endif
 
 #include <config.h>
 #include <motor.h>
@@ -95,28 +97,28 @@ struct timespec getTime();
 void controlCallback(rcl_timer_t *timer, int64_t last_call_time);
 void cmd_move_callback(const void * msgin);
 
-// hardware functions you must implement or map
-static inline float readSteerDeg() {
-  // TODO: อ่าน AS5600 -> องศา 0..360
-  // สมมติ Utilize.h มีฟังก์ชันที่คุณใช้อยู่ เช่น Utilize::getAS5600Deg();
-  return Utilize::getAS5600Deg();  // แก้ให้ตรงของจริง
-}
+// // hardware functions you must implement or map
+// static inline float readSteerDeg() {
+//   // TODO: อ่าน AS5600 -> องศา 0..360
+//   // สมมติ Utilize.h มีฟังก์ชันที่คุณใช้อยู่ เช่น Utilize::getAS5600Deg();
+//   return Utilize::getAS5600Deg();  // แก้ให้ตรงของจริง
+// }
 
 //================ WIFI/mDNS =====================//
 #if defined(MICROROS_TRANSPORT_WIFI)
-static bool connectWifiAndResolveAgent(IPAddress &out_ip) {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  unsigned long t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis()-t0 < 15000) delay(100);
-  if (WiFi.status() != WL_CONNECTED) return false;
+  static bool connectWifiAndResolveAgent(IPAddress &out_ip) {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
+    unsigned long t0 = millis();
+    while (WiFi.status() != WL_CONNECTED && millis()-t0 < 15000) delay(100);
+    if (WiFi.status() != WL_CONNECTED) return false;
 
-  if (!MDNS.begin("esp32")) { /* not fatal */ }
-  IPAddress ip = MDNS.queryHost(AGENT_HOSTNAME, 2000);
-  if (ip == (uint32_t)0) return false;
-  out_ip = ip;
-  return true;
-}
+    if (!MDNS.begin("esp32")) { /* not fatal */ }
+    IPAddress ip = MDNS.queryHost(AGENT_HOSTNAME, 2000);
+    if (ip == (uint32_t)0) return false;
+    out_ip = ip;
+    return true;
+  }
 #endif
 
 //================ Setup/Loop ====================//
@@ -175,8 +177,8 @@ void controlCallback(rcl_timer_t *timer, int64_t) {
   if (!timer) return;
 
   // --- read feedback ---
-  long ticks_now = readTicks();
-  steer_deg = readSteerDeg();
+  long ticks_now = encoder.read();
+  // steer_deg = readSteerDeg();
 
   // publish feedback
   msg_ticks.data = (int32_t)ticks_now;

@@ -1,9 +1,0 @@
-/home/mannaja/mor_luam/mor_luam_ws/build/mor_luam/CMakeFiles/uninstall.dir
-/home/mannaja/mor_luam/mor_luam_ws/build/mor_luam/CMakeFiles/mor_luam_uninstall.dir
-/home/mannaja/mor_luam/mor_luam_ws/build/mor_luam/CMakeFiles/test.dir
-/home/mannaja/mor_luam/mor_luam_ws/build/mor_luam/CMakeFiles/edit_cache.dir
-/home/mannaja/mor_luam/mor_luam_ws/build/mor_luam/CMakeFiles/rebuild_cache.dir
-/home/mannaja/mor_luam/mor_luam_ws/build/mor_luam/CMakeFiles/list_install_components.dir
-/home/mannaja/mor_luam/mor_luam_ws/build/mor_luam/CMakeFiles/install.dir
-/home/mannaja/mor_luam/mor_luam_ws/build/mor_luam/CMakeFiles/install/local.dir
-/home/mannaja/mor_luam/mor_luam_ws/build/mor_luam/CMakeFiles/install/strip.dir
