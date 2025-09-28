@@ -1,65 +1,103 @@
 #include "PIDF.h"
+#include <math.h>  // expf, M_PI
 
-PIDF::PIDF(float min_val, float max_val, float Kp = 0, float Ki = 0, float i_min = 0, float i_max = 0, float Kd = 0, float Kf = 0, float error_tolerance = 0) {
-  this->setPIDF(Kp, Ki, Kd, Kf, error_tolerance);
-  this->i_min = i_min;
-  this->i_max = i_max;
-  this->min_val = min_val;
-  this->max_val = max_val;
-  // Setpoint = Dt = Error = Integral = LastTime = LastError = 0;
-  Setpoint = Dt = Error = Integral = LastError = 0;
+PIDF::PIDF(float min_val, float max_val,
+           float Kp_, float Ki_,
+           float i_min_, float i_max_,
+           float Kd_, float Kf_,
+           float tol_)
+: Kp(0), Ki(0), Kd(0), Kf(0),
+  error_tolerance(0),
+  out_min(min_val), out_max(max_val),
+  i_min(i_min_), i_max(i_max_),
+  Setpoint(0.0f), LastError(0.0f), Integral(0.0f),
+  Dfilt(0.0f), d_fc_hz(0.0f), d_init(true),
+  last_us(0)
+{
+  setPIDF(Kp_, Ki_, Kd_, Kf_, tol_);
 }
 
-void PIDF::setPIDF(float Kp, float Ki, float Kd, float Kf, float error_tolerance) {
-  this->Kp = Kp;
-  this->Ki = Ki;
-  this->Kd = Kd;
-  this->Kf = Kf;
-  this->error_tolerance = error_tolerance;
+void PIDF::setPIDF(float Kp_, float Ki_, float Kd_, float Kf_, float tol_) {
+  Kp = Kp_; Ki = Ki_; Kd = Kd_; Kf = Kf_;
+  error_tolerance = tol_;
 }
 
-void PIDF::reset(){
-  // this->LastTime = 0;
-  this->Integral = 0;
-  this->LastError = 0;
-  // this->LastTime = 0;
+void PIDF::setOutputLimits(float min_val, float max_val) {
+  out_min = min_val; out_max = max_val;
 }
 
-float PIDF::compute(float setpoint, float measure){
+void PIDF::setIClamp(float i_min_, float i_max_) {
+  i_min = i_min_; i_max = i_max_;
+}
+
+void PIDF::setDFilterCutoffHz(float fc_hz) {
+  d_fc_hz = (fc_hz < 0.0f) ? 0.0f : fc_hz;
+  d_init  = true;     // ให้ init ใหม่ในรอบถัดไป
+}
+
+void PIDF::reset() {
+  Integral = 0.0f;
+  LastError = 0.0f;
+  Dfilt = 0.0f;
+  d_init = true;
+  last_us  = 0;       // ให้คำนวณ dt ใหม่ในรอบถัดไป
+}
+
+float PIDF::step_dt() {
+  unsigned long now = micros();
+  if (last_us == 0) { last_us = now; return 0.0f; }
+  unsigned long du = now - last_us;
+  last_us = now;
+  const float dt_min = 1e-4f;  // 0.1 ms
+  float dt = du * 1e-6f;
+  if (dt < dt_min) dt = dt_min;
+  return dt;
+}
+
+float PIDF::compute(float setpoint, float measure) {
   Setpoint = setpoint;
-  // unsigned long CurrentTime = millis();
-  // Dt = (CurrentTime - LastTime) / 1000.0;
-  // if (Dt <  1E-6) return;
-  // Serial.println(Dt);
-  Error = setpoint - measure;
-  if (setpoint == 0 && Kf > 0) return 0;
-  return compute_with_error(Error);
-}
-
-byte PIDF::SigNum(float number) {
-    return (byte) (number == 0 ? 0 : (number < 0 ? -1 : 1));
+  float error = setpoint - measure;
+  return compute_with_error(error);
 }
 
 float PIDF::compute_with_error(float error) {
-  if (AtTargetRange(error, 0, this->error_tolerance)) {
-    Integral = 0;
-    LastError = 0;
-    return 0; // If the error is within the tolerance, return 0
-  }
-  // Integral += Error * Dt;
-  Integral += error;
-  if(i_min != -1 && i_max != -1) Integral = constrain(Integral, this->i_min, this->i_max);
-  // float Derivative = (Error - LastError) / Dt;
-  float Derivative = error - LastError;
-  if (Setpoint == 0) {
-    if (Kf > 0 || error == 0) {
-      Integral = 0;
-      Derivative = 0;
+  float dt = step_dt();
+
+  if (Kf == 0){
+    // deadband
+    if (fabsf(error) <= error_tolerance) {
+      Integral = 0.0f;
+      LastError = error;
+      // อย่าลืมรีเซ็ต D ให้ตาม error ด้วยเพื่อลด kick ตอนออกจาก deadband
+      if (d_init) { Dfilt = 0.0f; } else { Dfilt = 0.9f*Dfilt; }
+      return 0.0f;
     }
-  } 
+  }
+
+  // I-term
+  Integral += error * dt;
+  if (i_max == -1 && i_min == -1) {
+  } else {
+    Integral = clamp(Integral, i_min, i_max);
+  }
+
+  // D-term (raw)
+  float D_raw = (dt > 0.0f) ? (error - LastError) / dt : 0.0f;
+
+  // Low-pass derivative: alpha = exp(-2*pi*fc*dt)
+  float D_use = D_raw;
+  if (Kd != 0.0f && d_fc_hz > 0.0f) {
+    float alpha = expf(-2.0f * (float)M_PI * d_fc_hz * dt);
+    if (alpha < 0.0f) alpha = 0.0f;
+    if (alpha > 1.0f) alpha = 1.0f;
+
+    if (d_init) { Dfilt = D_raw; d_init = false; }
+    else        { Dfilt = alpha * Dfilt + (1.0f - alpha) * D_raw; }
+    D_use = Dfilt;
+  }
+
+  float out = Kp*error + Ki*Integral + Kd*D_use + Kf*Setpoint;
+
   LastError = error;
-  // Serial.println("Error: " + String(Error, 2) + " | Integral: " + String(Integral, 2) + " | Derivative: " + String(Derivative, 2));
-  // LastTime = CurrentTime;
-  // return constrain(Kp * Error + Ki * Integral + Kd * Derivative + Kf * SigNum(Error), min_val, max_val);
-  return constrain(Kp * error + Ki * Integral + Kd * Derivative + Kf * Setpoint, min_val, max_val);
+  return clamp(out, out_min, out_max);
 }

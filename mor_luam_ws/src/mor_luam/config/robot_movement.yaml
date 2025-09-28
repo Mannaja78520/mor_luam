@@ -8,15 +8,15 @@ robot_movement_control_node:
 
     timer_period: 0.03
     pos_epsilon_m: 0.02
-    steer_tolerance_deg: 2.0
+    steer_tolerance_deg: 5.0
     steer_settle_time: 0.10
     steer_leak_ticks_thr: 5
     keep_going_tol_deg: 5.0
 
-    wheel_radius_m: 0.05
+    wheel_radius_m: 0.0381
     ticks_per_rev: 64
-    gear_ratio: 7.0
-    max_rpm: 120.0
+    gear_ratio: 6.21118
+    max_rpm: 500.0
     rpm_ramp_per_sec: 300.0
 
     # ทิศหมุนกำหนดโหมด:

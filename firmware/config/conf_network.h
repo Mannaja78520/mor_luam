@@ -10,11 +10,13 @@
 //---- Wi-Fi ----
 static const char* WIFI_SSID = "Teelek_IoT";
 static const char* WIFI_PASS = "12345678";
+static const char* WIFI_HOSTNAME = "esp32_mor_luam";
 
 //---- micro-ROS Agent ----
 // ใช้ mDNS แทนการ fix IP (เช่น 'ros2-agent.local')
 // ให้ตั้ง hostname ฝั่ง agent เป็น "ros2-agent"
 static const char* AGENT_HOSTNAME = "ros2-agent";
+static const IPAddress AGENT_IP(192, 168, 50, 242);  
 static const uint16_t AGENT_PORT   = 8888;
 
 #endif

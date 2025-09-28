@@ -48,6 +48,8 @@ install(
 ################################################################################
 install(PROGRAMS
   control/joystick/joystick_control.py
+  src/robot_movement.py
+  src/send_goal_xy.py
 
   DESTINATION lib/${PROJECT_NAME}
 )

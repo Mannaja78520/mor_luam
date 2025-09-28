@@ -75,11 +75,12 @@ class Encoder
 {
 public:
 	// one step setup like before
-	Encoder(uint8_t pin1, uint8_t pin2, bool invert = false, float gear_ratio = 1.0f) { begin(pin1, pin2, invert, gear_ratio);}
+	Encoder(uint8_t pin1, uint8_t pin2, int counts_per_rev, bool invert = false, float gear_ratio = 1.0f) { begin(pin1, pin2, counts_per_rev, invert, gear_ratio);}
 
 	// two step setup for platforms that have issues with constructor ordering
 	Encoder() { }
-	void begin(uint8_t pin1, uint8_t pin2, bool invert = false, float gear_ratio = 1.0f) {
+	void begin(uint8_t pin1, uint8_t pin2, int counts_per_rev, bool invert = false, float gear_ratio = 1.0f) {
+		counts_per_rev_ = counts_per_rev;
 		uint8_t temp_pin = pin1;
 		this->gear_ratio = gear_ratio;
 		if(invert)
@@ -176,7 +177,7 @@ public:
 		prev_update_time_ = current_time;
 		prev_encoder_ticks_ = encoder_ticks;
 
-		return ((delta_ticks / counts_per_rev_) / dtm) * this->gear_ratio;
+		return ((delta_ticks / float(counts_per_rev_)) / dtm) * this->gear_ratio;
 	}
 
 private:
