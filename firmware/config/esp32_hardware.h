@@ -2,8 +2,9 @@
 #define ESP32_HARDWARE_H
 
     //define your robot' specs here
-    #define MOTOR_MAX_RPM 500.0f                                               // motor's max RPM          
-    #define MAX_RPM_RATIO 0.85f                                              // max RPM allowed for each MAX_RPM_ALLOWED = MOTOR_MAX_RPM * MAX_RPM_RATIO          
+    #define MOTOR_RPM 400.0f                                            // motor's max RPM          
+    #define MAX_RPM_RATIO 0.85f                                             // max RPM allowed for each MAX_RPM_ALLOWED = MOTOR_MAX_RPM * MAX_RPM_RATIO          
+    #define MOTOR_MAX_RPM  MOTOR_RPM * MAX_RPM_RATIO
     #define MOTOR_OPERATING_VOLTAGE 12                                      // motor's operating voltage (used to calculate max RPM)
     #define MOTOR_POWER_MAX_VOLTAGE 12                                      // max voltage of the motor's power source (used to calculate max RPM)
     #define MOTOR_POWER_MEASURED_VOLTAGE 12                                 // current voltage reading of the power connected to the motor (used for calibration)

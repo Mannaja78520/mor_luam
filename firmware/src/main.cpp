@@ -247,8 +247,8 @@ void controlCallback(rcl_timer_t *timer, int64_t){
         
         int pwm_cmd = STEER_MOTOR_DIR * (int)lroundf(pwm_mag); // STEER_MOTOR_DIR = +1 (ทางขวา)
         motor.spin(pwm_cmd);
-        if (fabsf(rpm_raw) < 0.001f && e_cw > 50){
-          pwm_cmd = PWM_Max * 0.785f * STEER_MOTOR_DIR;
+        if (fabsf(rpm_raw) < 0.001f && e_cw > 100){
+          pwm_cmd = PWM_Max * 0.8f * STEER_MOTOR_DIR;
           motor.spin(pwm_cmd);
         }
         last_pwm_cmd = pwm_cmd;
