@@ -50,6 +50,9 @@ install(PROGRAMS
   control/joystick/joystick_control.py
   src/robot_movement.py
   src/send_goal_xy.py
+  src/send_heading_speed.py
+  src/fallback_odom.py
+  src/drive_to_xy.py
 
   DESTINATION lib/${PROJECT_NAME}
 )

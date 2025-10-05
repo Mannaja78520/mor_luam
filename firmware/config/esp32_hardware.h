@@ -13,13 +13,14 @@
     #define ENCODER_TICKS 4                                                 // encoder ticks
     #define COUNTS_PER_REV ENCODER_PULSES_PER_REVOLUTION * ENCODER_TICKS  // wheel1 encoder's no of ticks per rev
     #define WHEEL_DIAMETER 0.0762f                                           // wheel's diameter in meters
+    #define ODOM_TICKS_SIGN (-1.0f)                                          // flip odom if forward travel reports negative distance
     // #define LR_WHEELS_DISTANCE 0.335                                        // distance between left and right wheels
     #define PWM_BITS 10                                                     // PWM Resolution of the microcontroller
     #define PWM_FREQUENCY 20000                                             // PWM Frequency
     #define PWM_Max 1023
     #define PWM_Min PWM_Max * -1          
     #define PWM_SPIN_Max (int)(PWM_Max * 1.0f)                          // max PWM value used in spin control                             
-    #define PWM_STEER_Max (int)(PWM_Max * 0.75f)                          // max PWM value used in spin control                             
+    #define PWM_STEER_Max (int)(PWM_Max * 0.8)                          // max PWM value used in spin control                             
 
 
     // INVERT MOTOR DIRECTIONS
@@ -40,13 +41,13 @@
     #define MOTOR_ENCODER_INCRIMENT -1
     #define MOTOR_ENCODER_PIN_A 32
     #define MOTOR_ENCODER_PIN_B 33
-    #define MOTOR_ENCODER_RATIO 6.21118f
+    #define MOTOR_ENCODER_RATIO 11.55555555f
 
 
     // +1 ถ้ามุมจากเซ็นเซอร์เพิ่มขึ้นเมื่อหมุนเลี้ยวตามเข็มจริง
     // -1 ถ้า "กลับทิศ" (มุมจากเซ็นเซอร์เพิ่มขึ้นตอนหมุนทวนเข็ม แต่คุณเลี้ยวได้จริงเฉพาะตามเข็ม)
     #define STEER_SENSE          (-1)      // ลอง -1 ก่อนตามอาการที่เล่า
-    #define STEER_ZERO_OFFSET_DEG (14.0f)   // ไว้ปรับศูนย์ มุม 0° ของกลไก = ที่ต้องการ
+    #define STEER_ZERO_OFFSET_DEG (136.0f)   // ไว้ปรับศูนย์ มุม 0° ของกลไก = ที่ต้องการ
 
 
     // I2C communication

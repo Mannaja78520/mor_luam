@@ -47,7 +47,7 @@ class esp32_Encoder {
             prev_update_time_ = current_time;
             prev_encoder_ticks_ = encoder_ticks;
 
-            return ((delta_ticks / float(counts_per_rev_)) / dtm) / gear_ratio_;
+            return ((delta_ticks / (float)counts_per_rev_) / dtm) / gear_ratio_;
         }
 
         float getLinearSpeedMps(){
