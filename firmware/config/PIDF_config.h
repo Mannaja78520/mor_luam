@@ -9,13 +9,13 @@
 #define Wheel_SPIN_I_Min -Wheel_SPIN_I_Max
 #define Wheel_SPIN_ERROR_TOLERANCE  2.0f   // RPM
 
-#define Wheel_STEER_KP  5.3f
-#define Wheel_STEER_KI  0.565f
-#define Wheel_STEER_KD  7.8f
+#define Wheel_STEER_KP  8.7f
+#define Wheel_STEER_KI  0.54f
+#define Wheel_STEER_KD  45.4f
 #define Wheel_STEER_KF  0.0f
 #define Wheel_STEER_I_Max  1000
 #define Wheel_STEER_I_Min -Wheel_STEER_I_Max
-#define Wheel_STEER_ERROR_TOLERANCE  8.5f  // deg
+#define Wheel_STEER_ERROR_TOLERANCE  7.0f  // deg
 #define Wheel_STEER_BASE_SPEED  420
 
 

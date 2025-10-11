@@ -65,7 +65,6 @@ static const int64_t  ODOM_TICK_RESET_THRESHOLD = (int64_t)((float)COUNTS_PER_RE
 static const float    CMD_SMALL_HEADING_EPS = 0.5f;   // deg change to ignore
 static const float    CMD_SMALL_DIST_EPS    = 0.02f;  // metres difference to ignore
 static const float    CMD_SMALL_RPM_EPS     = 1.0f;   // rpm diff to ignore
-static const float    DRIVE_RELOCK_ERROR_DEG = Wheel_STEER_ERROR_TOLERANCE * 2.0f; // threshold to re-steer mid-drive
 
 // static const float RPM_TO_PWM_K = ((float)PWM_SPIN_Max * MAX_RPM_RATIO) / (float)MOTOR_MAX_RPM;
 
@@ -138,7 +137,7 @@ int last_pwm_cmd = 0;                   // ไว้ debug
 
 static float spin_pid_buf[9];
 static float drive_target_dist_m = 0.0f;
-static float drive_target_tol_m  = 0.05f;
+static float drive_target_tol_m  = 0.08f;
 static float drive_progress_m    = 0.0f;
 static bool  drive_has_target    = false;
 static float drive_last_delta_m  = 0.0f;
@@ -150,7 +149,7 @@ static float drive_goal_y_m      = 0.0f;
 static float drive_goal_vec_x    = 0.0f;
 static float drive_goal_vec_y    = 0.0f;
 static float drive_goal_len_sq   = 0.0f;
-static float drive_goal_tol_m    = 0.05f;
+static float drive_goal_tol_m    = 0.08f;
 
 static float steer_pid_buf[9];
 
@@ -551,14 +550,13 @@ void controlCallback(rcl_timer_t *timer, int64_t){
     } break;
 
     case DRIVE: {
-      // ถ้ามุมเพี้ยนมากเกิน threshold → กลับไปเลี้ยว แม้จะกำลังวิ่ง
-      if (fabsf(e_signed) > DRIVE_RELOCK_ERROR_DEG) {
+      // ถ้าล้อเพี้ยนเกิน tol → กลับไปเลี้ยว
+      if (fabsf(e_signed) > steer_error_tolerance) {
         motor.spin(0);
         spin.reset();
         steer.reset();
         last_pwm_cmd = 0;
         mode = STEER_TO_HEADING;
-        steer_enter_ok_ms = millis();
         break;
       }
 
@@ -587,8 +585,6 @@ void controlCallback(rcl_timer_t *timer, int64_t){
           rpm_set = 0.0f;
           drive_has_target = false;
           drive_goal_active = false;
-          mode = STEER_TO_HEADING;
-          steer_enter_ok_ms = millis();
         }
       }
 
@@ -610,8 +606,6 @@ void controlCallback(rcl_timer_t *timer, int64_t){
           drive_has_target = false;
           drive_goal_active = false;
           drive_goal_len_sq = 0.0f;
-          mode = STEER_TO_HEADING;
-          steer_enter_ok_ms = millis();
         }
       }
 
@@ -622,8 +616,6 @@ void controlCallback(rcl_timer_t *timer, int64_t){
         drive_has_target = false;
         drive_goal_active = false;
         drive_goal_len_sq = 0.0f;
-        mode = STEER_TO_HEADING;
-        steer_enter_ok_ms = millis();
       } else {
         // แปลงรอบเป้าหมายเป็น PWM แบบ feed-forward แล้วให้ PIDF คอยเติมแก้ไขเล็กน้อย
         // float pwm_ff   = rpm_set * RPM_TO_PWM_K;
