@@ -1,0 +1,7 @@
+/home/mannaja/mor_luam/firmware/build/CMakeFiles/uninstall.dir
+/home/mannaja/mor_luam/firmware/build/CMakeFiles/ament_cmake_export_interfaces_uninstall.dir
+/home/mannaja/mor_luam/firmware/build/CMakeFiles/edit_cache.dir
+/home/mannaja/mor_luam/firmware/build/CMakeFiles/rebuild_cache.dir
+/home/mannaja/mor_luam/firmware/build/CMakeFiles/list_install_components.dir
+/home/mannaja/mor_luam/firmware/build/CMakeFiles/install.dir
+/home/mannaja/mor_luam/firmware/build/CMakeFiles/install/local.dir

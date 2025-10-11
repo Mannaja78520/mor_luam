@@ -63,7 +63,7 @@ float PIDF::compute(float setpoint, float measure) {
 float PIDF::compute_with_error(float error) {
   float dt = step_dt();
 
-  if (Kf == 0){
+  if (Kf == 0.0f){
     // deadband
     if (fabsf(error) <= error_tolerance) {
       Integral = 0.0f;

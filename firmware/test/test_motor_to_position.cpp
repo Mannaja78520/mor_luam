@@ -40,7 +40,7 @@ void loop(){
     }
     
     motor.spin(motor_PIDF.compute(target_position, encoder.read()));
-	Serial.print("Encoder count = " + String((int32_t)encoder.5()));
+	Serial.print("Encoder count = " + String((int32_t)encoder.read()));
 	Serial.println(", Motor RPM = " + String((int32_t)encoder.getRPM()));
 	// motor.spin(-1023);
 }

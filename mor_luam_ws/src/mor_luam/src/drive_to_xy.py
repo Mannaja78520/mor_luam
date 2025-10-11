@@ -59,7 +59,7 @@ class DriveToXY(Node):
         self._have_pose = False
         self._pose_x = 0.0
         self._pose_y = 0.0
-        self._heading_deg: Optional[float] = None
+        self._heading_cmd_deg: Optional[float] = None
         self._last_progress_distance: Optional[float] = None
         self._last_progress_time = 0.0
         self._stall_timeout = 1.5  # seconds to wait for progress before reissuing
@@ -97,6 +97,7 @@ class DriveToXY(Node):
 
             heading_rad = math.atan2(dy, dx) if (dx or dy) else 0.0
             heading_deg = wrap_deg(radians_to_degrees(heading_rad))
+            steer_command = heading_deg
 
             now = time.monotonic()
 
@@ -106,25 +107,27 @@ class DriveToXY(Node):
                 self._last_progress_time = now
 
             if not self._cmd_sent:
-                self._heading_deg = heading_deg
-                self._send_command(self._target_rpm, heading_deg, distance)
+                self._heading_cmd_deg = steer_command
+                self._send_command(self._target_rpm, steer_command, distance)
                 self.get_logger().info(
-                    f'Heading {heading_deg:.1f}° at {self._target_rpm:.2f} RPM (distance {distance:.3f} m)')
+                    f'Heading {heading_deg:.1f}° at {self._target_rpm:.2f} RPM '
+                    f'(distance {distance:.3f} m)')
                 self._cmd_sent = True
                 self._last_progress_distance = distance
                 self._last_progress_time = now
             elif distance > self._tolerance:
                 if now - self._last_progress_time >= self._stall_timeout:
-                    self._heading_deg = heading_deg
-                    self._send_command(self._target_rpm, heading_deg, distance)
+                    self._heading_cmd_deg = steer_command
+                    self._send_command(self._target_rpm, steer_command, distance)
                     self.get_logger().info(
-                        f'Reissuing command after stall: heading {heading_deg:.1f}° distance {distance:.3f} m')
+                        f'Reissuing after stall: heading {heading_deg:.1f}° '
+                        f'at {self._target_rpm:.2f} RPM distance {distance:.3f} m')
                     self._last_progress_distance = distance
                     self._last_progress_time = now
 
             if distance <= self._tolerance:
-                heading_deg = self._heading_deg if self._heading_deg is not None else 0.0
-                self._send_command(0.0, heading_deg, 0.0)
+                stop_heading = self._heading_cmd_deg if self._heading_cmd_deg is not None else steer_command
+                self._send_command(0.0, stop_heading, 0.0)
                 self.get_logger().info(f'Reached goal (|Δ|={distance:.3f} m); commanding stop.')
                 time.sleep(0.2)
                 return True

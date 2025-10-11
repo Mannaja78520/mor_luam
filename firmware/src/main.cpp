@@ -24,6 +24,7 @@
 #include <esp32_Encoder.h>        // ENCODER
 #include <Wire.h>
 #include <Adafruit_AS5600.h>      // AS5600
+#include <Adafruit_BNO08x.h>
 
 //========================= Utils =========================//
 #define RCCHECK(fn) { rcl_ret_t rc = fn; if (rc != RCL_RET_OK) { rclErrorLoop(); } }
@@ -62,9 +63,12 @@ static const float    CTRL_PERIOD_S   = CTRL_PERIOD_MS / 1000.0f;
 static const float    TICKS_TO_WHEEL_REV = 1.0f / ((float)COUNTS_PER_REV * MOTOR_ENCODER_RATIO);
 static const float    TICKS_TO_METERS    = ((float)M_PI * WHEEL_DIAMETER * TICKS_TO_WHEEL_REV * (float)ODOM_TICKS_SIGN);
 static const int64_t  ODOM_TICK_RESET_THRESHOLD = (int64_t)((float)COUNTS_PER_REV * MOTOR_ENCODER_RATIO * 20.0f);
-static const float    CMD_SMALL_HEADING_EPS = 0.5f;   // deg change to ignore
+static const float    CMD_SMALL_HEADING_EPS = 2.5f;   // deg change to ignore
 static const float    CMD_SMALL_DIST_EPS    = 0.02f;  // metres difference to ignore
 static const float    CMD_SMALL_RPM_EPS     = 1.0f;   // rpm diff to ignore
+static const float    DRIVE_RELOCK_ERROR_DEG = Wheel_STEER_ERROR_TOLERANCE * 2.0f; // threshold to re-steer mid-drive
+static const float    DRIVE_IMU_RELOCK_DEG   = 35.0f; // deg difference between IMU and target to re-steer
+static const float    STEER_CMD_ZERO_DEG     = 0.0f;  // offset applied to commanded steering angle
 
 // static const float RPM_TO_PWM_K = ((float)PWM_SPIN_Max * MAX_RPM_RATIO) / (float)MOTOR_MAX_RPM;
 
@@ -120,24 +124,85 @@ PIDF steer(0, PWM_STEER_Max,
 
 Adafruit_AS5600 as5600;
 
+#define BNO08X_RESET -1
+
+struct euler_t {
+  float yaw;
+  float pitch;
+  float roll;
+} ypr;
+
+Adafruit_BNO08x  bno08x(BNO08X_RESET);
+sh2_SensorValue_t sensorValue;
+
+#ifdef FAST_MODE
+  // Top frequency is reported to be 1000Hz (but freq is somewhat variable)
+  sh2_SensorId_t reportType = SH2_GYRO_INTEGRATED_RV;
+  long reportIntervalUs = 2000;
+#else
+  // Top frequency is about 250Hz but this report is more accurate
+  sh2_SensorId_t reportType = SH2_ARVR_STABILIZED_RV;
+  long reportIntervalUs = 5000;
+#endif
+void setReports(sh2_SensorId_t reportType, long report_interval) {
+  Serial.println("Setting desired reports");
+  if (! bno08x.enableReport(reportType, report_interval)) {
+    Serial.println("Could not enable stabilized remote vector");
+  }
+}
+
+void quaternionToEuler(float qr, float qi, float qj, float qk, euler_t* ypr, bool degrees = false) {
+
+    float sqr = sq(qr);
+    float sqi = sq(qi);
+    float sqj = sq(qj);
+    float sqk = sq(qk);
+
+    ypr->yaw = atan2(2.0 * (qi * qj + qk * qr), (sqi - sqj - sqk + sqr));
+    ypr->pitch = asin(-2.0 * (qi * qk - qj * qr) / (sqi + sqj + sqk + sqr));
+    ypr->roll = atan2(2.0 * (qj * qk + qi * qr), (-sqi - sqj + sqk + sqr));
+
+    if (degrees) {
+      ypr->yaw *= RAD_TO_DEG;
+      ypr->pitch *= RAD_TO_DEG;
+      ypr->roll *= RAD_TO_DEG;
+    }
+}
+
+void quaternionToEulerRV(sh2_RotationVectorWAcc_t* rotational_vector, euler_t* ypr, bool degrees = false) {
+    quaternionToEuler(rotational_vector->real, rotational_vector->i, rotational_vector->j, rotational_vector->k, ypr, degrees);
+}
+
+void quaternionToEulerGI(sh2_GyroIntegratedRV_t* rotational_vector, euler_t* ypr, bool degrees = false) {
+    quaternionToEuler(rotational_vector->real, rotational_vector->i, rotational_vector->j, rotational_vector->k, ypr, degrees);
+}
+
+
 //======================= App state =========================//
 volatile float target_rpm = 0.0f;       // RPM (signed) จาก Python
-volatile float target_steer_deg = 0.0f; // 0..360 จาก Python
+volatile float target_steer_deg = 0.0f; // target heading (global) 0..360 จาก Python
 volatile long  ticks_acc = 0;
 volatile float steer_deg = 0.0f;
+static float steer_target_mech_deg = 0.0f; // มุมล้อที่ต้องการ (สัมพัทธ์ตัวรถ)
+static float body_heading_deg = 0.0f;      // หัวหุ่น (deg) ค้างไว้จาก IMU หรือ fallback
+static float drive_heading_ref_deg = 0.0f; // หัวหุ่นขณะเข้าโหมด DRIVE
+static bool  drive_heading_ref_valid = false;
 
-bool imu_available = false;             // true ถ้าอ่าน yaw ได้จริง
+bool imu_available = false;             // true เมื่ออ้างอิง IMU พร้อมใช้งาน
 float imu_yaw_deg  = 0.0f;
 bool imu_calibrated = false;
 float imu_base_yaw_deg = 0.0f;
-bool imu_prev_available = false;
+bool imu_have_last = false;
+float imu_last_raw_yaw_deg = 0.0f;
+bool imu_reference_ready = false;
+bool imu_reference_pending = false;
 
 unsigned long steer_enter_ok_ms = 0;
 int last_pwm_cmd = 0;                   // ไว้ debug
 
 static float spin_pid_buf[9];
 static float drive_target_dist_m = 0.0f;
-static float drive_target_tol_m  = 0.08f;
+static float drive_target_tol_m  = 0.06f;
 static float drive_progress_m    = 0.0f;
 static bool  drive_has_target    = false;
 static float drive_last_delta_m  = 0.0f;
@@ -149,7 +214,7 @@ static float drive_goal_y_m      = 0.0f;
 static float drive_goal_vec_x    = 0.0f;
 static float drive_goal_vec_y    = 0.0f;
 static float drive_goal_len_sq   = 0.0f;
-static float drive_goal_tol_m    = 0.08f;
+static float drive_goal_tol_m    = 0.06f;
 
 static float steer_pid_buf[9];
 
@@ -191,7 +256,22 @@ void setup(){
   Wire.begin(SDA_PIN, SCL_PIN);
   imu_available = false; // ตั้ง false ไว้ก่อน (ถ้ามี IMU จริงให้เซ็ต true หลัง init สำเร็จ)
   imu_calibrated = false;
-  imu_prev_available = false;
+  imu_have_last = false;
+  imu_last_raw_yaw_deg = 0.0f;
+  imu_reference_ready = false;
+  imu_reference_pending = false;
+  body_heading_deg = 0.0f;
+
+  // Try to initialize!
+  if (bno08x.begin_I2C(0x4A)) {
+    setReports(reportType, reportIntervalUs);
+    imu_available = true;
+  }
+
+  setReports(reportType, reportIntervalUs);
+
+  Serial.println("Reading events");
+  delay(100);
 
   if(!as5600.begin()){
     Serial.println("[AS5600] NOT FOUND!");
@@ -285,6 +365,24 @@ static inline float readSteerDeg(){
 // TODO: ถ้ามี IMU จริง ให้เปลี่ยนฟังก์ชันนี้ให้คืน true/false ตามสถานะอ่านได้
 static inline bool readImuYawDeg(float &yaw_out){
   // ตัวอย่าง fallback: ไม่มี IMU → false
+  if (bno08x.wasReset()) {
+    Serial.print("sensor was reset ");
+    setReports(reportType, reportIntervalUs);
+  }
+
+  if (bno08x.getSensorEvent(&sensorValue)) {
+    // in this demo only one report type will be received depending on FAST_MODE define (above)
+    switch (sensorValue.sensorId) {
+      case SH2_ARVR_STABILIZED_RV:
+        quaternionToEulerRV(&sensorValue.un.arvrStabilizedRV, &ypr, true);
+      case SH2_GYRO_INTEGRATED_RV:
+        // faster (more noise?)
+        quaternionToEulerGI(&sensorValue.un.gyroIntegratedRV, &ypr, true);
+        break;
+    }
+    yaw_out = ypr.yaw;
+    return true;
+  }
   // ถ้ามี IMU จริง เช่น Utilize::getYawDeg() ให้เช็คสถานะและคืน true
   yaw_out = 0.0f;
   return false;
@@ -302,20 +400,20 @@ static void cmd_move_cb(const void* msgin){
   float rpm_cmd = m->linear.x;
   if (rpm_cmd >  MOTOR_MAX_RPM) rpm_cmd =  MOTOR_MAX_RPM;
   if (rpm_cmd < -MOTOR_MAX_RPM) rpm_cmd = -MOTOR_MAX_RPM;
-  float heading_cmd = wrap360(m->angular.z);         // 0..360
+  float steer_heading_cmd = wrap360(m->angular.z);         // 0..360
 
   float dist_cmd = m->linear.y;
   float tol_cmd  = fabsf(m->linear.z);
 
   float rpm_delta = fabsf(rpm_cmd - prev_rpm);
-  float heading_delta = fabsf(ang_err_deg(heading_cmd, prev_heading_deg));
+  float steer_heading_delta = fabsf(ang_err_deg(steer_heading_cmd, prev_heading_deg));
   float dist_delta = fabsf(dist_cmd - prev_dist_m);
   float tol_value = tol_cmd > 0.0f ? tol_cmd : drive_target_tol_m;
 
   bool small_adjust = prev_goal_active &&
                       (fabsf(prev_rpm) > 1e-3f || fabsf(rpm_cmd) > 1e-3f) &&
                       (rpm_delta < CMD_SMALL_RPM_EPS) &&
-                      (heading_delta < CMD_SMALL_HEADING_EPS) &&
+                      (steer_heading_delta < CMD_SMALL_HEADING_EPS) &&
                       (dist_delta < CMD_SMALL_DIST_EPS);
 
   if (small_adjust) {
@@ -325,7 +423,7 @@ static void cmd_move_cb(const void* msgin){
   }
 
   target_rpm       = rpm_cmd;                       // คำสั่งรอบ (signed)
-  target_steer_deg = heading_cmd;
+  target_steer_deg = steer_heading_cmd;
 
   drive_target_dist_m = dist_cmd;
   drive_target_tol_m  = tol_value;
@@ -334,9 +432,9 @@ static void cmd_move_cb(const void* msgin){
   if (drive_has_target) {
     drive_start_x_m = odom_x_m;
     drive_start_y_m = odom_y_m;
-    float heading_rad = deg2rad(target_steer_deg);
-    drive_goal_x_m = odom_x_m + cosf(heading_rad) * dist_cmd;
-    drive_goal_y_m = odom_y_m + sinf(heading_rad) * dist_cmd;
+    float steer_heading_rad = deg2rad(target_steer_deg);
+    drive_goal_x_m = odom_x_m + cosf(steer_heading_rad) * dist_cmd;
+    drive_goal_y_m = odom_y_m + sinf(steer_heading_rad) * dist_cmd;
     drive_goal_vec_x = drive_goal_x_m - drive_start_x_m;
     drive_goal_vec_y = drive_goal_y_m - drive_start_y_m;
     drive_goal_len_sq = drive_goal_vec_x * drive_goal_vec_x + drive_goal_vec_y * drive_goal_vec_y;
@@ -352,6 +450,11 @@ static void cmd_move_cb(const void* msgin){
   mode = STEER_TO_HEADING;
   steer_enter_ok_ms = millis();
   last_pwm_cmd = 0;
+  drive_heading_ref_valid = false;
+
+  if (!imu_reference_ready) {
+    imu_reference_pending = true;
+  }
 }
 
 void controlCallback(rcl_timer_t *timer, int64_t){
@@ -363,16 +466,28 @@ void controlCallback(rcl_timer_t *timer, int64_t){
   steer_deg = wrap360(readSteerDeg());
 
   float yaw_tmp;
-  imu_available = readImuYawDeg(yaw_tmp);
-  if (imu_available) {
-    float yaw_raw = wrap360(yaw_tmp);
-    if (!imu_calibrated || !imu_prev_available) {
-      imu_base_yaw_deg = yaw_raw;
-      imu_calibrated = true;
-    }
-    imu_yaw_deg = wrap360(yaw_raw - imu_base_yaw_deg);
+  bool imu_raw_ok = readImuYawDeg(yaw_tmp);
+  if (imu_raw_ok) {
+    imu_last_raw_yaw_deg = wrap360(yaw_tmp);
+    imu_have_last = true;
   }
-  imu_prev_available = imu_available;
+
+  if (imu_reference_pending && imu_have_last) {
+    imu_base_yaw_deg = wrap360(imu_last_raw_yaw_deg);
+    imu_reference_ready = true;
+    imu_reference_pending = false;
+    imu_calibrated = true;
+  }
+
+  if (imu_reference_ready && imu_have_last) {
+    float yaw_raw = imu_raw_ok ? wrap360(yaw_tmp) : imu_last_raw_yaw_deg;
+    imu_yaw_deg = wrap360(yaw_raw - imu_base_yaw_deg);
+    body_heading_deg = imu_yaw_deg;
+  } else if (!imu_reference_ready && !imu_have_last) {
+    body_heading_deg = 0.0f;
+  }
+
+  imu_available = imu_reference_ready && imu_have_last;
 
   msg_ticks.data      = (int32_t)ticks_acc;
   msg_steer_deg.data  = steer_deg;
@@ -387,7 +502,7 @@ void controlCallback(rcl_timer_t *timer, int64_t){
   // ----- Odometry integration -----
   if (mode == STEER_TO_HEADING) {
     (void)encoder.getRPM();
-    float heading = imu_available ? wrap_pi(deg2rad(imu_yaw_deg)) : wrap_pi(deg2rad(steer_deg));
+    float heading = wrap_pi(deg2rad(body_heading_deg));
     odom_theta_rad = heading;
     odom_prev_theta_rad = heading;
     odom_last_ticks = ticks_acc;
@@ -415,11 +530,7 @@ void controlCallback(rcl_timer_t *timer, int64_t){
   } else if (!odom_initialized) {
     odom_initialized = true;
     odom_last_ticks = ticks_acc;
-    if (imu_available) {
-      odom_theta_rad = wrap_pi(deg2rad(imu_yaw_deg));
-    } else {
-      odom_theta_rad = wrap_pi(deg2rad(steer_deg));
-    }
+    odom_theta_rad = wrap_pi(deg2rad(body_heading_deg));
     odom_prev_theta_rad = odom_theta_rad;
     drive_last_delta_m = 0.0f;
 
@@ -443,7 +554,8 @@ void controlCallback(rcl_timer_t *timer, int64_t){
     RCSOFTCHECK(rcl_publish(&pub_odom, &msg_odom, NULL));
   } else {
     int64_t delta_ticks = ticks_acc - odom_last_ticks;
-    float new_heading = imu_available ? wrap_pi(deg2rad(imu_yaw_deg)) : wrap_pi(deg2rad(steer_deg));
+    float new_heading = wrap_pi(deg2rad(body_heading_deg));
+    float steer_body_rad = wrap_pi(deg2rad(steer_deg));
     if (llabs(delta_ticks) > ODOM_TICK_RESET_THRESHOLD) {
       // encoder jumped (likely reset); resync without applying motion update
       odom_last_ticks = ticks_acc;
@@ -474,9 +586,12 @@ void controlCallback(rcl_timer_t *timer, int64_t){
       float delta_m = (float)delta_ticks * TICKS_TO_METERS;
       drive_last_delta_m = delta_m;
       odom_theta_rad = new_heading;
-      float heading = odom_theta_rad;
-      odom_x_m += delta_m * cosf(heading);
-      odom_y_m += delta_m * sinf(heading);
+      float delta_body_x = delta_m * cosf(steer_body_rad);  // displacement in robot frame
+      float delta_body_y = delta_m * sinf(steer_body_rad);
+      float cos_heading = cosf(new_heading);
+      float sin_heading = sinf(new_heading);
+      odom_x_m += delta_body_x * cos_heading - delta_body_y * sin_heading;  // rotate into odom frame
+      odom_y_m += delta_body_x * sin_heading + delta_body_y * cos_heading;
 
       float delta_theta = wrap_pi(odom_theta_rad - odom_prev_theta_rad);
       odom_prev_theta_rad = odom_theta_rad;
@@ -491,7 +606,7 @@ void controlCallback(rcl_timer_t *timer, int64_t){
       msg_odom.pose.pose.position.y = (double)odom_y_m;
       msg_odom.pose.pose.position.z = 0.0;
 
-      double half_yaw = (double)(heading * 0.5f);
+      double half_yaw = (double)(odom_theta_rad * 0.5f);
       msg_odom.pose.pose.orientation.x = 0.0;
       msg_odom.pose.pose.orientation.y = 0.0;
       msg_odom.pose.pose.orientation.z = sin(half_yaw);
@@ -509,14 +624,17 @@ void controlCallback(rcl_timer_t *timer, int64_t){
   }
 
   // ----- FSM: STEER -> DRIVE -----
-  float e_signed = ang_err_deg(target_steer_deg, steer_deg); // [-180,180]
-  float e_cw     = cw_error_deg(target_steer_deg, steer_deg); // 0..360
+  float heading_meas_deg = imu_available ? wrap360(imu_yaw_deg) : body_heading_deg;
+  // float heading_error_deg = ang_err_deg(target_steer_deg, heading_meas_deg);
+  steer_target_mech_deg = wrap360((target_steer_deg - heading_meas_deg) + STEER_CMD_ZERO_DEG);
+  float e_signed_steer   = ang_err_deg(steer_target_mech_deg, steer_deg);
+  float e_cw_steer       = cw_error_deg(steer_target_mech_deg, steer_deg);        // 0..360
 
   switch (mode){
     case STEER_TO_HEADING: {
-      if (!cw_in_tolerance(e_cw, steer_error_tolerance)) {
+      if (!cw_in_tolerance(e_cw_steer, steer_error_tolerance)) {
         // magnitude ตาม e_cw (บวกเสมอ), ทิศ = ตามเข็มเท่านั้น
-        float pwm_mag = steer.compute_with_error(/*ใช้ error แบบบวก*/ e_cw) + Wheel_STEER_BASE_SPEED;
+        float pwm_mag = steer.compute_with_error(/*ใช้ error แบบบวก*/ e_cw_steer) + Wheel_STEER_BASE_SPEED;
         
         // กันไม่ให้เล็กจนไม่ขยับ และไม่ใหญ่เกินไป
         // const float PWM_MIN = Wheel_STEER_BASE_SPEED; // ปรับตามแรงเสียดทาน/สังเคราะห์จริง
@@ -550,13 +668,19 @@ void controlCallback(rcl_timer_t *timer, int64_t){
     } break;
 
     case DRIVE: {
-      // ถ้าล้อเพี้ยนเกิน tol → กลับไปเลี้ยว
-      if (fabsf(e_signed) > steer_error_tolerance) {
+      // ถ้ามุมเพี้ยนมากเกิน threshold → กลับไปเลี้ยว แม้จะกำลังวิ่ง
+      bool steer_out_of_tol = fabsf(e_signed_steer) > DRIVE_RELOCK_ERROR_DEG;
+      // bool imu_out_of_tol   = imu_available &&
+      //                         fabsf(heading_error_deg) > DRIVE_IMU_RELOCK_DEG &&
+      //                         fabsf(drive_progress_m) > 0.02f;
+      // if (steer_out_of_tol || imu_out_of_tol) {
+      if (steer_out_of_tol) {
         motor.spin(0);
         spin.reset();
         steer.reset();
         last_pwm_cmd = 0;
         mode = STEER_TO_HEADING;
+        steer_enter_ok_ms = millis();
         break;
       }
 
@@ -585,6 +709,8 @@ void controlCallback(rcl_timer_t *timer, int64_t){
           rpm_set = 0.0f;
           drive_has_target = false;
           drive_goal_active = false;
+          mode = STEER_TO_HEADING;
+          steer_enter_ok_ms = millis();
         }
       }
 
@@ -606,6 +732,8 @@ void controlCallback(rcl_timer_t *timer, int64_t){
           drive_has_target = false;
           drive_goal_active = false;
           drive_goal_len_sq = 0.0f;
+          mode = STEER_TO_HEADING;
+          steer_enter_ok_ms = millis();
         }
       }
 
@@ -616,10 +744,12 @@ void controlCallback(rcl_timer_t *timer, int64_t){
         drive_has_target = false;
         drive_goal_active = false;
         drive_goal_len_sq = 0.0f;
+        mode = STEER_TO_HEADING;
+        steer_enter_ok_ms = millis();
       } else {
         // แปลงรอบเป้าหมายเป็น PWM แบบ feed-forward แล้วให้ PIDF คอยเติมแก้ไขเล็กน้อย
         // float pwm_ff   = rpm_set * RPM_TO_PWM_K;
-        float pwm_corr = spin.compute(rpm_set, rpm_meas);  // PIDF คุมส่วนต่างรอบจริง vs คำสั่ง
+        float pwm_corr = spin.compute(rpm_set, rpm_meas);  // PIDF คุมส่วนต่างรอบจ<ริง vs คำสั่ง
         // float pwm_mag  = pwm_ff + pwm_corr;
         float pwm_mag  = pwm_corr;
         if (pwm_mag < 0.0f) pwm_mag = 0.0f;
@@ -636,16 +766,22 @@ void controlCallback(rcl_timer_t *timer, int64_t){
   // ---- DEBUG (Twist + String) ----
   dbg_cmd_msg.linear.x  = target_rpm;          // คำสั่งจาก Python (rpm)
   dbg_cmd_msg.linear.y  = rpm_raw;             // รอบจริง (signed)
+  dbg_cmd_msg.linear.z  = heading_meas_deg;    // มุมหัว (IMU หรือ fallback)
   dbg_cmd_msg.angular.x = last_pwm_cmd;        // pwm ล่าสุด
-  dbg_cmd_msg.angular.y = steer_deg;           // มุมปัจจุบัน
-  dbg_cmd_msg.angular.z = target_steer_deg;    // มุมเป้าหมาย
+  dbg_cmd_msg.angular.y = steer_deg;           // มุมล้อจริง
+  dbg_cmd_msg.angular.z = steer_target_mech_deg;    // มุมล้อเป้าหมาย (สัมพัทธ์ตัวรถ)
   RCSOFTCHECK(rcl_publish(&pub_debug_cmd, &dbg_cmd_msg, NULL));
 
   char buf[128];
   snprintf(buf, sizeof(buf),
-           "mode=%s, e=%.1f/%.1f, steer=%.1f->%.1f, imu_ok=%d, pwm=%d",
+           "mode=%s, tgt=%.1f, heading=%.1f, e_heading=%.1f, e_steer=%.1f, steer=%.1f->%.1f, imu_ok=%d, pwm=%d",
            (mode==STEER_TO_HEADING?"STEER":"DRIVE"),
-           e_signed, e_cw, steer_deg, target_steer_deg, imu_available ? 1:0, last_pwm_cmd);
+           target_steer_deg,
+           heading_meas_deg,
+          //  heading_error_deg,
+           e_signed_steer,
+           steer_deg, steer_target_mech_deg,
+           imu_available ? 1:0, last_pwm_cmd);
   msg_state.data.data = (char*)buf;
   msg_state.data.size = strlen(buf);
   msg_state.data.capacity = msg_state.data.size + 1;

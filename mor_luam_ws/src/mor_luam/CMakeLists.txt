@@ -53,6 +53,7 @@ install(PROGRAMS
   src/send_heading_speed.py
   src/fallback_odom.py
   src/drive_to_xy.py
+  src/drive_sequence.py
 
   DESTINATION lib/${PROJECT_NAME}
 )

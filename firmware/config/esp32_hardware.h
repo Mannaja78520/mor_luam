@@ -8,7 +8,7 @@
     #define MOTOR_OPERATING_VOLTAGE 12                                      // motor's operating voltage (used to calculate max RPM)
     #define MOTOR_POWER_MAX_VOLTAGE 12                                      // max voltage of the motor's power source (used to calculate max RPM)
     #define MOTOR_POWER_MEASURED_VOLTAGE 12                                 // current voltage reading of the power connected to the motor (used for calibration)
-    #define ENCODER_PULSES_PER_REVOLUTION 16                                // encoder 1 pulse
+    #define ENCODER_PULSES_PER_REVOLUTION 11                                // encoder 1 pulse
 
     #define ENCODER_TICKS 4                                                 // encoder ticks
     #define COUNTS_PER_REV ENCODER_PULSES_PER_REVOLUTION * ENCODER_TICKS  // wheel1 encoder's no of ticks per rev
@@ -20,28 +20,28 @@
     #define PWM_Max 1023
     #define PWM_Min PWM_Max * -1          
     #define PWM_SPIN_Max (int)(PWM_Max * 1.0f)                          // max PWM value used in spin control                             
-    #define PWM_STEER_Max (int)(PWM_Max * 0.8)                          // max PWM value used in spin control                             
+    #define PWM_STEER_Max (int)(PWM_Max * 0.65)                          // max PWM value used in spin control                             
 
 
     // INVERT MOTOR DIRECTIONS
     #define MOTOR_INV false
 
     // INVERT ENCODER DIRECTIONS
-    #define MOTOR_ENCODER_INV true
+    #define MOTOR_ENCODER_INV false
 
     //  Motor Brake
     #define MOTOR_BRAKE true
 
     // Motor 1 Parameters
     #define MOTOR_PWM  -1
-    #define MOTOR_IN_A 25
-    #define MOTOR_IN_B 26
+    #define MOTOR_IN_A 33
+    #define MOTOR_IN_B 32
 
     // Encoder 1 Parameter
     #define MOTOR_ENCODER_INCRIMENT -1
-    #define MOTOR_ENCODER_PIN_A 32
-    #define MOTOR_ENCODER_PIN_B 33
-    #define MOTOR_ENCODER_RATIO 11.55555555f
+    #define MOTOR_ENCODER_PIN_A 25
+    #define MOTOR_ENCODER_PIN_B 26
+    #define MOTOR_ENCODER_RATIO 1039.9999995f
 
 
     // +1 ถ้ามุมจากเซ็นเซอร์เพิ่มขึ้นเมื่อหมุนเลี้ยวตามเข็มจริง
