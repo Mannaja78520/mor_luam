@@ -24,6 +24,11 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
   real-run buttons stay disabled until the operator checkbox. Not run for real (needs the owner at the robot).
 - Thai web guide: `docs/web_guide_th.md` (how to open the web 3 ways + every tab/button), linked from docs/README.md and docker/README.md.
 
+- GIT: everything committed as 233c2c8 on NEW branch `firmware-v2-web-ota`, pushed to origin (main untouched).
+  Secrets: real values only in gitignored `firmware/config/network_secrets.h`; scanned all 195 files before commit.
+  WARNING: an older commit already on GitHub (91130c0 and before, `conf_network.h` WIFI_PASS) contains a real WiFi
+  password still in use - owner should change that WiFi password (history rewrite only if the owner asks).
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 
@@ -34,7 +39,7 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
 3. Change the default OTA and setup-hotspot passwords (Settings tab).
 4. Shaking: reduced (steering power cap 500), mechanical cause not confirmed — check mounting; use `tools/imu_shake.py`.
 5. Battery: the drive gain learns automatically; a long run down to a low battery has not been measured.
-6. Commit / push only when the owner asks (large untracked refactor — commit everything together).
+6. Merge `firmware-v2-web-ota` into main when the owner says so (PR or fast-forward).
 
 ## Commands
 ```
