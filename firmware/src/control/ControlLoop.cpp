@@ -21,10 +21,33 @@ void ControlLoop::run() {
         {
             Lock l(mtx_);
             ctrl_->step();
+            if (wdArmed_ && millis() - wdFedMs_ > wdTimeoutMs_ && ctrl_->moving()) {
+                ctrl_->halt();                          // no heartbeat: stop within this tick
+                haltWhy_ = wdWhy_;
+                ++wdTrips_;
+            }
             trace_.record(ctrl_->state());
         }
         tickUs_ = micros() - t0;
     }
+}
+
+void ControlLoop::armWatchdog(uint32_t timeoutMs, const char* why) {
+    Lock l(mtx_);
+    wdTimeoutMs_ = timeoutMs;
+    wdWhy_ = why;
+    wdFedMs_ = millis();
+    wdArmed_ = true;
+}
+
+void ControlLoop::feedWatchdog() {
+    Lock l(mtx_);
+    wdFedMs_ = millis();
+}
+
+void ControlLoop::disarmWatchdog() {
+    Lock l(mtx_);
+    wdArmed_ = false;
 }
 
 uint16_t ControlLoop::traceFreeze(uint32_t lastMs) {
@@ -39,6 +62,7 @@ void ControlLoop::traceUnfreeze() {
 
 void ControlLoop::command(const DriveCommand& cmd, CommandSource src) {
     Lock l(mtx_);
+    if (src == CommandSource::Ros) wdArmed_ = false;   // ROS: its own agent-loss stop
     ctrl_->apply(cmd, src);
 }
 

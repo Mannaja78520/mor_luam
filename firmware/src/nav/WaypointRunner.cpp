@@ -86,6 +86,8 @@ void WaypointRunner::prepare(const SettingsData& s) {
     params_.stopS = DETOUR_STOP_S;
     heartbeatMs_ = millis();
     commandPending_ = false;
+    // the same 3 s rule, enforced in the control task too (loop() may be blocked)
+    ctrl_->armWatchdog(WEB_HEARTBEAT_TIMEOUT_MS, "หน้าเว็บขาดการเชื่อมต่อ - หยุดเพื่อความปลอดภัย");
 }
 
 bool WaypointRunner::start(String& err) {
@@ -192,6 +194,7 @@ void WaypointRunner::alignTest(const RobotState& s, uint32_t now) {
 }
 
 void WaypointRunner::finish(Status st, const char* why, bool haltWheel) {
+    ctrl_->disarmWatchdog();
     if (testPhase_ == TestPhase::Aligning || testPhase_ == TestPhase::Running) {
         // PID writes come from another task; check again at the result boundary
         // in case a write happened after update() checked its snapshot.
@@ -228,6 +231,7 @@ void WaypointRunner::heartbeat() {
     lock();
     heartbeatMs_ = millis();
     unlock();
+    ctrl_->feedWatchdog();
 }
 
 bool WaypointRunner::running() {

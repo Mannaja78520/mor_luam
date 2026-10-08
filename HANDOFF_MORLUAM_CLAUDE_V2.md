@@ -48,6 +48,15 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
   robot_test.py fix: heartbeat now in its own thread + mDNS name resolved once (a ~3 s PC-side stall had
   starved the heartbeat and stopped a route), one lost status answer no longer aborts the test.
 
+- SIGNAL-LOSS STOP hardened (owner asked "make sure it never runs past the signal-loss time"):
+  the 3 s heartbeat deadline was only checked in loop(), which Wi-Fi scans / mDNS searches / micro-ROS can block
+  for seconds, and /api/test/move had no deadline at all. Now: ControlLoop watchdog (checked every 10 ms in the
+  control task) armed by web routes, route tests and test moves; fed by /api/nav/heartbeat AND every GET /api/status
+  (one lost HTTP request - Windows retries a lost connection after ~3 s - had caused a false stop); scans/searches
+  wait while the robot moves; a ROS command disarms it. Measured on the robot: silent route 2.97 s, test move 3.01 s,
+  scan+search during the drive still < 3 s, 0 mm after the cut; steps 2-3 13/13 PASS with 0 false trips.
+  robot_test.py: one KEEPALIVE heartbeat thread for all test moves; robot name resolved once.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 

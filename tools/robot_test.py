@@ -26,6 +26,19 @@ import time
 import urllib.request
 
 HOST = "mor-luam.local"
+# Heartbeat sender. Every web-started motion (route, test move) stops if no
+# /api/nav/heartbeat arrives for 3 s - checked in the robot's control task.
+KEEPALIVE = threading.Event()
+
+
+def _keepalive_loop():
+    while True:
+        if KEEPALIVE.is_set():
+            try:
+                call("POST", "/api/nav/heartbeat", timeout=1.5)
+            except OSError:
+                pass
+        time.sleep(0.5)
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_out")
 WHEEL_D = 0.0762                      # firmware/config/esp32_hardware.h WHEEL_DIAMETER
 DRIVE_RPM = 7.5                      # measured full power is only ~9.7 rpm
@@ -203,6 +216,7 @@ def steer_once(delta, tag):
 
 
 def step2():
+    KEEPALIVE.set()                 # test moves need heartbeats too
     print("\nStep 2 - steering only (wheel turns in place, rpm 0)")
     countdown("steering only, the wheel turns in place")
     for i, d in enumerate([90, 180, 270, 345, 90, 90, 180]):
@@ -265,6 +279,7 @@ def drive_once(rpm, heading, dist, tag):
 
 
 def step3():
+    KEEPALIVE.set()                 # test moves need heartbeats too
     print("\nStep 3 - short drives (<= 0.25 m at 7.5 rpm), E-STOP, moving refusals")
     if not call("POST", "/api/pose/reset").get("ok"):
         raise RuntimeError("pose reset refused before drive test")
@@ -324,6 +339,7 @@ def step3():
 
 def go_home(tag):
     """drive straight back to (0, 0) of the last pose reset"""
+    KEEPALIVE.set()                 # the drive home is a test move: it needs heartbeats
     for attempt in range(6):
         st = status()["robot"]
         dist = math.hypot(st["x"], st["y"])
@@ -347,24 +363,20 @@ def run_route(points, heartbeat=True, timeout=60.0, tag="route"):
         raise RuntimeError(f"route refused: {r.get('error')}")
     t0 = time.time()
     plans, log = [], []
-    # Heartbeat in its own thread: a slow status request (Wi-Fi hiccup) must not
-    # starve it - the robot stops after 3 s without one (seen 2026-10-08).
-    beating = threading.Event()
+    # Heartbeat from the keepalive thread: a slow status request (Wi-Fi hiccup)
+    # must not starve it - the robot stops after 3 s without one (seen 2026-10-08).
+    was = KEEPALIVE.is_set()
     if heartbeat:
-        beating.set()
-
-        def beat():
-            while beating.is_set():
-                try:
-                    call("POST", "/api/nav/heartbeat", timeout=1.5)
-                except OSError:
-                    pass
-                time.sleep(0.5)
-        threading.Thread(target=beat, daemon=True).start()
+        KEEPALIVE.set()
+    else:
+        KEEPALIVE.clear()
     try:
         return _watch_route(t0, timeout, plans, log, tag)
     finally:
-        beating.clear()
+        if was:
+            KEEPALIVE.set()
+        else:
+            KEEPALIVE.clear()
 
 
 def _watch_route(t0, timeout, plans, log, tag):
@@ -454,6 +466,7 @@ def main():
     try:
         if not estop():
             raise RuntimeError("initial E-STOP was not confirmed")
+        threading.Thread(target=_keepalive_loop, daemon=True).start()
         st = status()
         print(f"robot {st['sys']['name']} fw {st['sys']['fw']} ({st['sys']['build']}), "
               f"IMU {'ok' if st['robot']['imuOk'] else 'NOT ok'}, steering sensor {'ok' if st['robot']['steerOk'] else 'NOT ok'}")

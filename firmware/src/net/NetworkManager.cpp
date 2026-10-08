@@ -216,8 +216,11 @@ void NetworkManager::loop() {
         if (!connecting_) checkMoveUp(now);
     }
 
-    if (scanReq_ && !connecting_) { scanReq_ = false; scanAir(); }
-    if (peersReq_ && up) { peersReq_ = false; doPeers(); }
+    // Scans and mDNS searches block loop() for 1-3 s: never while the robot moves
+    // (they wait until it stops; the motion watchdog runs in its own task anyway).
+    const bool busy = busy_ && busy_();
+    if (scanReq_ && !connecting_ && !busy) { scanReq_ = false; scanAir(); }
+    if (peersReq_ && up && !busy) { peersReq_ = false; doPeers(); }
     if (hostnameReq_) {
         hostnameReq_ = false;
         host_ = settings_->get().hostname;

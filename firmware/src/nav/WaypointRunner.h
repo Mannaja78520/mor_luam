@@ -7,8 +7,9 @@
 // (src/algorithm/), sends it to the controller, waits for it to finish, and
 // plans again from where the robot really is - Algorithm 1.4 of the homework.
 //
-// Safety: a route keeps going only while the page sends heartbeat() at least
-// every WEB_HEARTBEAT_TIMEOUT_MS. Close the tab or lose Wi-Fi and it stops.
+// Safety: a route keeps going only while a page sends heartbeat() (or polls
+// /api/status) at least every WEB_HEARTBEAT_TIMEOUT_MS. Close the tab or lose
+// Wi-Fi and it stops - enforced in the control task too (ControlLoop watchdog).
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>

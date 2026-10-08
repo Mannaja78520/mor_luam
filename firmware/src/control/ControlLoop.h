@@ -25,6 +25,17 @@ public:
     const char* lastHaltReason() const { return haltWhy_; }
     uint32_t tickUs() const { return tickUs_; }      // how long the last tick took
 
+    // Motion watchdog, checked every tick in THIS task. loop() can be blocked for
+    // seconds (Wi-Fi scan, mDNS search, micro-ROS), so a deadline checked there
+    // could let the robot run on. Armed by web routes and test moves; fed by
+    // /api/nav/heartbeat. Once it expires, any motion is stopped at the next
+    // tick until it is fed or disarmed. A ROS command disarms it (ROS has its own
+    // agent-loss stop).
+    void armWatchdog(uint32_t timeoutMs, const char* why);
+    void feedWatchdog();
+    void disarmWatchdog();
+    uint32_t watchdogTrips() const { return wdTrips_; }
+
     // PIDF tuning on the robot: the last seconds at 100 Hz (TraceRecorder)
     uint16_t traceFreeze(uint32_t lastMs);
     const TraceRecorder::Sample& traceAt(uint16_t i) const { return trace_.at(i); }
@@ -45,4 +56,8 @@ private:
     volatile uint32_t tickUs_ = 0;
     TraceRecorder trace_;
     uint32_t pidRevision_ = 0;
+    bool wdArmed_ = false;
+    uint32_t wdTimeoutMs_ = 0, wdFedMs_ = 0;
+    const char* wdWhy_ = "";
+    volatile uint32_t wdTrips_ = 0;
 };

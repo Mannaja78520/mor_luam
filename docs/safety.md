@@ -24,7 +24,7 @@ Use the current IP if it has changed. Software E-STOP requires a working network
 | Missing motor response | At least 300 PWM is commanded for 1.5 s without sufficient encoder/steering-angle change | Controller halts and reports `drive-no-response` or `steer-no-response` | Does not identify the cause or prove physical switch status; noisy sensors can hide missing motion |
 | Browser floor confirmation | Before each real route start from the page | Operator must tick floor/presence confirmation | Manual confirmation only; direct HTTP/ROS callers do not use this browser control |
 | Software E-STOP | Web button or `POST /api/estop` | Cancels the web route, clears the drive goal and commands zero PWM | This is not a wired hardware emergency-stop circuit |
-| Web route heartbeat | No heartbeat for more than 3 s during a web route | Route stops and the controller halts | Another open page can keep sending heartbeat; this does not cover every raw motor command |
+| Web heartbeat watchdog | No `/api/nav/heartbeat` and no `GET /api/status` for more than 3 s during a web route, route test or `/api/test/move` | Motor off at the next 10 ms control tick (checked in the control task, not in `loop()`), route stops | Any open robot page keeps it alive. ROS commands use the agent-loss stop instead. Measured 2026-10-08: power off 2.97-3.01 s after the last signal, 0 mm after the cut |
 | ROS link loss | Wi-Fi or agent loss while the active command source is ROS | ROS-controlled motion halts | This is not proof of a general command-expiry watchdog |
 | Motion refusal | Pose reset or OTA is requested while moving | Request is refused | A wrong OTA password alone does not test the moving guard |
 | Test runner limits | Manual drive in the acceptance script | At most 7.5 rpm and 0.25 m per drive | HTTP endpoint limits are larger; use the acceptance script for these checks |
@@ -57,3 +57,10 @@ A simulation is useful for checking a route and the controls. It cannot verify p
 4. Run one short test at a time. Watch the real wheel, body direction and distance.
 5. Stop if movement differs from the expected route, the steering shakes, a wheel is lifted or feedback looks wrong.
 6. Confirm E-STOP at the end. Leave the robot halted before changing settings, updating firmware or inspecting hardware.
+
+## Signal-loss stop (measured 2026-10-08)
+
+- The 3 s deadline is checked every 10 ms inside the control task. Wi-Fi scans, mDNS searches and micro-ROS cannot delay it.
+- Wi-Fi scans and robot searches requested while the robot moves wait until it stops.
+- Heartbeats and status polls both count as "a page is still here", so one lost HTTP request does not stop a route; losing the page or Wi-Fi stops everything.
+- Tests: silent web route -> power off 2.97 s after motion started; test move -> 3.01 s; with a scan and a search requested during the drive -> still within 3 s; 0 mm of travel after the cut.

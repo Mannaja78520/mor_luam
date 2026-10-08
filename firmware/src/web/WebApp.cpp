@@ -140,6 +140,7 @@ void WebApp::statusJson(JsonObject o) {
     r["goalX"] = s.goalX;
     r["goalY"] = s.goalY;
     r["haltWhy"] = d_.ctrl->lastHaltReason();
+    r["watchdogTrips"] = d_.ctrl->watchdogTrips();
     if (s.motionFault) r["haltWhy"] = "สั่งมอเตอร์แล้วไม่มีสัญญาณการหมุน: ตรวจไฟ สวิตช์ฉุกเฉิน มอเตอร์ และเซนเซอร์";
     d_.runner->statusJson(o["nav"].to<JsonObject>());
     d_.net->statusJson(o["net"].to<JsonObject>());
@@ -177,6 +178,11 @@ void WebApp::routes() {
     });
 
     server_.on("/api/status", HTTP_GET, [this](AsyncWebServerRequest* r) {
+        // Every status poll also says "a page is still here" (like /api/nav/heartbeat).
+        // An open page polls 4x a second, so ONE lost request (Windows waits ~3 s
+        // before retrying a lost connection) no longer stops a route; when the page
+        // closes or Wi-Fi drops, ALL requests stop and the 3 s stop still happens.
+        d_.runner->heartbeat();
         JsonDocument doc;
         statusJson(doc.to<JsonObject>());
         reply(r, doc);
@@ -393,6 +399,8 @@ void WebApp::routesTest() {
             return;
         }
         d_.ctrl->command(c, CommandSource::Web);
+        // a test move needs /api/nav/heartbeat too: no word for 3 s and it stops
+        d_.ctrl->armWatchdog(WEB_HEARTBEAT_TIMEOUT_MS, "คำสั่งทดสอบไม่ได้รับ heartbeat - หยุดเพื่อความปลอดภัย");
         ok(r);
     });
 

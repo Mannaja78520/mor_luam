@@ -9,7 +9,7 @@
 //   POST /api/estop              stop the route and hold the wheel
 //   POST /api/pose/reset         here becomes (0,0), facing +x
 //   GET/POST /api/waypoints      {points:[{x,y}]}
-//   POST /api/nav/start|stop|heartbeat
+//   POST /api/nav/start|stop|heartbeat   (heartbeat, and every GET /api/status, keep a web route/test move alive)
 //   POST /api/nav/test          {planner:"direct"|"detour",startHeadingDeg:0..360,ready:true}; response {ok,nav}
 //   GET  /api/wifi               saved networks WITH passwords, and the link
 //   POST /api/wifi/save|delete|move|reconnect,  GET/POST /api/wifi/scan
