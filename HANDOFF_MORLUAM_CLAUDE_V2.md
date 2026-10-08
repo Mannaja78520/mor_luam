@@ -41,7 +41,12 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
   So the wheel steers COUNTER-clockwise from above and the angle increases: angles::cwErrorDeg back to (target - current),
   steering rate sign, web simulation, mock, tests, robot_test.py, docs all updated. Verified on the robot:
   forward 10 cm -> forward, left 10 cm -> left (owner watched), steering test 7/7. PC tests ALL PASS.
-  NOT re-run after this: steps 3-4 (drive/route) - run them next with the owner present.
+  Steps 3-4 re-run after the calibration (owner present): step 3 all PASS (drives 7.7 rpm steady, rise 0.29 s,
+  E-STOP pwm 0 next tick, pose reset + authenticated OTA refused while moving); step 4 Detour route PASS
+  (detour chosen at phi 354, done 39.9 s, back at (0.01, 0.02), 0 overshoots); no-heartbeat route PASS
+  (stopped after 3.4 s, 8.5 cm) once ALL robot web pages were closed - an open page sends heartbeats.
+  robot_test.py fix: heartbeat now in its own thread + mDNS name resolved once (a ~3 s PC-side stall had
+  starved the heartbeat and stopped a route), one lost status answer no longer aborts the test.
 
 **Still in progress**
 - Nothing running. Robot halted on battery.

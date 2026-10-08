@@ -19,7 +19,9 @@ import io
 import json
 import math
 import os
+import socket
 import sys
+import threading
 import time
 import urllib.request
 
@@ -344,12 +346,34 @@ def run_route(points, heartbeat=True, timeout=60.0, tag="route"):
     if not r.get("ok"):
         raise RuntimeError(f"route refused: {r.get('error')}")
     t0 = time.time()
-    plans, last_hb, log = [], 0.0, []
+    plans, log = [], []
+    # Heartbeat in its own thread: a slow status request (Wi-Fi hiccup) must not
+    # starve it - the robot stops after 3 s without one (seen 2026-10-08).
+    beating = threading.Event()
+    if heartbeat:
+        beating.set()
+
+        def beat():
+            while beating.is_set():
+                try:
+                    call("POST", "/api/nav/heartbeat", timeout=1.5)
+                except OSError:
+                    pass
+                time.sleep(0.5)
+        threading.Thread(target=beat, daemon=True).start()
+    try:
+        return _watch_route(t0, timeout, plans, log, tag)
+    finally:
+        beating.clear()
+
+
+def _watch_route(t0, timeout, plans, log, tag):
     while time.time() - t0 < timeout:
-        if heartbeat and time.time() - last_hb >= 1.0:
-            call("POST", "/api/nav/heartbeat", timeout=2)
-            last_hb = time.time()
-        s = status()
+        try:
+            s = status()
+        except OSError:                      # one lost answer: keep watching, the heartbeat thread still runs
+            time.sleep(0.2)
+            continue
         nav, rb = s["nav"], s["robot"]
         log.append((round(time.time() - t0, 2), nav["status"], nav["index"], round(rb["x"], 3), round(rb["y"], 3),
                     rb["mode"], nav["plan"]["kind"], nav.get("heartbeatAgeMs", -1)))
@@ -422,6 +446,10 @@ def main():
     ap.add_argument("--imu", action="store_true", help="require fresh gyro/acceleration and capture a stationary baseline before motion")
     a = ap.parse_args()
     HOST = a.host
+    try:   # resolve the mDNS name ONCE: a slow lookup per request can starve the heartbeat
+        HOST = socket.gethostbyname(a.host)
+    except OSError:
+        pass
     steps = [int(x) for x in a.steps.split(",") if x.strip()]
     try:
         if not estop():
