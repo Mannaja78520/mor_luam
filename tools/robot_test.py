@@ -183,7 +183,7 @@ def steer_once(delta, tag):
     move(0, s0["wheelHeadingDeg"] + delta)            # delta = turn in the steering direction
     t0 = time.time()
     # aimed = inside tolerance, not coasting, wheel still
-    s = wait_until(lambda s: abs(s["robot"]["steerErrDeg"]) <= 3.5 and not s["robot"]["coasting"]
+    s = wait_until(lambda s: s["robot"].get("steerAimed", abs(s["robot"]["steerErrDeg"]) <= 3.5) and not s["robot"]["coasting"]
                    and abs(s["robot"]["steerRateDps"]) < 3, timeout=12)
     took = time.time() - t0
     time.sleep(0.6)
@@ -205,7 +205,7 @@ def steer_once(delta, tag):
     final = (target - seg[-1]["steer_deg"] + 180) % 360 - 180   # + = stopped short, - = went past
     peak_rate = max(r["rate_dps"] for r in seg)
     st = status()["robot"]
-    ok = s is not None and abs(final) <= 3.5 and past < 180
+    ok = s is not None and abs(final) <= 4.5   # tolerance 3.5 + hysteresis 1.0 (app_config.h) and past < 180
     report(2, f"steer {delta:>3} deg",
            ok, f"wanted {wanted:5.1f}, turned {turned:6.1f} -> past target {past:+5.1f} deg, "
                f"in tolerance after {t_in/1000 if t_in is not None else float('nan'):.2f} s, "

@@ -12,6 +12,7 @@ struct RobotState {
     float rpm = 0.0f;              // wheel rpm (signed)
     float steerDeg = 0.0f;         // wheel angle vs the body, 0..360 (AS5600)
     bool steerOk = false;
+    bool steerAimed = false;       // controller's own 'inside the steering tolerance' (with hysteresis)
     uint32_t steerGlitches = 0;    // AS5600 readings ignored as impossible jumps (SteerSensor)
     float imuYawDeg = 0.0f;        // relative to the reference taken at the first command
     bool imuOk = false;

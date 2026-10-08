@@ -156,3 +156,13 @@ Installed build `Oct 8 2026 09:04:33` uses a 500-PWM software steering cap, with
 The four-turn A/B comparison used two 90-degree trials per power limit. Powered-only acceleration vibration fell about 40% and rotation-rate vibration about 24%; turns took about 40% longer. This is measured improvement under those test conditions, not proof of complete shake removal. Final drive IMU acceleration RMS was 0.968/1.095 m/s² compared with 0.035 at rest; this includes body activity during motion.
 
 The first IMU attempt had a network timeout and sent E-STOP. A retry passed. Raw traces are overwritten by later tests; historical sets are preserved in `codex_0841/` and `codex_imu_run1/`.
+
+## Race Direct vs Detour Steer (real robot)
+
+```
+python tools/race_test.py --runs 3            # goal 0.3 m, 6 deg past the wheel
+python tools/race_test.py --runs 3 --steer-dps 35   # plan with the measured steering speed
+```
+Uses the robot's route test (same start angle, robot clock, alignment not timed) and drives home between runs.
+Set the goal radius first (Settings, e.g. 0.0025 m): with 5 cm the detour can "arrive" before its final turn.
+Result 2026-10-08 (2.5 mm radius, 3 runs each): Direct mean 25.84 s, Detour mean 19.99 s (-22.6 %).

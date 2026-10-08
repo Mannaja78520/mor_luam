@@ -14,6 +14,7 @@ struct Trial {
         g_nav_ms = 1000;
         ctrl.state.stampMs = g_nav_ms;
         ctrl.state.steerOk = ctrl.state.imuOk = true;
+        ctrl.state.steerAimed = true;          // the controller reports the wheel as aimed
         ctrl.state.imuHeadingFresh = true;
         ctrl.state.imuMotionFlags = 3;
         ctrl.applied = ctrl.state;

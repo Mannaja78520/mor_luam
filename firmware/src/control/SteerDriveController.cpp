@@ -107,6 +107,7 @@ void SteerDriveController::apply(const DriveCommand& m, CommandSource src) {
     spin_.reset();
     mode_ = Mode::Steer;
     steerOkSinceMs_ = millis();
+    steerAimed_ = false;
     pwm_ = 0;
     imu_.requestReference();
 }
@@ -122,6 +123,7 @@ void SteerDriveController::halt() {
     steer_.reset();
     spin_.reset();
     mode_ = Mode::Steer;
+    steerAimed_ = false;
 }
 
 void SteerDriveController::stopGoal() {
@@ -170,10 +172,16 @@ void SteerDriveController::step() {
     rpm_ = encoder_.getRPM();
     steerDeg_ = wrap360(steerSensor_.readDeg());
     imu_.update();
-    if (havePrevSteer_) {                       // steering speed, lightly filtered
-        const float d = errDeg(steerDeg_, prevSteerDeg_) / CTRL_PERIOD_S;   // + while steering (angle goes up)
-        rateDps_ = 0.5f * rateDps_ + 0.5f * d;
-    }
+    // Steering speed over the last RATE_WINDOW ticks (50 ms), + while steering
+    // (angle goes up). Per tick, one AS5600 count of flicker at rest (0.09 deg)
+    // read as +-4 deg/s and made "is the wheel still?" fail at random
+    // (seen 2026-10-08); over 50 ms it is 1.8 deg/s, and real steering
+    // (30-100 deg/s) is measured just as well.
+    if (havePrevSteer_ && rateFill_ == RATE_WINDOW)
+        rateDps_ = errDeg(steerDeg_, steerHist_[rateIdx_]) / (RATE_WINDOW * CTRL_PERIOD_S);
+    steerHist_[rateIdx_] = steerDeg_;
+    rateIdx_ = (rateIdx_ + 1) % RATE_WINDOW;
+    if (rateFill_ < RATE_WINDOW) ++rateFill_;
     prevSteerDeg_ = steerDeg_;
     havePrevSteer_ = true;
 
@@ -214,9 +222,15 @@ void SteerDriveController::step() {
     prevECw_ = eCw;
     havePrevE_ = true;
 
+    // Aimed = inside the tolerance, with hysteresis: once in, the wheel stays
+    // "aimed" until it is STEER_TOL_HYST_DEG further out. Without it, a wheel
+    // stopped right at the edge flickered in/out with the sensor's last digit,
+    // the power ramp restarted every tick and it stood still for 8 s (2026-10-08).
+    steerAimed_ = cwInTolerance(eCw, steerTol_ + (steerAimed_ ? STEER_TOL_HYST_DEG : 0.0f));
+
     switch (mode_) {
         case Mode::Steer: {
-            if (!cwInTolerance(eCw, steerTol_)) {
+            if (!steerAimed_) {
                 steerOkSinceMs_ = millis();
                 if (coasting_) {                                    // power is off: let it run out
                     motor_.spin(0);
@@ -264,6 +278,7 @@ void SteerDriveController::step() {
                 steer_.reset();
                 pwm_ = 0;
                 mode_ = Mode::Steer;
+                steerAimed_ = false;
                 steerOkSinceMs_ = millis();
                 break;
             }
@@ -337,6 +352,7 @@ void SteerDriveController::fillState() {
     s.rpm = rpm_;
     s.steerDeg = steerDeg_;
     s.steerOk = steerSensor_.ok();
+    s.steerAimed = steerAimed_;
     s.steerGlitches = steerSensor_.glitches();
     s.imuYawDeg = imu_.yawDeg();
     s.imuOk = imu_.receiving();      // data is coming; the zero is taken at the first command

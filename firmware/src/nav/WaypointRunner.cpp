@@ -174,7 +174,8 @@ void WaypointRunner::alignTest(const RobotState& s, uint32_t now) {
     const float gx = s.imuGyroDps[0], gy = s.imuGyroDps[1], gz = s.imuGyroDps[2];
     const bool still = s.pwm == 0 && !s.coasting && fabsf(s.rpm) < 0.5f &&
                        fabsf(s.steerRateDps) < 2.0f && gx * gx + gy * gy + gz * gz < 25.0f &&
-                       fabsf(angles::errDeg(testHeadingDeg_, s.wheelHeadingDeg)) <= testSteerTolDeg_;
+                       s.steerAimed &&   // the controller's own aimed state (tolerance + hysteresis)
+                       fabsf(angles::errDeg(testHeadingDeg_, s.wheelHeadingDeg)) <= testSteerTolDeg_ + STEER_TOL_HYST_DEG;
     if (!still) { testStable_ = false; return; }
     if (!testStable_ || now - testStableSampleMs_ > 100) {
         testStable_ = true; testStableMs_ = testStableSampleMs_ = now; return;

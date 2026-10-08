@@ -106,6 +106,7 @@ void WebApp::statusJson(JsonObject o) {
     r["steerTargetDeg"] = s.steerTargetDeg;
     r["steerErrDeg"] = s.steerErrDeg;
     r["steerOk"] = s.steerOk;
+    r["steerAimed"] = s.steerAimed;
     r["steerGlitches"] = s.steerGlitches;
     r["imuOk"] = s.imuOk;
     r["imuHeadingFresh"] = s.imuHeadingFresh;

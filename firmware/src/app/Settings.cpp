@@ -91,7 +91,7 @@ bool Settings::update(JsonObjectConst in, String& err) {
         err = "ความเร็วต้องอยู่ระหว่าง 0.005-" + String(NAV_MAX_SPEED_MPS, 3) + " m/s (เต็มกำลังได้ ~0.039 m/s)";
         return false;
     }
-    if (n.navTolM < 0.02f || n.navTolM > 0.5f) { err = "ระยะถึงจุดต้องอยู่ระหว่าง 0.02-0.5 m"; return false; }
+    if (n.navTolM < 0.0025f || n.navTolM > 0.5f) { err = "ระยะถึงจุดต้องอยู่ระหว่าง 0.0025-0.5 m (2.5 มม. - 50 ซม.)"; return false; }
     if (n.steerDps < 5.0f || n.steerDps > 720.0f) { err = "ความเร็วเลี้ยวต้องอยู่ระหว่าง 5-720 °/s"; return false; }
     bool known = false;
     for (const char* const* p = PlannerFactory::names(); *p; ++p) known = known || n.planner == *p;

@@ -57,6 +57,16 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
   scan+search during the drive still < 3 s, 0 mm after the cut; steps 2-3 13/13 PASS with 0 false trips.
   robot_test.py: one KEEPALIVE heartbeat thread for all test moves; robot name resolved once.
 
+- DETOUR vs DIRECT RACE on the robot (tools/race_test.py, owner present): goal 0.3 m, 6 deg past the wheel,
+  goal radius 2.5 mm (new setting minimum, owner asked for +-2.5 mm; navTolM is now 0.0025 on the robot).
+  All 6 runs reached <= 2.5 mm (odometry). Direct 27.56/23.26/26.69 s (mean 25.84), Detour 19.63/20.00/20.34 s
+  (mean 19.99) -> Detour 5.8 s faster (-22.6 %) and steadier. Planner predicted only ~0.2-1.5 s because it
+  plans with steerDps 60 deg/s while the real wheel averages ~35 deg/s -> consider setting steerDps ~35.
+  Fixes found on the way: steering speed now over 50 ms (one-count AS5600 flicker read as +-4 deg/s and
+  blocked "wheel still" checks); steering tolerance hysteresis 1 deg (edge flicker held the wheel 8 s);
+  route-test alignment uses the controller's own steerAimed flag. Earlier 5 cm-radius races were invalid
+  (Detour "arrived" without its final turn); one run was touched by hand and discarded.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 

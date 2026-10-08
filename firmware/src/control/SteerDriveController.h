@@ -93,6 +93,10 @@ private:
     float rateDps_ = 0.0f;          // steering speed, + = in the steering direction
     float prevSteerDeg_ = 0.0f;
     bool havePrevSteer_ = false;
+    bool steerAimed_ = false;       // inside the steering tolerance (with hysteresis)
+    static constexpr uint8_t RATE_WINDOW = 5;   // ticks (50 ms) for the steering speed
+    float steerHist_[RATE_WINDOW] = {};
+    uint8_t rateIdx_ = 0, rateFill_ = 0;
     void learnIfStopped();
 
     // overshoot watch (DriveCommand::stopOnOvershoot)

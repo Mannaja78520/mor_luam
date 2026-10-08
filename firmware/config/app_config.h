@@ -22,6 +22,7 @@ static const int      STEER_MOTOR_DIR         = +1;     // motor direction that 
 static const int      DRIVE_MOTOR_DIR         = -1;     // motor direction that drives forward
 static const uint32_t STEER_SETTLE_MS         = 50;     // inside tolerance this long before driving
 static const float    STEER_CMD_ZERO_DEG      = 0.0f;   // offset added to the commanded wheel angle
+static const float    STEER_TOL_HYST_DEG      = 1.0f;   // once aimed, stay aimed until this much past the tolerance
 static const float    STEER_GLITCH_DEG        = 6.0f;   // AS5600: a bigger jump in one tick is a bad reading
 static const uint8_t  STEER_GLITCH_CONFIRM    = 3;      // ...unless this many readings in a row agree
 static const float    CMD_SMALL_HEADING_EPS   = 2.5f;   // deg: smaller re-commands are ignored
