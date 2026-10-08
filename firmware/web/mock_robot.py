@@ -489,10 +489,17 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--no-browser", action="store_true", help="do not open the browser")
     a = ap.parse_args()
     threading.Thread(target=sim_loop, daemon=True).start()
     print(f"mock mor_luam on http://localhost:{a.port}  (Ctrl+C to stop)")
-    ThreadingHTTPServer(("127.0.0.1", a.port), Handler).serve_forever()
+    server = ThreadingHTTPServer(("127.0.0.1", a.port), Handler)
+    url = f"http://localhost:{a.port}/"
+    print(f"Open the web app:  {url}")
+    if not a.no_browser:
+        import webbrowser
+        threading.Timer(0.5, webbrowser.open, [url]).start()   # the server is listening by then
+    server.serve_forever()
 
 
 if __name__ == "__main__":

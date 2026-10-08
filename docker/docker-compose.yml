@@ -1,4 +1,4 @@
-# mor_luam on Windows (Docker Desktop, WSL 2 backend).
+# mor_luam with Docker: Windows (Docker Desktop, WSL 2) or Ubuntu / Linux.
 #
 #   agent-wifi    micro-ROS agent, UDP 8888 - the ESP32 firmware uses WiFi (platformio.ini)
 #   agent-serial  micro-ROS agent over USB (/dev/ttyUSB0) - only for a firmware built with serial transport
@@ -6,7 +6,9 @@
 #   firmware      PlatformIO: build the ESP32 firmware
 #   firmware-usb  PlatformIO with the ESP32 USB port: upload / monitor
 #
-# Use the helper instead of typing these:  docker\mor_luam.bat help
+# Use the helper instead of typing these:  docker\mor_luam.bat help   (Windows)
+#                                          ./docker/mor_luam.sh help    (Ubuntu)
+# USB port: MORLUAM_PORT (default /dev/ttyUSB0) is mapped to /dev/ttyUSB0 inside the containers.
 name: mor_luam
 
 x-ros-env: &ros-env
@@ -28,7 +30,7 @@ services:
     profiles: ["serial"]
     command: ["serial", "--dev", "/dev/ttyUSB0", "-b", "115200", "-v4"]
     devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0"   # attach the USB to WSL first: usbipd attach --wsl --busid <id>
+      - "${MORLUAM_PORT:-/dev/ttyUSB0}:/dev/ttyUSB0"   # Windows: usbipd attach --wsl --busid <id> first
     environment: *ros-env
     restart: unless-stopped
 
@@ -63,7 +65,7 @@ services:
       - pio-core:/root/.platformio
       - pio-build:/firmware/.pio
     devices:
-      - "/dev/ttyUSB0:/dev/ttyUSB0"
+      - "${MORLUAM_PORT:-/dev/ttyUSB0}:/dev/ttyUSB0"
     stdin_open: true
     tty: true
 

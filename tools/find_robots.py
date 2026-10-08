@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import webbrowser
 
 
 PORT = 80
@@ -96,12 +97,43 @@ def browse_zeroconf(seconds=3.0):
     return found
 
 
+def connect_info(ip, d):
+    """Where to open the robot's web app, and which Wi-Fi to be on."""
+    host = d.get("host") or ""
+    port = "" if PORT == 80 else f":{PORT}"
+    by_name = bool(host) and resolve(host) == ip
+    ssid = ""
+    try:
+        with urllib.request.urlopen(f"http://{ip}:{PORT}/api/status", timeout=2) as r:
+            net = json.loads(r.read().decode("utf-8")).get("net", {})
+            ssid = net.get("ssid", "") if net.get("connected") else ""
+    except Exception:
+        pass
+    best = f"http://{host}{port}/" if by_name else f"http://{ip}{port}/"
+    return best, f"http://{ip}{port}/", ssid
+
+
+def show_and_open(ip, d, open_browser):
+    best, by_ip, ssid = connect_info(ip, d)
+    print("\nRobot web app")
+    print(f"  this PC:          {best}")
+    print(f"  phone / tablet:   {by_ip}   (Android often needs the IP, not .local)")
+    if ssid:
+        print(f"  network:          join Wi-Fi \"{ssid}\" first (the robot is on it)")
+    print("  no Wi-Fi at all?  the robot opens its own hotspot mor-luam-XXXX -> http://192.168.4.1")
+    print("  the IP can change after a reconnect: run this again")
+    if open_browser:
+        print(f"Opening {best} in the browser ...")
+        webbrowser.open(best)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Find mor_luam robots on the network.")
     ap.add_argument("--subnet", action="append", help="network to sweep, e.g. 192.168.137.0/24 (repeatable)")
     ap.add_argument("--name", default="mor-luam", help="mDNS hostname to try (default mor-luam)")
     ap.add_argument("--all", action="store_true", help="also list devices that are not mor_luam")
     ap.add_argument("--port", type=int, default=80, help="web port (80 on the robot; 8000 for web/mock_robot.py)")
+    ap.add_argument("--open", action="store_true", help="open the first robot's web app in the browser")
     a = ap.parse_args()
     global PORT
     PORT = a.port
@@ -132,7 +164,9 @@ def main():
     print(f"{'name':<18} {'type':<9} {'IP':<16} {'mDNS name':<22} firmware")
     for ip, d in sorted(found.items(), key=lambda kv: ipaddress.ip_address(kv[0])):
         print(f"{d.get('name', '?'):<18} {d.get('type', '?'):<9} {ip:<16} {d.get('host', ''):<22} {d.get('fw', '')}")
-    print("\nOpen the web app:  http://<IP>/   (or http://mor-luam.local/)")
+    robots = [(ip, d) for ip, d in sorted(found.items(), key=lambda kv: ipaddress.ip_address(kv[0]))
+              if d.get("type") == "morluam"] or sorted(found.items())
+    show_and_open(*robots[0], a.open)
     return 0
 
 

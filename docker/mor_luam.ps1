@@ -199,6 +199,7 @@ switch ($Command.ToLower()) {
         Dc --profile tools run --rm firmware bash -c "g++ -std=c++17 -O1 -I test_host/stub -I test_host/old_pidf -I lib/PIDF -I config -I src test_host/tests.cpp src/algorithm/DetourSteer.cpp lib/PIDF/PIDF.cpp test_host/old_pidf/PIDF_old.cpp -o /tmp/tests && /tmp/tests && g++ -std=c++17 -O1 -Wall -Wextra -I test_host/nav_runner_stubs -I src -I config test_host/nav_runner_tests.cpp src/nav/WaypointRunner.cpp src/algorithm/DetourSteer.cpp -o /tmp/nav-runner-tests && /tmp/nav-runner-tests"
     }
     "find" { & python (Join-Path $Repo "tools\find_robots.py") @Rest }
+    "web"  { & python (Join-Path $Repo "tools\find_robots.py") --open @Rest }   # find the robot, show the addresses, open the browser
     "robot-test" {
         # THE ROBOT MOVES in steps 2-4: on the floor, ~2 m clear, someone next to it
         $h = $RobotHost                                  # mor-luam.local by default (the IP can change)
@@ -237,6 +238,7 @@ mor_luam on Windows (Docker Desktop)
   docker\mor_luam.bat fw-monitor -BusId 1-3 serial monitor (115200)
   docker\mor_luam.bat fw-test               PC tests: Detour Steer vs the homework, PIDF
 
+  docker\mor_luam.bat web                   find the robot, show where to connect, open the web app
   docker\mor_luam.bat find                  find robots on this WiFi (then open http://<IP>/)
   docker\mor_luam.bat web-mock              fake robot on http://localhost:8000 for web page work
 "@

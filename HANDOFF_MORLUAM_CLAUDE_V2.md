@@ -29,6 +29,12 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
   WARNING: an older commit already on GitHub (91130c0 and before, `conf_network.h` WIFI_PASS) contains a real WiFi
   password still in use - owner should change that WiFi password (history rewrite only if the owner asks).
 
+- Ubuntu support + guides: `docker/mor_luam.sh` (same commands as the .bat; USB port via --port / MORLUAM_PORT,
+  compose maps it to /dev/ttyUSB0), `docs/install_and_run.md` (install + run for Windows / Ubuntu+Docker / Ubuntu native).
+  Tested from Git Bash: fw-test, fw-build, find, fw-ota to the real robot (OK). Not run on a real Ubuntu PC yet.
+- `web` command (bat + sh): finds the robot, prints where to connect (PC URL, phone IP, Wi-Fi to join, hotspot fallback)
+  and opens the browser. `web-mock` opens the browser too (`--no-browser` to skip; E:/.claude/launch.json uses it).
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 

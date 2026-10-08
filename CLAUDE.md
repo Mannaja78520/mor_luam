@@ -36,6 +36,7 @@ Read this file first; open only the files the task needs.
 | Operator guides and checked evidence | `docs/README.md`, `docs/safety.md`, `docs/testing.md`, `docs/web_ui.md`, `docs/tuning.md` |
 | Find robots on the LAN | `tools/find_robots.py` |
 | Windows helper (build/flash/OTA/agent/find) | `docker/mor_luam.ps1` via `docker\mor_luam.bat` |
+| Ubuntu helper (same commands) + install guide | `docker/mor_luam.sh`, `docs/install_and_run.md` |
 | PC ROS nodes | `mor_luam_ws/src/mor_luam/src/*.py` |
 
 Web JS: one class per job — `Api/Poller` (10), `RouteModel` (30), `Plane2D` (35),

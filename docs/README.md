@@ -8,6 +8,7 @@ Start with [Safety](safety.md) before powering the motors. Use [Testing](testing
 | Measure body shaking with the BNO085 | [IMU measurements](imu.md) |
 | Build, update firmware, run PC tests and attended robot tests | [Testing](testing.md) |
 | Compare Direct and Detour Steer in the browser, then run a real route | [Web UI](web_ui.md) |
+| Install and run everything: Windows, Ubuntu + Docker, Ubuntu native | [install_and_run.md](install_and_run.md) |
 | คู่มือเว็บภาษาไทย: วิธีเปิดเว็บ และทุกแท็บ | [web_guide_th.md](web_guide_th.md) |
 | Steering power ramp, trace checks and missing-response diagnosis | [Tuning](tuning.md) |
 | Windows setup, Docker, Wi-Fi, browser tabs and ROS tools | [Windows guide](../docker/README.md) |

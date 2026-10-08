@@ -1,5 +1,7 @@
 # mor_luam บน Windows — คู่มือใช้งาน
 
+> ติดตั้งและรันบน Ubuntu (Docker หรือไม่ใช้ Docker) และวิธีติดตั้งทุกอย่าง: `docs/install_and_run.md` · บน Ubuntu ใช้ `./docker/mor_luam.sh` แทน `docker\mor_luam.bat` (คำสั่งเหมือนกัน)
+
 คำสั่งทั้งหมดพิมพ์ใน cmd หรือ PowerShell ที่โฟลเดอร์ `E:\GPS_Localize\old\mor_luam`
 คำสั่งที่ใช้ Docker ต้องเปิด **Docker Desktop** ก่อน
 
@@ -44,6 +46,8 @@
 ทำครั้งเดียว ครั้งต่อไปใช้ WiFi (ข้อ 5)
 
 ## 3. เปิดเว็บของหุ่น
+
+**ง่ายที่สุด:** `docker\mor_luam.bat web` = หาหุ่น บอกที่อยู่ (คอม/มือถือ/WiFi ที่ต้องต่อ) แล้วเปิดเบราว์เซอร์ให้
 
 > คู่มือเว็บฉบับเต็ม (ทุกแท็บ ทุกปุ่ม วิธีเปิดทุกแบบ): `docs/web_guide_th.md`
 
