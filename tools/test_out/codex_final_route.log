@@ -1,0 +1,13 @@
+robot mor_luam fw 2.0.0 (Oct  8 2026 09:04:33), IMU ok, steering sensor ok
+
+Step 4 - routes (Detour Steer), heartbeat stop
+
+  >>> the robot will MOVE: route: to (0.126, 0.272) - a Detour Steer case - then back to (0, 0) - starting in 3 s (Ctrl+C = stop)
+  PASS  route with a Detour Steer leg: done in 41.3 s, ends at (0.02, -0.01) [goal (0,0), tolerance 0.02 m], overshoots 0
+  PASS  planner chose a detour for the 354 deg case: plans: pt1 detour phi 354 a 0.29 beta 276 b 0.03; pt1 direct phi 302 a 0 beta 302 b 0.04; pt2 direct phi 237 a 0 beta 237 b 0.29; pt2 direct phi 94 a 0 beta 94 b 0.02
+
+  >>> the robot will MOVE: route without heartbeat: must stop by itself after ~3 s - starting in 3 s (Ctrl+C = stop)
+  PASS  no heartbeat -> robot stops: stopped after 3.6 s: หน้าเว็บขาดการเชื่อมต่อ - หยุดเพื่อความปลอดภัย
+E-STOP: sent
+
+3 passed, 0 failed. Traces: E:\GPS_Localize\old\mor_luam\tools\test_out

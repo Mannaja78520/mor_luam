@@ -1,0 +1,291 @@
+<!doctype html>
+<!--
+  mor_luam web app. Served by the robot (src/web/WebApp.cpp) at http://mor-luam.local/
+  Job of this page: "The operator places points on a 2D plane, sends the robot
+  along them, sees where it is, and stops it in one reach."
+
+  Layout: toolbar (name + health + E-STOP) / tabs / tab pages.
+  Each tab page is filled by one JS class (js/*.js, see js/99_main.js for the list).
+  After editing anything in web/, just build: web/embed.py packs it into flash.
+-->
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>mor_luam</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body data-conn="loading">
+
+<header class="topbar" id="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">◎</span>
+    <div class="brand-text">
+      <div class="title" id="robotName">mor_luam</div>
+      <div class="subtitle" id="subtitle" aria-live="polite">กำลังเชื่อมต่อหุ่น…</div>
+    </div>
+  </div>
+  <div class="pills" aria-label="สถานะ">
+    <div class="pill" id="pillLink"><b>หุ่น</b><span>–</span></div>
+    <div class="pill" id="pillWifi"><b>WiFi</b><span>–</span></div>
+    <div class="pill" id="pillRos"><b>ROS</b><span>–</span></div>
+  </div>
+  <button class="btn estop" id="estop" type="button">หยุด<small>E-STOP</small></button>
+</header>
+
+<div class="banner hidden" id="banner" role="alert"></div>
+
+<nav class="tabs" role="tablist" id="tabs">
+  <button class="tab active" type="button" role="tab" data-tab="drive">เส้นทาง<small>ระนาบ 2 มิติ</small></button>
+  <button class="tab" type="button" role="tab" data-tab="simulation">จำลอง<small>Detour vs Direct</small></button>
+  <button class="tab" type="button" role="tab" data-tab="wifi">WiFi<small>วงที่บันทึก</small></button>
+  <button class="tab" type="button" role="tab" data-tab="settings">ตั้งค่า<small>algorithm · PID</small></button>
+  <button class="tab" type="button" role="tab" data-tab="system">ระบบ<small>OTA · หาหุ่น</small></button>
+</nav>
+
+<main>
+  <!-- ======================================================= tab: route -->
+  <section class="tabpage active" id="tab-drive" role="tabpanel">
+    <div class="grid tiles live-data" id="tiles">
+      <div class="tile"><label>ตำแหน่ง x, y</label><output id="tPos" class="skeleton">0.00, 0.00</output><span>เมตร จากจุดเริ่ม</span></div>
+      <div class="tile"><label>ทิศตัวหุ่น</label><output id="tTheta" class="skeleton">0°</output><span id="tImu">IMU</span></div>
+      <div class="tile"><label>ทิศล้อ (เทียบระนาบ)</label><output id="tWheel" class="skeleton">0°</output><span id="tSteer">ล้อเลี้ยว</span></div>
+      <div class="tile"><label>ความเร็วล้อ</label><output id="tRpm" class="skeleton">0 rpm</output><span id="tMode">โหมด</span></div>
+    </div>
+
+    <div class="drive-layout">
+      <div class="card plane-card">
+        <h3>ระนาบ 2 มิติ <small>หน่วยเมตร · (0,0) คือจุดที่ตั้งไว้ล่าสุด · +x คือทิศที่หุ่นหันตอนนั้น</small></h3>
+        <div class="row plane-tools" role="toolbar" aria-label="เครื่องมือระนาบ">
+          <div class="seg" role="group" aria-label="โหมดแตะ">
+            <button class="chipbtn active" type="button" data-mode="add">วางจุด</button>
+            <button class="chipbtn" type="button" data-mode="delete">ลบจุด</button>
+          </div>
+          <button class="chipbtn active" type="button" id="snapBtn" aria-pressed="true">ล็อกตาราง 0.1 m</button>
+          <button class="chipbtn" type="button" id="followBtn" aria-pressed="false">ตามหุ่น</button>
+          <button class="chipbtn" type="button" id="fitBtn">พอดีจอ</button>
+          <button class="chipbtn" type="button" id="trailBtn">ล้างรอยทาง</button>
+        </div>
+        <div class="plane-wrap">
+          <canvas id="plane" aria-label="ระนาบ 2 มิติ: แตะเพื่อวางจุด ลากจุดเพื่อย้าย ลากพื้นที่ว่างเพื่อเลื่อน"></canvas>
+          <div class="plane-lock hidden" id="planeLock"></div>
+        </div>
+        <div class="plane-foot">
+          <span id="cursorXY" class="mono">x –, y –</span>
+          <span class="legend"><i class="lg-route"></i>เส้นทาง <i class="lg-robot"></i>หุ่น <i class="lg-wheel"></i>ทิศล้อ <i class="lg-leg"></i>ขาที่กำลังวิ่ง</span>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="card" id="navCard">
+          <h3>วิ่งตามจุด <small id="navAlgo">–</small></h3>
+          <div class="mission-line"><span class="badge" id="navBadge">–</span><span id="navMsg" class="nav-msg">–</span></div>
+          <div class="progress" aria-hidden="true"><div id="navProg"></div></div>
+          <div class="mission-line small mono" id="navPlan">&nbsp;</div>
+          <p class="hint">ไม่มีเซนเซอร์ตรวจพื้นหรือสายอ่านสวิตช์ฉุกเฉิน · ตรวจด้วยตัวเองก่อนวิ่งจริง</p>
+          <label class="field check"><input type="checkbox" id="realRunReady"><span>หุ่นอยู่บนพื้น ฉันอยู่ข้างหุ่น และพื้นที่ว่างแล้ว</span></label>
+          <div class="row">
+            <button class="btn go" type="button" id="navStart">เริ่มวิ่งหุ่นจริง</button>
+            <button class="btn stop" type="button" id="navStop">หยุดเส้นทาง</button>
+          </div>
+          <p class="hint reserve" id="navHint">&nbsp;</p>
+          <details class="more">
+            <summary>ตั้งตำแหน่งเริ่มใหม่</summary>
+            <p class="hint">ให้ตำแหน่งที่หุ่นอยู่ตอนนี้เป็น (0,0) และทิศที่หันอยู่เป็น +x ใช้ก่อนวางจุดชุดใหม่</p>
+            <button class="btn danger" type="button" id="poseReset">ตั้งตรงนี้เป็น (0,0)</button>
+          </details>
+        </div>
+
+        <div class="card" id="wpCard">
+          <h3>จุดเส้นทาง <small id="wpCount">0 / 32</small></h3>
+          <div id="wpBody"></div>
+          <p class="hint warn-text reserve" id="wpDirty">&nbsp;</p>
+          <div class="row">
+            <button class="btn save" type="button" id="wpSave">บันทึกลงหุ่น</button>
+            <button class="btn" type="button" id="wpRevert">ใช้ชุดในหุ่น</button>
+            <button class="btn danger" type="button" id="wpClear">ล้างทุกจุด</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tabpage" id="tab-simulation" role="tabpanel">
+    <div class="card">
+      <h3>จำลอง Detour Steer เทียบ Direct</h3>
+      <p class="hint">ใช้จุดที่วางในแท็บเส้นทาง และตำแหน่งเริ่มจากหุ่น จำลองในเบราว์เซอร์เท่านั้น เส้นสีเขียว = Detour, สีส้ม = Direct แบบเดิม</p>
+      <div class="row sim-controls">
+        <label class="field">ความเร็วขับ (m/s)<input id="simSpeed" type="number" min="0.005" max="0.035" step="0.001" value="0.03"></label>
+        <label class="field">ความเร็วเลี้ยว (°/s)<input id="simSteer" type="number" min="5" max="720" value="60"></label>
+        <label class="field">ความเร็วภาพ<select id="simRate"><option value="1">1×</option><option value="4" selected>4×</option><option value="10">10×</option></select></label>
+      </div>
+      <label class="field check"><input id="simNoiseEnabled" type="checkbox"><span>จำลองความคลาดเคลื่อนและการสั่น</span></label>
+      <div class="row sim-controls">
+        <label class="field">ระดับความคลาดเคลื่อน (%)<input id="simNoiseLevel" type="number" min="0" max="200" step="10" value="100"></label>
+        <label class="field">ชุดตัวเลขสุ่ม (Seed)<input id="simNoiseSeed" type="number" min="0" max="4294967295" step="1" value="42"></label>
+        <label class="field">ขยายภาพการสั่น (×)<input id="simShakeScale" type="number" min="0" max="10" step="0.5" value="3"></label>
+      </div>
+      <p class="hint">จำลองความคลาดเคลื่อนของทิศตัวหุ่น (IMU) และมุมล้อพร้อมกัน ใช้ Seed เดิมเพื่อทดลองซ้ำ ภาพการสั่นถูกขยายให้เห็นง่าย ค่าทั้งหมดเป็นแบบจำลองโดยประมาณ ยังไม่ได้ปรับให้ตรงกับหุ่นจริง</p>
+      <div class="row">
+        <button class="btn go" id="simPlay" type="button">จำลองจุดที่วาง</button>
+        <button class="btn" id="simPause" type="button">พัก</button>
+        <button class="btn" id="simReset" type="button">เริ่มใหม่</button>
+        <button class="btn" id="simExample" type="button">ตัวอย่างอ้อม 0.3 m / 6°</button>
+      </div>
+      <p class="hint" id="simSummary" aria-live="polite">วางจุดบนระนาบแล้วกดจำลอง</p>
+      <p class="hint" id="simNoiseStatus" aria-live="polite"></p>
+      <canvas id="simCanvas" width="900" height="500" aria-label="ภาพจำลองเส้นทาง Detour Steer และ Direct"></canvas>
+      <p class="hint">โหมดปกติใช้ความเร็วคงที่และเลี้ยวตามเข็ม เปิดความคลาดเคลื่อนเพื่อเพิ่มการลื่น การสั่น และข้อผิดพลาดของมุมแบบสุ่ม ยังไม่ได้เทียบผลกับแบตเตอรี่หรือแรงจริงของหุ่น เวลาจริงอาจต่างกัน</p>
+      <p class="hint">ตัวอย่างจำลองไม่เปลี่ยนจุดในหุ่น ใช้แผงทดสอบด้านล่างเมื่อต้องการจับเวลาวิ่งจริง</p>
+    </div>
+    <div class="card" id="routeTestCard">
+      <h3>ทดสอบเคลื่อนที่จริง แบบที่ 1 / แบบที่ 2</h3>
+      <p class="hint">ใช้จุดที่วางในแท็บเส้นทาง หุ่นจะหันล้อไปมุมเริ่มเดียวกันก่อนทุกครั้ง แล้วจึงเริ่มจับเวลาบนหุ่น เวลาถึงเป้าตาม odometry · ไม่รวมตั้งมุมล้อ</p>
+      <p class="hint">มุมล้ออาจต่างเล็กน้อยตามระยะยอมรับของตัวควบคุม ดูมุมเริ่มจริงในผล เวลาไม่ได้ยืนยันว่าล้อหยุดทางกายภาพสนิท</p>
+      <div class="row sim-controls">
+        <label class="field">มุมล้อเริ่มร่วมกัน (°)<input id="testHeading" type="number" min="0" max="359.9" step="0.1" value="0" inputmode="decimal"></label>
+        <button class="btn" id="testUseHeading" type="button">ใช้มุมล้อปัจจุบัน</button>
+      </div>
+      <p class="hint">ก่อนทดสอบแต่ละแบบ: ย้ายหุ่นกลับจุดเริ่มเดิม หันตัวหุ่นทิศเดิม และตรวจตำแหน่งบนเว็บให้ตรง ไม่ย้ายกลับหรือตั้งตำแหน่งให้อัตโนมัติ</p>
+      <label class="field check test-ready"><input id="routeTestReady" type="checkbox"><span>ฉันอยู่ข้างหุ่น หุ่นอยู่บนพื้น พื้นที่ว่าง และคืนตำแหน่งกับทิศตัวหุ่นให้เหมือนเริ่มครั้งก่อนแล้ว</span></label>
+      <div class="row test-actions">
+        <button class="btn go" id="testDirect" type="button" disabled>วิ่งจริง แบบที่ 1 · Direct</button>
+        <button class="btn go" id="testDetour" type="button" disabled>วิ่งจริง แบบที่ 2 · Detour</button>
+        <button class="btn stop" id="testStop" type="button" disabled>หยุดทดสอบ</button>
+      </div>
+      <p class="hint reserve" id="routeTestMsg" aria-live="polite">วางจุดและยืนยันว่าพร้อมก่อนทดสอบ</p>
+      <div class="test-results" aria-label="ผลจับเวลาวิ่งจริง">
+        <div><b>แบบที่ 1 · Direct</b><strong class="mono" id="testDirectTime">–</strong><small id="testDirectDetail">ยังไม่มีผล</small></div>
+        <div><b>แบบที่ 2 · Detour</b><strong class="mono" id="testDetourTime">–</strong><small id="testDetourDetail">ยังไม่มีผล</small></div>
+      </div>
+      <p class="hint" id="routeTestCompare">เก็บผลเฉพาะวิ่งถึงครบทุกจุด ผลที่กดหยุดหรือผิดพลาดไม่นำมาเทียบ</p>
+    </div>
+  </section>
+
+  <!-- ======================================================== tab: Wi-Fi -->
+  <section class="tabpage" id="tab-wifi" role="tabpanel">
+    <div class="grid two">
+      <div>
+        <div class="card live-data">
+          <h3>การเชื่อมต่อตอนนี้</h3>
+          <table class="kv" id="linkTable"></table>
+          <div class="row"><button class="btn" type="button" id="wifiReconnect">เชื่อมต่อใหม่</button></div>
+        </div>
+
+        <div class="card">
+          <h3>WiFi ที่บันทึกไว้ <small id="wifiCount">–</small></h3>
+          <ul class="hint rules">
+            <li>ลำดับในรายการ = ลำดับความสำคัญ (กด ↑ เพื่อเลื่อน)</li>
+            <li>WiFi หลุด: หุ่นต่อวงเดิมก่อน ถ้าไม่เจอจะไล่วงที่ 1, 2, 3 …</li>
+            <li>ต่อวงลำดับรองอยู่ แล้ววงที่สูงกว่ากลับมา: หุ่นย้ายไปเอง (เฉพาะตอนหุ่นหยุดนิ่ง)</li>
+            <li>ต่อไม่ได้เลยเกิน 20 วินาที: หุ่นเปิด hotspot ของตัวเองให้ตั้งค่า</li>
+          </ul>
+          <div class="row tight">
+            <button class="chipbtn" type="button" id="wifiShowAll" aria-pressed="false">แสดงรหัสทั้งหมด</button>
+          </div>
+          <div id="wifiSaved"></div>
+          <p class="hint warn-text">คำเตือน: ทุกคนที่เปิดหน้านี้ได้จะเห็นรหัส WiFi ทุกวง ใช้หุ่นในวงที่ไว้ใจเท่านั้น</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" id="wifiFormCard">
+          <h3 id="wifiFormTitle">เพิ่ม WiFi</h3>
+          <form id="wifiForm" class="form" autocomplete="off">
+            <label class="field"><span>ชื่อ WiFi (SSID)</span>
+              <input name="ssid" id="wifiSsid" maxlength="32" required list="scanList" autocapitalize="off" spellcheck="false">
+            </label>
+            <label class="field"><span>รหัสผ่าน</span>
+              <span class="pass">
+                <input name="pass" id="wifiPass" type="password" maxlength="63" autocapitalize="off" spellcheck="false">
+                <button class="iconbtn" type="button" data-reveal="wifiPass">แสดง</button>
+              </span>
+              <small>8-63 ตัว หรือเว้นว่างถ้าวงนั้นไม่มีรหัส</small>
+            </label>
+            <div class="row">
+              <button class="btn go" type="submit" id="wifiSave">บันทึก WiFi</button>
+              <button class="btn hidden" type="button" id="wifiCancel">ยกเลิกการแก้</button>
+            </div>
+          </form>
+          <datalist id="scanList"></datalist>
+        </div>
+
+        <div class="card">
+          <h3>WiFi รอบตัวหุ่น <small id="scanAge"></small></h3>
+          <div class="row tight"><button class="btn" type="button" id="scanBtn">สแกน</button></div>
+          <div id="scanBody"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== tab: settings -->
+  <section class="tabpage" id="tab-settings" role="tabpanel">
+    <div class="grid two">
+      <div class="card">
+        <h3>ตั้งค่าหุ่น</h3>
+        <form id="settingsForm" class="form" autocomplete="off"></form>
+        <p class="hint warn-text reserve" id="settingsDirty">&nbsp;</p>
+        <div class="row">
+          <button class="btn go" type="button" id="settingsSave">บันทึกการตั้งค่า</button>
+          <button class="btn" type="button" id="settingsRevert">ใช้ค่าในหุ่น</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>PIDF <small>มีผลทันที · รีบูตแล้วกลับเป็นค่าใน PIDF_config.h</small></h3>
+        <div id="pidBody"></div>
+        <table class="kv live-data" id="coastTable"></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= tab: system -->
+  <section class="tabpage" id="tab-system" role="tabpanel">
+    <div class="grid two">
+      <div class="card">
+        <h3>อัปเดตเฟิร์มแวร์ผ่าน WiFi <small>OTA</small></h3>
+        <form id="otaForm" class="form" autocomplete="off">
+          <label class="field"><span>ไฟล์ firmware.bin</span>
+            <input type="file" id="otaFile" accept=".bin" required>
+            <small>ได้จาก docker\mor_luam.bat fw-build → firmware\firmware_out\firmware.bin</small>
+          </label>
+          <label class="field"><span>รหัส OTA</span>
+            <span class="pass">
+              <input type="password" id="otaPass" autocomplete="off">
+              <button class="iconbtn" type="button" data-reveal="otaPass">แสดง</button>
+            </span>
+          </label>
+          <div class="progress"><div id="otaProg"></div></div>
+          <p class="hint reserve" id="otaMsg" aria-live="polite">&nbsp;</p>
+          <div class="row"><button class="btn go" type="submit" id="otaBtn">อัปโหลดและรีบูต</button></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>หุ่นในวงเดียวกัน <small>ค้นผ่าน mDNS</small></h3>
+        <div class="row tight"><button class="btn" type="button" id="peersBtn">ค้นหา</button></div>
+        <div id="peersBody"></div>
+      </div>
+
+      <div class="card live-data">
+        <h3>ROS 2 <small>micro-ROS agent</small></h3>
+        <table class="kv" id="rosTable"></table>
+      </div>
+
+      <div class="card live-data">
+        <h3>ระบบ</h3>
+        <table class="kv" id="sysTable"></table>
+        <div class="row">
+          <button class="chipbtn" type="button" id="themeBtn">ธีม: ตามเครื่อง</button>
+          <button class="btn danger" type="button" id="rebootBtn">รีบูตหุ่น</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>

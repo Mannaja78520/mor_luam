@@ -1,103 +1,107 @@
 #include "PIDF.h"
-#include <math.h>  // expf, M_PI
+#include <math.h>
 
-PIDF::PIDF(float min_val, float max_val,
-           float Kp_, float Ki_,
-           float i_min_, float i_max_,
-           float Kd_, float Kf_,
-           float tol_)
-: Kp(0), Ki(0), Kd(0), Kf(0),
-  error_tolerance(0),
-  out_min(min_val), out_max(max_val),
-  i_min(i_min_), i_max(i_max_),
-  Setpoint(0.0f), LastError(0.0f), Integral(0.0f),
-  Dfilt(0.0f), d_fc_hz(0.0f), d_init(true),
-  last_us(0)
-{
+PIDF::PIDF(float min_val, float max_val, float Kp_, float Ki_, float i_min_, float i_max_,
+           float Kd_, float Kf_, float tol_)
+    : Kp(0), Ki(0), Kd(0), Kf(0), error_tolerance(0),
+      out_min(min_val), out_max(max_val), i_min(i_min_), i_max(i_max_) {
   setPIDF(Kp_, Ki_, Kd_, Kf_, tol_);
 }
 
 void PIDF::setPIDF(float Kp_, float Ki_, float Kd_, float Kf_, float tol_) {
   Kp = Kp_; Ki = Ki_; Kd = Kd_; Kf = Kf_;
-  error_tolerance = tol_;
+  error_tolerance = tol_ < 0.0f ? 0.0f : tol_;
 }
 
 void PIDF::setOutputLimits(float min_val, float max_val) {
-  out_min = min_val; out_max = max_val;
+  out_min = min_val;
+  out_max = max_val;
 }
 
 void PIDF::setIClamp(float i_min_, float i_max_) {
-  i_min = i_min_; i_max = i_max_;
+  i_min = i_min_;
+  i_max = i_max_;
+  i_clamp_on_ = true;
 }
 
 void PIDF::setDFilterCutoffHz(float fc_hz) {
-  d_fc_hz = (fc_hz < 0.0f) ? 0.0f : fc_hz;
-  d_init  = true;     // ให้ init ใหม่ในรอบถัดไป
+  d_fc_hz_ = fc_hz < 0.0f ? 0.0f : fc_hz;
 }
 
 void PIDF::reset() {
-  Integral = 0.0f;
-  LastError = 0.0f;
-  Dfilt = 0.0f;
-  d_init = true;
-  last_us  = 0;       // ให้คำนวณ dt ใหม่ในรอบถัดไป
+  integral_ = 0.0f;
+  d_filt_ = 0.0f;
+  first_ = true;          // next sample seeds the history instead of differentiating
+  last_us_ = 0;
+  last_p_ = last_i_ = last_d_ = last_f_ = last_out_ = 0.0f;
 }
 
-float PIDF::step_dt() {
-  unsigned long now = micros();
-  if (last_us == 0) { last_us = now; return 0.0f; }
-  unsigned long du = now - last_us;
-  last_us = now;
-  const float dt_min = 1e-4f;  // 0.1 ms
-  float dt = du * 1e-6f;
-  if (dt < dt_min) dt = dt_min;
+float PIDF::stepDt() {
+  const unsigned long now = micros();
+  if (last_us_ == 0) { last_us_ = now; return 0.0f; }
+  float dt = (now - last_us_) * 1e-6f;
+  last_us_ = now;
+  if (dt < 1e-4f) dt = 1e-4f;
+  if (dt > MAX_DT_S) dt = MAX_DT_S;
   return dt;
 }
 
 float PIDF::compute(float setpoint, float measure) {
-  Setpoint = setpoint;
-  float error = setpoint - measure;
-  return compute_with_error(error);
+  // differentiate -measure: same sign as the error's derivative while the
+  // setpoint holds, and no spike when it changes
+  return compute_with_feedforward(setpoint, measure, Kf * setpoint);
+}
+
+float PIDF::compute_with_feedforward(float setpoint, float measure, float feedforward) {
+  return update(setpoint - measure, -measure, feedforward);
 }
 
 float PIDF::compute_with_error(float error) {
-  float dt = step_dt();
+  return update(error, error, 0.0f);
+}
 
-  if (Kf == 0.0f){
-    // deadband
-    if (fabsf(error) <= error_tolerance) {
-      Integral = 0.0f;
-      LastError = error;
-      // อย่าลืมรีเซ็ต D ให้ตาม error ด้วยเพื่อลด kick ตอนออกจาก deadband
-      if (d_init) { Dfilt = 0.0f; } else { Dfilt = 0.9f*Dfilt; }
-      return 0.0f;
-    }
-  }
+float PIDF::update(float error, float d_source, float ff) {
+  const float dt = stepDt();
+  const float e = fabsf(error) <= error_tolerance ? 0.0f : error;
 
-  // I-term
-  Integral += error * dt;
-  if (i_max == -1 && i_min == -1) {
+  // ---- D: filtered, never from a missing history -------------------------
+  float d_raw = 0.0f;
+  if (first_ || dt <= 0.0f) {
+    first_ = false;
+    d_filt_ = 0.0f;
   } else {
-    Integral = clamp(Integral, i_min, i_max);
+    d_raw = (d_source - prev_src_) / dt;
+  }
+  prev_src_ = d_source;
+  float d_use = d_raw;
+  if (d_fc_hz_ > 0.0f && dt > 0.0f) {
+    const float alpha = expf(-2.0f * (float)M_PI * d_fc_hz_ * dt);
+    d_filt_ = alpha * d_filt_ + (1.0f - alpha) * d_raw;
+    d_use = d_filt_;
   }
 
-  // D-term (raw)
-  float D_raw = (dt > 0.0f) ? (error - LastError) / dt : 0.0f;
+  // ---- I: conditional integration (anti-windup) ---------------------------
+  float candidate = integral_;
+  const bool in_zone = i_zone_ <= 0.0f || fabsf(error) < i_zone_;
+  if (in_zone && e != 0.0f) candidate += e * dt;
+  if (i_clamp_on_) candidate = clamp(candidate, i_min, i_max);
 
-  // Low-pass derivative: alpha = exp(-2*pi*fc*dt)
-  float D_use = D_raw;
-  if (Kd != 0.0f && d_fc_hz > 0.0f) {
-    float alpha = expf(-2.0f * (float)M_PI * d_fc_hz * dt);
-    if (alpha < 0.0f) alpha = 0.0f;
-    if (alpha > 1.0f) alpha = 1.0f;
+  const float p = Kp * e;
+  const float d = Kd * d_use;
+  float out = p + Ki * candidate + d + ff;
+  // keep the new integral only if it does not push further into saturation
+  const bool sat_hi = out > out_max && e > 0.0f;
+  const bool sat_lo = out < out_min && e < 0.0f;
+  if (!(sat_hi || sat_lo)) integral_ = candidate;
+  const float i = Ki * integral_;
+  out = clamp(p + i + d + ff, out_min, out_max);
 
-    if (d_init) { Dfilt = D_raw; d_init = false; }
-    else        { Dfilt = alpha * Dfilt + (1.0f - alpha) * D_raw; }
-    D_use = Dfilt;
+  // ---- optional ramp -------------------------------------------------------
+  if (ramp_ > 0.0f) {
+    const float step = ramp_ * dt;
+    out = clamp(out, last_out_ - step, last_out_ + step);
   }
 
-  float out = Kp*error + Ki*Integral + Kd*D_use + Kf*Setpoint;
-
-  LastError = error;
-  return clamp(out, out_min, out_max);
+  last_p_ = p; last_i_ = i; last_d_ = d; last_f_ = ff; last_out_ = out;
+  return out;
 }

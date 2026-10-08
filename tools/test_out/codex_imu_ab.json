@@ -1,0 +1,274 @@
+{
+  "label": null,
+  "method": {
+    "filter": "centered rolling mean removed from each axis",
+    "window_s": 0.3,
+    "rms": "sqrt(mean(gx^2 + gy^2 + gz^2)) of filter residuals, likewise acceleration",
+    "deduplication": "one sample per fresh observed sequence number; wraps are accepted",
+    "limits": "No pass/fail threshold. Only vibration at the IMU mount is measured. Bandwidth is below half the observed report rate. Slow motion is removed. Missing or stale data receives no numerical vibration score."
+  },
+  "baseline": {
+    "mode": "stationary",
+    "timing": {
+      "rows": 350,
+      "duration_s": 3.492,
+      "max_trace_gap_ms": 14.0,
+      "non_increasing_timestamps": 0
+    },
+    "gyro": {
+      "available": true,
+      "unit": "deg/s",
+      "selected_control_samples": 350,
+      "fresh_control_samples": 350,
+      "fresh_coverage_fraction": 1.0,
+      "duplicate_control_samples_excluded": 175,
+      "unique_observed_reports": 175,
+      "observed_report_rate_hz": 50.0,
+      "max_observed_report_gap_ms": 32.999999999999915,
+      "filter_segments": 1,
+      "analyzed_unique_reports": 175,
+      "highpass_vector_rms": 0.0,
+      "highpass_vector_peak": 0.0,
+      "highpass_axis_rms": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "accel": {
+      "available": true,
+      "unit": "m/s^2",
+      "selected_control_samples": 350,
+      "fresh_control_samples": 350,
+      "fresh_coverage_fraction": 1.0,
+      "duplicate_control_samples_excluded": 174,
+      "unique_observed_reports": 176,
+      "observed_report_rate_hz": 50.11454753722795,
+      "max_observed_report_gap_ms": 24.99999999999991,
+      "filter_segments": 1,
+      "analyzed_unique_reports": 175,
+      "highpass_vector_rms": 0.03287693395852243,
+      "highpass_vector_peak": 0.0699237680144122,
+      "highpass_axis_rms": [
+        0.01585576142459687,
+        0.020060324330802935,
+        0.020665696308189256
+      ]
+    },
+    "path": "E:\\GPS_Localize\\old\\mor_luam\\tools\\test_out\\codex_ab_baseline.csv"
+  },
+  "comparisons": [
+    {
+      "mode": "steer",
+      "timing": {
+        "rows": 360,
+        "duration_s": 3.592,
+        "max_trace_gap_ms": 14.0,
+        "non_increasing_timestamps": 0
+      },
+      "gyro": {
+        "available": true,
+        "unit": "deg/s",
+        "selected_control_samples": 286,
+        "fresh_control_samples": 286,
+        "fresh_coverage_fraction": 1.0,
+        "duplicate_control_samples_excluded": 143,
+        "unique_observed_reports": 143,
+        "observed_report_rate_hz": 49.982400563181976,
+        "max_observed_report_gap_ms": 34.00000000000003,
+        "filter_segments": 1,
+        "analyzed_unique_reports": 143,
+        "highpass_vector_rms": 1.1194381229294164,
+        "highpass_vector_peak": 4.708469909523569,
+        "highpass_axis_rms": [
+          0.7734691030802554,
+          0.5559703419007596,
+          0.5880342137790222
+        ],
+        "baseline_highpass_vector_rms": 0.0
+      },
+      "accel": {
+        "available": true,
+        "unit": "m/s^2",
+        "selected_control_samples": 286,
+        "fresh_control_samples": 286,
+        "fresh_coverage_fraction": 1.0,
+        "duplicate_control_samples_excluded": 143,
+        "unique_observed_reports": 143,
+        "observed_report_rate_hz": 50.017611835153225,
+        "max_observed_report_gap_ms": 25.00000000000002,
+        "filter_segments": 1,
+        "analyzed_unique_reports": 143,
+        "highpass_vector_rms": 0.4020976245465808,
+        "highpass_vector_peak": 1.653474590739822,
+        "highpass_axis_rms": [
+          0.2427591417785474,
+          0.2092130131775703,
+          0.2428588352646615
+        ],
+        "baseline_highpass_vector_rms": 0.03287693395852243,
+        "rms_ratio_to_baseline": 12.23038696533769
+      },
+      "path": "E:\\GPS_Localize\\old\\mor_luam\\tools\\test_out\\steer_ab_1_cap664.csv"
+    },
+    {
+      "mode": "steer",
+      "timing": {
+        "rows": 460,
+        "duration_s": 4.591,
+        "max_trace_gap_ms": 14.0,
+        "non_increasing_timestamps": 0
+      },
+      "gyro": {
+        "available": true,
+        "unit": "deg/s",
+        "selected_control_samples": 391,
+        "fresh_control_samples": 391,
+        "fresh_coverage_fraction": 1.0,
+        "duplicate_control_samples_excluded": 195,
+        "unique_observed_reports": 196,
+        "observed_report_rate_hz": 50.01282380097461,
+        "max_observed_report_gap_ms": 25.00000000000002,
+        "filter_segments": 1,
+        "analyzed_unique_reports": 196,
+        "highpass_vector_rms": 1.0604614675423143,
+        "highpass_vector_peak": 4.318590304974787,
+        "highpass_axis_rms": [
+          0.5953051268449433,
+          0.6327544351057568,
+          0.6081218257455652
+        ],
+        "baseline_highpass_vector_rms": 0.0
+      },
+      "accel": {
+        "available": true,
+        "unit": "m/s^2",
+        "selected_control_samples": 391,
+        "fresh_control_samples": 391,
+        "fresh_coverage_fraction": 1.0,
+        "duplicate_control_samples_excluded": 196,
+        "unique_observed_reports": 195,
+        "observed_report_rate_hz": 50.0,
+        "max_observed_report_gap_ms": 24.00000000000002,
+        "filter_segments": 1,
+        "analyzed_unique_reports": 195,
+        "highpass_vector_rms": 0.30409261589522696,
+        "highpass_vector_peak": 1.1333429411357456,
+        "highpass_axis_rms": [
+          0.226852600486506,
+          0.15119332080334322,
+          0.13472489168289975
+        ],
+        "baseline_highpass_vector_rms": 0.03287693395852243,
+        "rms_ratio_to_baseline": 9.249421380925316
+      },
+      "path": "E:\\GPS_Localize\\old\\mor_luam\\tools\\test_out\\steer_ab_2_cap500.csv"
+    },
+    {
+      "mode": "steer",
+      "timing": {
+        "rows": 450,
+        "duration_s": 4.491,
+        "max_trace_gap_ms": 15.0,
+        "non_increasing_timestamps": 0
+      },
+      "gyro": {
+        "available": true,
+        "unit": "deg/s",
+        "selected_control_samples": 368,
+        "fresh_control_samples": 368,
+        "fresh_coverage_fraction": 1.0,
+        "duplicate_control_samples_excluded": 184,
+        "unique_observed_reports": 184,
+        "observed_report_rate_hz": 50.0,
+        "max_observed_report_gap_ms": 24.99999999999991,
+        "filter_segments": 1,
+        "analyzed_unique_reports": 184,
+        "highpass_vector_rms": 0.8327552870651331,
+        "highpass_vector_peak": 2.2536686141094973,
+        "highpass_axis_rms": [
+          0.5103534760626313,
+          0.4999898710752692,
+          0.42782102148895995
+        ],
+        "baseline_highpass_vector_rms": 0.0
+      },
+      "accel": {
+        "available": true,
+        "unit": "m/s^2",
+        "selected_control_samples": 368,
+        "fresh_control_samples": 368,
+        "fresh_coverage_fraction": 1.0,
+        "duplicate_control_samples_excluded": 184,
+        "unique_observed_reports": 184,
+        "observed_report_rate_hz": 50.00000000000001,
+        "max_observed_report_gap_ms": 25.00000000000002,
+        "filter_segments": 1,
+        "analyzed_unique_reports": 184,
+        "highpass_vector_rms": 0.2661448995036573,
+        "highpass_vector_peak": 0.8891973909093527,
+        "highpass_axis_rms": [
+          0.16214003393296392,
+          0.12526637014136907,
+          0.16985892216670473
+        ],
+        "baseline_highpass_vector_rms": 0.03287693395852243,
+        "rms_ratio_to_baseline": 8.095186121656779
+      },
+      "path": "E:\\GPS_Localize\\old\\mor_luam\\tools\\test_out\\steer_ab_3_cap500.csv"
+    },
+    {
+      "mode": "steer",
+      "timing": {
+        "rows": 400,
+        "duration_s": 3.993,
+        "max_trace_gap_ms": 16.0,
+        "non_increasing_timestamps": 0
+      },
+      "gyro": {
+        "available": true,
+        "unit": "deg/s",
+        "selected_control_samples": 322,
+        "fresh_control_samples": 322,
+        "fresh_coverage_fraction": 1.0,
+        "duplicate_control_samples_excluded": 161,
+        "unique_observed_reports": 161,
+        "observed_report_rate_hz": 49.859769398566534,
+        "max_observed_report_gap_ms": 32.00000000000003,
+        "filter_segments": 1,
+        "analyzed_unique_reports": 160,
+        "highpass_vector_rms": 1.2156979320551404,
+        "highpass_vector_peak": 5.267295321130192,
+        "highpass_axis_rms": [
+          0.6381741563023009,
+          0.7002225292431973,
+          0.7618028733020444
+        ],
+        "baseline_highpass_vector_rms": 0.0
+      },
+      "accel": {
+        "available": true,
+        "unit": "m/s^2",
+        "selected_control_samples": 322,
+        "fresh_control_samples": 322,
+        "fresh_coverage_fraction": 1.0,
+        "duplicate_control_samples_excluded": 161,
+        "unique_observed_reports": 161,
+        "observed_report_rate_hz": 50.06257822277848,
+        "max_observed_report_gap_ms": 35.00000000000014,
+        "filter_segments": 1,
+        "analyzed_unique_reports": 161,
+        "highpass_vector_rms": 0.4660190758952415,
+        "highpass_vector_peak": 1.6370404189675138,
+        "highpass_axis_rms": [
+          0.2860626412486343,
+          0.18550207956834291,
+          0.3176962745389536
+        ],
+        "baseline_highpass_vector_rms": 0.03287693395852243,
+        "rms_ratio_to_baseline": 14.174651337109827
+      },
+      "path": "E:\\GPS_Localize\\old\\mor_luam\\tools\\test_out\\steer_ab_4_cap664.csv"
+    }
+  ]
+}

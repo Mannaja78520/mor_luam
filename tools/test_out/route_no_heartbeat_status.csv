@@ -1,0 +1,11 @@
+t_s,status,index,x,y,mode,plan,heartbeat_age_ms
+0.2,running,0,0.017,-0.009,steer,direct,60
+0.56,running,0,0.012,-0.007,drive,direct,508
+0.86,running,0,0.003,-0.003,drive,direct,838
+1.22,running,0,-0.006,0.002,drive,direct,1178
+1.54,running,0,-0.015,0.006,drive,direct,1480
+1.94,running,0,-0.025,0.01,drive,direct,1847
+2.3,running,0,-0.036,0.016,drive,direct,2248
+2.61,running,0,-0.045,0.02,drive,direct,2560
+2.92,running,0,-0.054,0.024,drive,direct,2867
+3.38,stopped,0,-0.059,0.026,halt,direct,0

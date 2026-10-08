@@ -1,0 +1,98 @@
+{
+  "label": null,
+  "method": {
+    "filter": "centered rolling mean removed from each axis",
+    "window_s": 0.3,
+    "rms": "sqrt(mean(gx^2 + gy^2 + gz^2)) of filter residuals, likewise acceleration",
+    "deduplication": "one sample per fresh observed sequence number; wraps are accepted",
+    "limits": "No pass/fail threshold. Only vibration at the IMU mount is measured. Bandwidth is below half the observed report rate. Slow motion is removed. Missing or stale data receives no numerical vibration score."
+  },
+  "baseline": {
+    "mode": "stationary",
+    "timing": {
+      "rows": 350,
+      "duration_s": 3.491,
+      "max_trace_gap_ms": 12.0,
+      "non_increasing_timestamps": 0
+    },
+    "gyro": {
+      "available": true,
+      "unit": "deg/s",
+      "selected_control_samples": 350,
+      "fresh_control_samples": 350,
+      "fresh_coverage_fraction": 1.0,
+      "duplicate_control_samples_excluded": 174,
+      "unique_observed_reports": 176,
+      "observed_report_rate_hz": 50.12890289315382,
+      "max_observed_report_gap_ms": 22.00000000000002,
+      "filter_segments": 1,
+      "analyzed_unique_reports": 176,
+      "highpass_vector_rms": 0.0,
+      "highpass_vector_peak": 0.0,
+      "highpass_axis_rms": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "accel": {
+      "available": true,
+      "unit": "m/s^2",
+      "selected_control_samples": 350,
+      "fresh_control_samples": 350,
+      "fresh_coverage_fraction": 1.0,
+      "duplicate_control_samples_excluded": 175,
+      "unique_observed_reports": 175,
+      "observed_report_rate_hz": 50.0,
+      "max_observed_report_gap_ms": 23.00000000000013,
+      "filter_segments": 1,
+      "analyzed_unique_reports": 175,
+      "highpass_vector_rms": 0.035136740696841036,
+      "highpass_vector_peak": 0.0856660181557814,
+      "highpass_axis_rms": [
+        0.020571982697094298,
+        0.01812511444536662,
+        0.021974173500950163
+      ]
+    },
+    "path": "E:\\GPS_Localize\\old\\mor_luam\\tools\\test_out\\imu_first_stationary.csv"
+  },
+  "comparisons": [
+    {
+      "mode": "steer",
+      "timing": {
+        "rows": 350,
+        "duration_s": 3.491,
+        "max_trace_gap_ms": 12.0,
+        "non_increasing_timestamps": 0
+      },
+      "gyro": {
+        "available": false,
+        "unit": "deg/s",
+        "selected_control_samples": 0,
+        "fresh_control_samples": 0,
+        "fresh_coverage_fraction": null,
+        "duplicate_control_samples_excluded": 0,
+        "unique_observed_reports": 0,
+        "observed_report_rate_hz": null,
+        "max_observed_report_gap_ms": null,
+        "filter_segments": 0,
+        "reason": "No fresh unique reports"
+      },
+      "accel": {
+        "available": false,
+        "unit": "m/s^2",
+        "selected_control_samples": 0,
+        "fresh_control_samples": 0,
+        "fresh_coverage_fraction": null,
+        "duplicate_control_samples_excluded": 0,
+        "unique_observed_reports": 0,
+        "observed_report_rate_hz": null,
+        "max_observed_report_gap_ms": null,
+        "filter_segments": 0,
+        "reason": "No fresh unique reports"
+      },
+      "path": "E:\\GPS_Localize\\old\\mor_luam\\tools\\test_out\\imu_first_stationary.csv"
+    }
+  ]
+}

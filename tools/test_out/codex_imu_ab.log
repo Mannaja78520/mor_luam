@@ -1,0 +1,10 @@
+Build: Oct  8 2026 08:58:54
+Recording stationary baseline, then four attended 90-degree turns: 664 / 500 / 500 / 664 PWM
+
+  >>> the robot will MOVE: four 90-degree steering turns at normal/lower power - starting in 3 s (Ctrl+C = stop)
+  PASS  steer  90 deg clockwise: wanted  88.7, turned   85.2 -> past target  -3.5 deg, in tolerance after 2.06 s, stopped +3.5 deg before the target, peak 96 deg/s, coast 0.015 s (1 samples)
+  PASS  steer  90 deg clockwise: wanted  89.4, turned   86.1 -> past target  -3.3 deg, in tolerance after 3.03 s, stopped +3.3 deg before the target, peak 66 deg/s, coast 0.020 s (2 samples)
+  PASS  steer  90 deg clockwise: wanted  89.5, turned   86.0 -> past target  -3.5 deg, in tolerance after 2.93 s, stopped +3.5 deg before the target, peak 64 deg/s, coast 0.018 s (3 samples)
+  PASS  steer  90 deg clockwise: wanted  89.0, turned   85.6 -> past target  -3.4 deg, in tolerance after 2.28 s, stopped +3.4 deg before the target, peak 99 deg/s, coast 0.019 s (4 samples)
+Original default PID limits restored: True
+E-STOP confirmed: True

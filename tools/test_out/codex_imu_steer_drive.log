@@ -1,0 +1,13 @@
+robot mor_luam fw 2.0.0 (Oct  8 2026 08:54:32), IMU ok, steering sensor ok
+Recording 4 s stationary IMU baseline; keep the robot still.
+IMU baseline saved: 351 samples, largest control gap 13 ms
+
+Step 2 - steering only (wheel turns in place, rpm 0)
+
+  >>> the robot will MOVE: steering only, the wheel turns in place - starting in 3 s (Ctrl+C = stop)
+
+ERROR: <urlopen error timed out>
+  FAIL  test run: <urlopen error timed out>
+E-STOP: sent
+
+0 passed, 1 failed. Traces: E:\GPS_Localize\old\mor_luam\tools\test_out

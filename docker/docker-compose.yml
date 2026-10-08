@@ -1,0 +1,72 @@
+# mor_luam on Windows (Docker Desktop, WSL 2 backend).
+#
+#   agent-wifi    micro-ROS agent, UDP 8888 - the ESP32 firmware uses WiFi (platformio.ini)
+#   agent-serial  micro-ROS agent over USB (/dev/ttyUSB0) - only for a firmware built with serial transport
+#   ros           ROS 2 Jazzy + mor_luam: the programs that command the robot
+#   firmware      PlatformIO: build the ESP32 firmware
+#   firmware-usb  PlatformIO with the ESP32 USB port: upload / monitor
+#
+# Use the helper instead of typing these:  docker\mor_luam.bat help
+name: mor_luam
+
+x-ros-env: &ros-env
+  ROS_DOMAIN_ID: "10"          # same as firmware/config/conf_network.h ROS_DOMAIN_ID
+  RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+
+services:
+  agent-wifi:
+    image: microros/micro-ros-agent:jazzy
+    profiles: ["wifi"]
+    command: ["udp4", "--port", "8888", "-v4"]
+    ports:
+      - "8888:8888/udp"           # the ESP32 sends to <this PC's IP>:8888 (AGENT_IP in conf_network.h)
+    environment: *ros-env
+    restart: unless-stopped
+
+  agent-serial:
+    image: microros/micro-ros-agent:jazzy
+    profiles: ["serial"]
+    command: ["serial", "--dev", "/dev/ttyUSB0", "-b", "115200", "-v4"]
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"   # attach the USB to WSL first: usbipd attach --wsl --busid <id>
+    environment: *ros-env
+    restart: unless-stopped
+
+  ros:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: mor_luam/ros:jazzy
+    profiles: ["tools"]
+    environment: *ros-env
+    stdin_open: true
+    tty: true
+
+  firmware:
+    build:
+      context: .
+      dockerfile: Dockerfile.firmware
+    image: mor_luam/firmware:pio
+    profiles: ["tools"]
+    working_dir: /firmware
+    volumes:
+      - ../firmware:/firmware
+      - pio-core:/root/.platformio     # toolchains, downloaded once
+      - pio-build:/firmware/.pio       # build output on a Linux disk (fast, symlinks work)
+
+  firmware-usb:
+    image: mor_luam/firmware:pio
+    profiles: ["tools"]
+    working_dir: /firmware
+    volumes:
+      - ../firmware:/firmware
+      - pio-core:/root/.platformio
+      - pio-build:/firmware/.pio
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"
+    stdin_open: true
+    tty: true
+
+volumes:
+  pio-core:
+  pio-build:

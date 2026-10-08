@@ -1,0 +1,17 @@
+robot mor_luam fw 2.0.0 (Oct  8 2026 08:54:32), IMU ok, steering sensor ok
+Recording 4 s stationary IMU baseline; keep the robot still.
+IMU baseline saved: 351 samples, largest control gap 12 ms
+
+Step 2 - steering only (wheel turns in place, rpm 0)
+
+  >>> the robot will MOVE: steering only, the wheel turns in place - starting in 3 s (Ctrl+C = stop)
+  PASS  steer  90 deg clockwise: wanted  88.7, turned   85.3 -> past target  -3.4 deg, in tolerance after 2.62 s, stopped +3.4 deg before the target, peak 92 deg/s, coast 0.023 s (2 samples)
+  PASS  steer 180 deg clockwise: wanted 179.1, turned  175.7 -> past target  -3.4 deg, in tolerance after 4.09 s, stopped +3.4 deg before the target, peak 96 deg/s, coast 0.020 s (3 samples)
+  PASS  steer 270 deg clockwise: wanted 269.4, turned  266.1 -> past target  -3.3 deg, in tolerance after 5.22 s, stopped +3.3 deg before the target, peak 114 deg/s, coast 0.021 s (4 samples)
+  PASS  steer 345 deg clockwise: wanted 340.2, turned  336.8 -> past target  -3.4 deg, in tolerance after 6.12 s, stopped +3.4 deg before the target, peak 106 deg/s, coast 0.019 s (5 samples)
+  PASS  steer  90 deg clockwise: wanted  88.7, turned   85.2 -> past target  -3.5 deg, in tolerance after 2.66 s, stopped +3.5 deg before the target, peak 93 deg/s, coast 0.013 s (6 samples)
+  PASS  steer  90 deg clockwise: wanted  89.5, turned   86.1 -> past target  -3.4 deg, in tolerance after 3.09 s, stopped +3.4 deg before the target, peak 124 deg/s, coast 0.015 s (7 samples)
+  PASS  steer 180 deg clockwise: wanted 178.7, turned  175.3 -> past target  -3.4 deg, in tolerance after 4.17 s, stopped +3.4 deg before the target, peak 111 deg/s, coast 0.016 s (8 samples)
+E-STOP: sent
+
+7 passed, 0 failed. Traces: E:\GPS_Localize\old\mor_luam\tools\test_out

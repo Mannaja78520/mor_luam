@@ -1,0 +1,199 @@
+// Route tab, right side: the waypoint list and the start/stop panel.
+
+const NAV_STATUS = {
+  idle: ['พร้อม', ''],
+  running: ['กำลังวิ่ง', 'run'],
+  done: ['ถึงครบแล้ว', 'done'],
+  stopped: ['หยุดแล้ว', 'stop'],
+  failed: ['ไปไม่ถึง', 'fail'],
+};
+const PLANNER_NAMES = { detour: 'Detour Steer', direct: 'เลี้ยวตรงไปหาจุด' };
+
+// The list of points as a table, editable by keyboard as well as on the plane.
+class WaypointTable {
+  constructor(route, toast) {
+    Object.assign(this, { route, toast });
+    this.body = $('#wpBody');
+    this.count = $('#wpCount');
+    this.dirtyLine = $('#wpDirty');
+    this.saveBtn = $('#wpSave');
+    this.revertBtn = $('#wpRevert');
+    this.clearBtn = $('#wpClear');
+    this.activeIdx = -1;
+    this.locked = '';
+    this.table = null;
+    route.onChange(() => this.render());
+    this.saveBtn.onclick = async () => this.toast.result(await route.save(), 'บันทึกจุดลงหุ่นแล้ว');
+    this.revertBtn.onclick = () => route.revert();
+    this.clearBtn.onclick = () => {
+      if (route.points.length && confirm(`ลบทั้ง ${route.points.length} จุดในหน้านี้? (จุดในหุ่นยังอยู่จนกว่าจะกดบันทึก)`)) route.clear();
+    };
+    this.render();
+  }
+
+  setState(activeIdx, locked) {
+    if (activeIdx === this.activeIdx && locked === this.locked) return;
+    this.activeIdx = activeIdx;
+    this.locked = locked;
+    this.render();
+  }
+
+  render() {
+    const r = this.route, n = r.points.length;
+    this.count.textContent = `${n} / ${r.max}`;
+    const dirty = r.loaded && r.dirty;
+    this.dirtyLine.textContent = dirty ? 'ยังไม่ได้บันทึก: หุ่นยังใช้จุดชุดเดิม' : ' ';
+    this.saveBtn.classList.toggle('attention', dirty);
+    this.saveBtn.disabled = !dirty || !!this.locked;
+    this.revertBtn.disabled = !dirty;
+    this.clearBtn.disabled = !n || !!this.locked;
+
+    if (!r.loaded) {
+      this.table = null;
+      this.body.replaceChildren(r.loadError
+        ? el('div', { class: 'errbox' }, `โหลดจุดจากหุ่นไม่ได้: ${r.loadError}`,
+          el('button', { class: 'btn', type: 'button', onclick: () => r.load() }, 'ลองใหม่'))
+        : el('p', { class: 'loading' }, 'กำลังโหลดจุดจากหุ่น…'));
+      return;
+    }
+    if (!n) {
+      this.table = null;
+      this.body.replaceChildren(el('div', { class: 'empty' },
+        el('b', { text: 'ยังไม่มีจุด' }), 'แตะบนระนาบด้านซ้าย (หรือด้านบนในมือถือ) เพื่อวางจุดแรก'));
+      return;
+    }
+    if (!this.table || this.table.tBodies[0].rows.length !== n) this.build(n);
+    const rows = this.table.tBodies[0].rows;
+    r.points.forEach((p, i) => {
+      const row = rows[i];
+      row.classList.toggle('cur', i === this.activeIdx);
+      const [ix, iy] = row.querySelectorAll('input');
+      for (const [inp, v] of [[ix, p.x], [iy, p.y]]) {
+        if (document.activeElement !== inp) inp.value = v.toFixed(2);   // never overwrite while typing
+        inp.disabled = !!this.locked;
+      }
+      row.querySelectorAll('button').forEach((b) => { b.disabled = !!this.locked; });
+      row.querySelector('[data-up]').disabled = !!this.locked || i === 0;
+    });
+  }
+
+  build(n) {
+    const tb = el('tbody');
+    for (let i = 0; i < n; ++i) {
+      const num = (axis) => el('input', {
+        type: 'number', step: '0.1', inputmode: 'decimal', 'aria-label': `จุด ${i + 1} ${axis} (m)`,
+        onchange: (e) => this.edit(i, axis, e.target),
+      });
+      tb.append(el('tr', {},
+        el('td', { text: String(i + 1) }),
+        el('td', {}, num('x')),
+        el('td', {}, num('y')),
+        el('td', { class: 'act' },
+          el('button', { class: 'iconbtn', type: 'button', 'data-up': '1', title: 'เลื่อนขึ้น', 'aria-label': `เลื่อนจุด ${i + 1} ขึ้น`, onclick: () => this.route.moveUp(i) }, '↑'),
+          el('button', { class: 'iconbtn danger', type: 'button', title: 'ลบ', 'aria-label': `ลบจุด ${i + 1}`, onclick: () => this.route.remove(i) }, '✕'))));
+    }
+    this.table = el('table', { class: 'wptable' },
+      el('thead', {}, el('tr', {}, el('th', { text: '#' }), el('th', { text: 'x (m)' }), el('th', { text: 'y (m)' }), el('th'))), tb);
+    this.body.replaceChildren(el('div', { class: 'wpscroll' }, this.table));
+  }
+
+  edit(i, axis, inp) {
+    const v = parseFloat(inp.value);
+    const okv = Number.isFinite(v) && Math.abs(v) <= ROUTE_LIMIT_M;
+    inp.classList.toggle('bad', !okv);
+    if (!okv) { this.toast.show(`ค่าต้องเป็นตัวเลขระหว่าง -${ROUTE_LIMIT_M} ถึง ${ROUTE_LIMIT_M} m`, true); return; }
+    const p = this.route.points[i];
+    this.route.move(i, axis === 'x' ? v : p.x, axis === 'y' ? v : p.y);
+  }
+}
+
+// Start / stop, what the robot is doing on the route, and the plan it chose.
+class NavPanel {
+  constructor(api, route, toast, { onPoseReset, onCommand }) {
+    Object.assign(this, { api, route, toast, onCommand });
+    this.badge = $('#navBadge');
+    this.msg = $('#navMsg');
+    this.prog = $('#navProg');
+    this.plan = $('#navPlan');
+    this.algo = $('#navAlgo');
+    this.hint = $('#navHint');
+    this.startBtn = $('#navStart');
+    this.stopBtn = $('#navStop');
+    this.resetBtn = $('#poseReset');
+    this.running = false;
+    this.heartbeat = 0;
+    this.ready = $('#realRunReady');
+    this.ready.onchange = () => { if (this.lastState) this.render(...this.lastState); };
+
+    this.startBtn.onclick = () => this.start();
+    this.stopBtn.onclick = async () => { this.toast.result(await api.post('/api/nav/stop'), 'หยุดเส้นทางแล้ว'); onCommand(); };
+    this.resetBtn.onclick = async () => {
+      if (!confirm('ให้ตำแหน่งตอนนี้เป็น (0,0) และทิศที่หันอยู่เป็น +x?\nจุดที่วางไว้จะไม่ขยับตาม')) return;
+      if (this.toast.result(await api.post('/api/pose/reset'), 'ตั้งจุดเริ่มต้นใหม่แล้ว')) onPoseReset();
+      onCommand();
+    };
+  }
+
+  async start() {
+    if (!this.ready.checked) { this.toast.show('ตรวจพื้นและยืนยันว่าอยู่ข้างหุ่นก่อนวิ่งจริง', true); return; }
+    this.ready.checked = false;
+    if (this.route.dirty) {
+      const s = await this.route.save();
+      if (!this.toast.result(s, 'บันทึกจุดแล้ว')) return;
+    }
+    this.toast.result(await this.api.post('/api/nav/start'), 'เริ่มวิ่งตามจุด');
+    this.onCommand();
+  }
+
+  // While a route runs, every open page tells the robot "someone is watching".
+  // No word for 3 s (page closed, phone asleep, Wi-Fi lost) and the robot stops.
+  keepAlive(running) {
+    if (running === this.running) return;
+    this.running = running;
+    clearInterval(this.heartbeat);
+    if (running) this.heartbeat = setInterval(() => this.api.post('/api/nav/heartbeat', null, 900), 1000);
+  }
+
+  render(s, conn) {
+    this.lastState = [s, conn];
+    const nav = s.nav, robot = s.robot;
+    const running = nav.status === 'running';
+    this.keepAlive(running && conn !== 'offline');
+    const [word, cls] = NAV_STATUS[nav.status] || [nav.status, ''];
+    this.badge.textContent = word;
+    this.badge.className = 'badge ' + cls;
+    const m = nav.message && nav.message !== word ? nav.message : '';   // the badge already says it
+    this.msg.textContent = m || (running ? `ไปจุดที่ ${nav.index + 1} จาก ${nav.count}` : ' ');
+    this.msg.title = this.msg.textContent;
+    const done = nav.status === 'done' ? nav.count : running ? nav.index : 0;
+    this.prog.style.width = nav.count ? `${(100 * done) / nav.count}%` : '0';
+    this.algo.textContent = PLANNER_NAMES[nav.planner] || nav.planner || '–';
+
+    const p = nav.plan || {};
+    if (running && p.distM > 0) {
+      const head = `${p.kind === 'detour' ? 'อ้อม' : 'ตรง'} · φ ${fmt.deg(p.phiDeg)} · d ${fmt.num(p.distM)} m`;
+      const leg = p.kind === 'detour' ? ` · ขับ a ${fmt.num(p.a)} m → เลี้ยว β* ${fmt.deg(p.betaDeg)} → ขับ b ${fmt.num(p.b)} m` : '';
+      const extra = nav.overshoots ? ` · เลี้ยวเกิน ${nav.overshoots} ครั้ง` : '';
+      this.plan.textContent = `${head}${leg} · ~${fmt.num(p.timeS, 1)} s${extra}`;
+    } else {
+      this.plan.textContent = ' ';
+    }
+
+    const offline = conn === 'offline';
+    const n = this.route.points.length;
+    this.startBtn.disabled = offline || running || !n || !this.route.loaded || !this.ready.checked;
+    this.stopBtn.disabled = offline || !running;
+    this.resetBtn.disabled = offline || running || robot.mode !== 'halt';
+    let hint = '', warn = false;
+    if (offline) { hint = 'ติดต่อหุ่นไม่ได้: ปุ่มจะใช้ได้เมื่อต่อกลับ'; warn = true; }
+    else if (running) hint = 'ถ้าปิดหน้านี้หรือเน็ตหลุดเกิน 3 วินาที หุ่นจะหยุดเอง';
+    else if (robot.source === 'ros' && robot.mode !== 'halt') { hint = 'หุ่นกำลังทำตามคำสั่งจาก ROS อยู่'; warn = true; }
+    else if (!this.route.loaded) hint = 'รอโหลดจุดจากหุ่น';
+    else if (!n) hint = 'วางจุดบนระนาบก่อน แล้วจึงเริ่มวิ่ง';
+    else if (!robot.imuOk || !robot.steerOk) { hint = 'เซนเซอร์ยังไม่พร้อม (ดูช่องด้านบน): หุ่นอาจวิ่งผิดทิศ'; warn = true; }
+    else if (this.route.dirty) hint = 'จุดยังไม่ได้บันทึก: กดเริ่มวิ่งแล้วจะบันทึกให้ก่อน';
+    else hint = `พร้อมวิ่ง ${n} จุด`;
+    this.hint.textContent = hint;
+    this.hint.classList.toggle('warn-text', warn);
+  }
+}

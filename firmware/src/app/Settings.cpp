@@ -1,0 +1,146 @@
+#include "app/Settings.h"
+#include "app_config.h"
+#include <config.h>
+#include <string.h>
+#include "algorithm/PlannerFactory.h"
+
+namespace {
+struct Lock {
+    explicit Lock(SemaphoreHandle_t m) : m_(m) { xSemaphoreTake(m_, portMAX_DELAY); }
+    ~Lock() { xSemaphoreGive(m_); }
+    SemaphoreHandle_t m_;
+};
+
+// mDNS names: letters, digits and '-' only
+bool validHostname(const String& h) {
+    if (h.length() < 1 || h.length() > 31) return false;
+    for (char c : h) if (!isalnum((unsigned char)c) && c != '-') return false;
+    return h[0] != '-';
+}
+}  // namespace
+
+void Settings::begin() {
+    mtx_ = xSemaphoreCreateMutex();
+    prefs_.begin("morluam", false);
+    load();
+}
+
+void Settings::load() {
+    // isKey() first: Preferences prints an error for every key a new board has not saved yet
+    auto str = [this](const char* k, const char* d) { return prefs_.isKey(k) ? prefs_.getString(k, d) : String(d); };
+    auto flt = [this](const char* k, float d) { return prefs_.isKey(k) ? prefs_.getFloat(k, d) : d; };
+    d_.robotName = str("name", DEFAULT_ROBOT_NAME);
+    d_.hostname = str("host", DEFAULT_HOSTNAME);
+    d_.agentHost = str("agent", "");
+    d_.agentPort = prefs_.getUShort("aport", AGENT_PORT);
+    d_.otaPass = str("ota", DEFAULT_OTA_PASS);
+    d_.apPass = str("appass", DEFAULT_AP_PASS);
+    d_.navSpeedMps = flt("speed", NAV_DEFAULT_SPEED_MPS);
+    // saved before the speed limit was measured (e.g. 0.25): the wheel cannot do it
+    if (!(d_.navSpeedMps >= 0.005f && d_.navSpeedMps <= NAV_MAX_SPEED_MPS)) d_.navSpeedMps = NAV_DEFAULT_SPEED_MPS;
+    d_.navTolM = flt("tol", 0.05f);
+    d_.navLoop = prefs_.getBool("loop", false);
+    d_.planner = str("planner", "detour");
+    d_.steerDps = flt("sdps", 60.0f);
+}
+
+void Settings::save() {
+    prefs_.putString("name", d_.robotName);
+    prefs_.putString("host", d_.hostname);
+    prefs_.putString("agent", d_.agentHost);
+    prefs_.putUShort("aport", d_.agentPort);
+    prefs_.putString("ota", d_.otaPass);
+    prefs_.putString("appass", d_.apPass);
+    prefs_.putFloat("speed", d_.navSpeedMps);
+    prefs_.putFloat("tol", d_.navTolM);
+    prefs_.putBool("loop", d_.navLoop);
+    prefs_.putString("planner", d_.planner);
+    prefs_.putFloat("sdps", d_.steerDps);
+}
+
+SettingsData Settings::get() {
+    Lock l(mtx_);
+    return d_;
+}
+
+bool Settings::update(JsonObjectConst in, String& err) {
+    Lock l(mtx_);
+    SettingsData n = d_;
+    if (in["robotName"].is<const char*>()) n.robotName = in["robotName"].as<const char*>();
+    if (in["hostname"].is<const char*>()) n.hostname = in["hostname"].as<const char*>();
+    if (in["agentHost"].is<const char*>()) n.agentHost = in["agentHost"].as<const char*>();
+    if (in["agentPort"].is<int>()) n.agentPort = in["agentPort"].as<int>();
+    if (in["otaPass"].is<const char*>()) n.otaPass = in["otaPass"].as<const char*>();
+    if (in["apPass"].is<const char*>()) n.apPass = in["apPass"].as<const char*>();
+    if (in["navSpeedMps"].is<float>()) n.navSpeedMps = in["navSpeedMps"].as<float>();
+    if (in["navTolM"].is<float>()) n.navTolM = in["navTolM"].as<float>();
+    if (in["navLoop"].is<bool>()) n.navLoop = in["navLoop"].as<bool>();
+    if (in["planner"].is<const char*>()) n.planner = in["planner"].as<const char*>();
+    if (in["steerDps"].is<float>()) n.steerDps = in["steerDps"].as<float>();
+
+    n.robotName.trim();
+    n.hostname.trim();
+    n.hostname.toLowerCase();
+    n.agentHost.trim();
+    if (n.robotName.isEmpty() || n.robotName.length() > 31) { err = "ชื่อหุ่นต้องยาว 1-31 ตัวอักษร"; return false; }
+    if (!validHostname(n.hostname)) { err = "hostname ใช้ได้แค่ a-z 0-9 และ - (ไม่เกิน 31 ตัว)"; return false; }
+    if (n.agentPort == 0) { err = "port ของ agent ต้องไม่เป็น 0"; return false; }
+    if (n.otaPass.length() < 4) { err = "รหัส OTA ต้องยาวอย่างน้อย 4 ตัว"; return false; }
+    if (n.apPass.length() < 8 || n.apPass.length() > 63) { err = "รหัส hotspot ต้องยาว 8-63 ตัว"; return false; }
+    if (n.navSpeedMps < 0.005f || n.navSpeedMps > NAV_MAX_SPEED_MPS) {
+        err = "ความเร็วต้องอยู่ระหว่าง 0.005-" + String(NAV_MAX_SPEED_MPS, 3) + " m/s (เต็มกำลังได้ ~0.039 m/s)";
+        return false;
+    }
+    if (n.navTolM < 0.02f || n.navTolM > 0.5f) { err = "ระยะถึงจุดต้องอยู่ระหว่าง 0.02-0.5 m"; return false; }
+    if (n.steerDps < 5.0f || n.steerDps > 720.0f) { err = "ความเร็วเลี้ยวต้องอยู่ระหว่าง 5-720 °/s"; return false; }
+    bool known = false;
+    for (const char* const* p = PlannerFactory::names(); *p; ++p) known = known || n.planner == *p;
+    if (!known) { err = "ไม่รู้จัก algorithm: " + n.planner; return false; }
+    d_ = n;
+    save();
+    return true;
+}
+
+float Settings::coastS(float fallback) {
+    Lock l(mtx_);
+    return prefs_.isKey("coast") ? prefs_.getFloat("coast", fallback) : fallback;
+}
+
+void Settings::saveCoastS(float s) {
+    Lock l(mtx_);
+    prefs_.putFloat("coast", s);
+}
+
+float Settings::driveGain(float fallback, float ks, float kf) {
+    Lock l(mtx_);
+    // A new motor curve must not reuse the correction learned for an older one.
+    if (!prefs_.isKey("driveks") || !prefs_.isKey("drivekf") ||
+        prefs_.getFloat("driveks") != ks || prefs_.getFloat("drivekf") != kf) return fallback;
+    return prefs_.isKey("drivegain") ? prefs_.getFloat("drivegain", fallback) : fallback;
+}
+
+bool Settings::saveDriveGain(float gain, float ks, float kf) {
+    Lock l(mtx_);
+    if (prefs_.putFloat("driveks", ks) != sizeof(float)) return false;
+    if (prefs_.putFloat("drivekf", kf) != sizeof(float)) return false;
+    return prefs_.putFloat("drivegain", gain) == sizeof(float);
+}
+
+void Settings::toJson(JsonObject o, bool withSecrets) {
+    Lock l(mtx_);
+    o["robotName"] = d_.robotName;
+    o["hostname"] = d_.hostname;
+    o["agentHost"] = d_.agentHost;
+    o["agentPort"] = d_.agentPort;
+    o["navSpeedMps"] = d_.navSpeedMps;
+    o["navTolM"] = d_.navTolM;
+    o["navLoop"] = d_.navLoop;
+    o["planner"] = d_.planner;
+    JsonArray pl = o["planners"].to<JsonArray>();
+    for (const char* const* p = PlannerFactory::names(); *p; ++p) pl.add(*p);
+    o["steerDps"] = d_.steerDps;
+    if (withSecrets) {
+        o["otaPass"] = d_.otaPass;
+        o["apPass"] = d_.apPass;
+    }
+}

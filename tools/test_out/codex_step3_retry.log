@@ -1,0 +1,19 @@
+robot mor_luam fw 2.0.0 (Oct  8 2026 07:53:28), IMU ok, steering sensor ok
+
+Step 3 - short drives (<= 0.25 m at 7.5 rpm), E-STOP, moving refusals
+
+  >>> the robot will MOVE: drive 0.25 m straight ahead along the wheel, then back - starting in 3 s (Ctrl+C = stop)
+  PASS  drive 0.25 m at 7.5 rpm: odometry 0.230 m, rpm rise to 90% 0.28 s, peak 8.4, steady 7.7 +/- 0.1 (target 7.5), learned gain 1.015 (12.1 s)
+  PASS  drive 0.25 m at 7.5 rpm: odometry 0.251 m, rpm rise to 90% 0.28 s, peak 8.0, steady 7.3 +/- 1.6 (target 7.5), learned gain 1.009 (17.9 s)
+
+  >>> the robot will MOVE: drive towards 0.25 m, check moving refusals, then E-STOP - starting in 3 s (Ctrl+C = stop)
+  PASS  pose reset refused while moving: หยุดหุ่นก่อน แล้วค่อยตั้งจุดเริ่มต้นใหม่
+  PASS  wrong OTA password refused: รหัส OTA ไม่ถูก
+  PASS  authenticated OTA refused while moving: หุ่นกำลังวิ่ง - หยุดก่อนแล้วค่อยอัปเดต
+  PASS  E-STOP while driving: halted, wheel stopped within 1.10 s of the request (incl. Wi-Fi), pwm 0 at the next tick (9.0 ms), odometry after the stop 0 mm
+
+  >>> the robot will MOVE: drive 0.08 m towards the start at 7.5 rpm - starting in 3 s (Ctrl+C = stop)
+  PASS  drive 0.08456084466229037 m at 7.5 rpm: odometry 0.065 m, rpm rise to 90% 0.28 s, peak 7.9, steady 7.7 +/- 0.1 (target 7.5), learned gain 1.012 (20.3 s)
+E-STOP: sent
+
+7 passed, 0 failed. Traces: E:\GPS_Localize\old\mor_luam\tools\test_out

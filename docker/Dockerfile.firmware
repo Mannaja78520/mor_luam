@@ -1,0 +1,31 @@
+# mor_luam - building and flashing the ESP32 firmware (PlatformIO + micro-ROS).
+#
+# micro_ros_platformio builds the micro-ROS library with colcon, which only
+# works on Linux or macOS. This image is that Linux, so Windows can build too.
+# platformio.ini reads ROS_DISTRO for board_microros_distro.
+#
+# micro_ros_platformio expects PlatformIO's own virtualenv at
+# $PLATFORMIO_CORE_DIR/penv (what the official installer makes). That folder
+# is a Docker volume, so pio_entrypoint.sh creates it on first use.
+FROM python:3.11-slim-bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        cmake \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV ROS_DISTRO=jazzy \
+    PLATFORMIO_CORE_DIR=/root/.platformio \
+    PYTHONUNBUFFERED=1
+
+# made here too, so a brand-new volume starts with it already inside
+RUN python -m venv $PLATFORMIO_CORE_DIR/penv \
+    && $PLATFORMIO_CORE_DIR/penv/bin/pip install --no-cache-dir --upgrade pip platformio
+
+COPY pio_entrypoint.sh /pio_entrypoint.sh
+RUN sed -i 's/\r$//' /pio_entrypoint.sh && chmod +x /pio_entrypoint.sh
+
+WORKDIR /firmware
+ENTRYPOINT ["/pio_entrypoint.sh"]
+CMD ["pio", "run"]

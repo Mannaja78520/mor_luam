@@ -1,0 +1,22 @@
+{"utc": "2026-10-08T09:22:53.460391+00:00", "elapsedS": 0.12, "stage": "initial-primary", "ip": "192.168.137.35", "mode": "halt", "pwm": 0, "rpm": 0, "net": {"connected": true, "ssid": "manny", "rssi": -39, "ip": "192.168.137.35", "gateway": "192.168.137.1", "host": "mor-luam.local", "connecting": "", "priority": 1, "ap": {"active": false, "ssid": "mor-luam-D570", "ip": "192.168.4.1", "clients": 0}}, "build": "Oct  8 2026 09:04:33", "uptimeS": 1035}
+{"utc": "2026-10-08T09:22:56.433376+00:00", "elapsedS": 3.09, "stage": "pc-hotspot-off", "Status": "Success", "SSID": "manny", "State": "Off", "Clients": 0}
+{"utc": "2026-10-08T09:22:57.543657+00:00", "elapsedS": 4.2, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:01.668905+00:00", "elapsedS": 8.33, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:05.795525+00:00", "elapsedS": 12.45, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:09.915139+00:00", "elapsedS": 16.58, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:14.044364+00:00", "elapsedS": 20.7, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:18.171048+00:00", "elapsedS": 24.83, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:22.302808+00:00", "elapsedS": 28.97, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:26.430378+00:00", "elapsedS": 33.09, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:30.551626+00:00", "elapsedS": 37.22, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:34.676791+00:00", "elapsedS": 41.34, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:38.798574+00:00", "elapsedS": 45.45, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:42.911149+00:00", "elapsedS": 49.58, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:47.028345+00:00", "elapsedS": 53.69, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:51.140686+00:00", "elapsedS": 57.8, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:55.264526+00:00", "elapsedS": 61.92, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:23:59.388528+00:00", "elapsedS": 66.05, "stage": "waiting-for-backup"}
+{"utc": "2026-10-08T09:24:02.389905+00:00", "elapsedS": 69.05, "stage": "fallback-not-reachable", "note": "No API found on phone LAN; association/isolation must be distinguished"}
+{"utc": "2026-10-08T09:24:03.916045+00:00", "elapsedS": 70.58, "stage": "pc-hotspot-on", "Status": "Success", "SSID": "manny", "State": "On", "Clients": 0}
+{"utc": "2026-10-08T09:25:26.337017+00:00", "elapsedS": 153.0, "stage": "primary-rediscovered", "ip": "192.168.137.32", "mode": "halt", "pwm": 0, "rpm": 0, "net": {"connected": true, "ssid": "manny", "rssi": -44, "ip": "192.168.137.32", "gateway": "192.168.137.1", "host": "mor-luam.local", "connecting": "", "priority": 1, "ap": {"active": false, "ssid": "mor-luam-D570", "ip": "192.168.4.1", "clients": 0}}, "build": "Oct  8 2026 09:04:33", "uptimeS": 1188}
+{"utc": "2026-10-08T09:25:26.337017+00:00", "elapsedS": 153.0, "stage": "result", "fallback": false, "primaryReturned": true}

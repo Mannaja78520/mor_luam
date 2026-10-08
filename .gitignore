@@ -1,3 +1,6 @@
 mor_luam_ws/install
 mor_luam_ws/build
 mor_luam_ws/log
+# Python caches
+__pycache__/
+*.pyc
