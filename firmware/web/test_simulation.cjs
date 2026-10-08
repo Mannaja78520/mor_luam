@@ -18,7 +18,7 @@ for (let i = 0; i < 1000; ++i) {
   const phi = 4 + 352 * random(), d = 0.03 + 2 * random();
   const a = P.leg(phi, d, actual), b = P.leg(phi, d, actual, false);
   assert.ok(Number.isFinite(a.time) && a.time <= b.time + 1e-9);
-  const bearing = -phi * Math.PI / 180, goal = { x: d * Math.cos(bearing), y: d * Math.sin(bearing) };
+  const bearing = phi * Math.PI / 180, goal = { x: d * Math.cos(bearing), y: d * Math.sin(bearing) };
   const run = P.route([goal], { x: 0, y: 0, h: 0 }, actual, true);
   assert.ok(Math.hypot(run.final.x - goal.x, run.final.y - goal.y) < 1e-8);
   assert.ok(Math.abs(run.time - run.phases.reduce((t, phase) => t + phase.duration, 0)) < 1e-8);

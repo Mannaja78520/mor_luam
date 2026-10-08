@@ -171,7 +171,7 @@ void SteerDriveController::step() {
     steerDeg_ = wrap360(steerSensor_.readDeg());
     imu_.update();
     if (havePrevSteer_) {                       // steering speed, lightly filtered
-        const float d = errDeg(prevSteerDeg_, steerDeg_) / CTRL_PERIOD_S;   // + while steering (angle goes down)
+        const float d = errDeg(steerDeg_, prevSteerDeg_) / CTRL_PERIOD_S;   // + while steering (angle goes up)
         rateDps_ = 0.5f * rateDps_ + 0.5f * d;
     }
     prevSteerDeg_ = steerDeg_;
@@ -193,7 +193,7 @@ void SteerDriveController::step() {
         return;
     }
 
-    // The wheel went past its angle: the clockwise error jumped from "almost
+    // The wheel went past its angle: the error (steering direction) jumped from "almost
     // there" (< 90) to "almost a full turn" (> 270). Steering on would cost a
     // whole extra turn; when asked, stop here and let the planner aim again.
     if (stopOnOvershoot_ && havePrevE_ && prevECw_ < 90.0f && eCw > 270.0f &&
@@ -230,7 +230,7 @@ void SteerDriveController::step() {
                     predictor_.onCut(rateDps_);
                     steer_.reset();                                 // resume later without a stale D
                 } else {
-                    // clockwise only: the error is always positive, the motor one way
+                    // one way only (counter-clockwise): the error is always positive, the motor one way
                     float mag = steer_.compute_with_error(eCw) + Wheel_STEER_BASE_SPEED;
                     if (mag > STEER_EFFECTIVE_MAX) mag = STEER_EFFECTIVE_MAX;
                     mag = steerPower_.step(mag, CTRL_PERIOD_S);
@@ -327,7 +327,7 @@ void SteerDriveController::step() {
 void SteerDriveController::learnIfStopped() {
     if (!coasting_ || fabsf(rateDps_) >= 2.0f) return;
     coasting_ = false;
-    predictor_.onStopped(cwErrorDeg(steerDeg_, cutAngleDeg_));   // clockwise distance since the cut
+    predictor_.onStopped(cwErrorDeg(steerDeg_, cutAngleDeg_));   // distance turned since the cut
 }
 
 void SteerDriveController::fillState() {

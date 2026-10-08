@@ -22,7 +22,7 @@ public:
     explicit SteerStopPredictor(float initialCoastS = 0.10f) : coastS_(initialCoastS) {}
 
     // While the motor drives: should the power be cut now?
-    // eCwDeg: clockwise error 0..360; rateDps: steering speed (+ = clockwise)
+    // eCwDeg: error in the steering direction 0..360; rateDps: steering speed (+ = steering)
     bool shouldCut(float eCwDeg, float rateDps, float tolDeg) const {
         if (eCwDeg > 180.0f || rateDps <= 0.0f) return false;   // not approaching yet, or not moving
         return eCwDeg <= tolDeg + rateDps * coastS_;

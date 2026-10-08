@@ -46,8 +46,8 @@
 
     // +1 ถ้ามุมจากเซ็นเซอร์เพิ่มขึ้นเมื่อหมุนเลี้ยวตามเข็มจริง
     // -1 ถ้า "กลับทิศ" (มุมจากเซ็นเซอร์เพิ่มขึ้นตอนหมุนทวนเข็ม แต่คุณเลี้ยวได้จริงเฉพาะตามเข็ม)
-    #define STEER_SENSE          (-1)      // ลอง -1 ก่อนตามอาการที่เล่า
-    #define STEER_ZERO_OFFSET_DEG (136.0f)   // ไว้ปรับศูนย์ มุม 0° ของกลไก = ที่ต้องการ
+    #define STEER_SENSE          (+1)      // 2026-10-08 measured: +1 = angle grows counter-clockwise (same as IMU/odometry); -1 swapped left/right
+    #define STEER_ZERO_OFFSET_DEG (138.6f)   // 2026-10-08: wheel set to the robot's front by hand -> 0 deg (old 136 drove right)
 
 
     // I2C communication

@@ -35,6 +35,14 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
 - `web` command (bat + sh): finds the robot, prints where to connect (PC URL, phone IP, Wi-Fi to join, hotspot fallback)
   and opens the browser. `web-mock` opens the browser too (`--no-browser` to skip; E:/.claude/launch.json uses it).
 
+- STEERING CALIBRATION (owner present, 2026-10-08): the robot drove RIGHT when told forward. Measured with drive
+  tests: zero was 90 deg off AND left/right were mirrored (STEER_SENSE -1 was a guess in the original code).
+  Fixed in esp32_hardware.h with the owner: STEER_SENSE +1, STEER_ZERO_OFFSET_DEG 138.6 (wheel set to the front by hand).
+  So the wheel steers COUNTER-clockwise from above and the angle increases: angles::cwErrorDeg back to (target - current),
+  steering rate sign, web simulation, mock, tests, robot_test.py, docs all updated. Verified on the robot:
+  forward 10 cm -> forward, left 10 cm -> left (owner watched), steering test 7/7. PC tests ALL PASS.
+  NOT re-run after this: steps 3-4 (drive/route) - run them next with the owner present.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 

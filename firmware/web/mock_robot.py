@@ -6,7 +6,7 @@
 Serves web/index.html, web/app.css and web/js/*.js straight from disk (edit,
 then reload the browser: no build), and answers the same /api/... as
 src/web/WebApp.cpp with a simple simulated robot: stop-to-steer, the wheel
-steers clockwise only, Detour Steer or Direct planning, 3 s web heartbeat.
+steers one way only (counter-clockwise), Detour Steer or Direct planning, 3 s web heartbeat.
 
 Test the page's bad days:
     curl -X POST "http://localhost:8000/mock/offline?s=8"   API answers 503 for 8 s
@@ -109,7 +109,7 @@ class Robot:
         dx, dy = tx - self.x, ty - self.y
         d = math.hypot(dx, dy)
         bearing = math.degrees(math.atan2(dy, dx)) % 360
-        phi = (self.wheel - bearing) % 360                  # how far the wheel must still turn (clockwise only)
+        phi = (bearing - self.wheel) % 360                  # how far the wheel must still turn (one way only)
         direct = phi / w + 0.05 + d / v
         plan = {"kind": "direct", "phiDeg": phi, "distM": d, "k": 0, "a": 0, "betaDeg": phi, "b": d, "timeS": direct}
         if self.route_planner == "detour" and phi > 180:
@@ -153,7 +153,7 @@ class Robot:
                 self.stop("หน้าเว็บเงียบเกิน 3 วินาที")
                 return
             if self.test["active"] and self.test["phase"] == "aligning":
-                err = (self.wheel - self.target_heading) % 360
+                err = (self.target_heading - self.wheel) % 360
                 if err <= 3.5 or err >= 356.5:
                     self.test_started_ms = now_ms()
                     self.test.update(phase="running", actualStartHeadingDeg=self.wheel,
@@ -178,11 +178,11 @@ class Robot:
                     self.nav["message"] = ""
                 self.start_leg()
         if self.mode == "steer":
-            err = (self.wheel - self.target_heading) % 360
+            err = (self.target_heading - self.wheel) % 360
             if err <= 3.5 or err >= 356.5:
                 self.mode = "drive"
             else:
-                self.wheel = (self.wheel - min(err, s["steerDps"] * random.uniform(0.9, 1.1) * dt)) % 360   # clockwise only, like the robot
+                self.wheel = (self.wheel + min(err, s["steerDps"] * random.uniform(0.9, 1.1) * dt)) % 360   # counter-clockwise only, like the robot
         elif self.mode == "drive":
             stepm = min(self.leg_left, s["navSpeedMps"] * dt)
             self.leg_left -= stepm

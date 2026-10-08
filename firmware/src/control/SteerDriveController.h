@@ -1,5 +1,5 @@
 #pragma once
-// The wheel controller: steer to the commanded world heading (clockwise only),
+// The wheel controller: steer to the commanded world heading (one way only: counter-clockwise from above),
 // then drive at the commanded rpm, optionally for a distance.
 //
 //   STEER_TO_HEADING --(inside tolerance for STEER_SETTLE_MS)--> DRIVE
@@ -90,7 +90,7 @@ private:
     SteerStopPredictor predictor_;
     bool coasting_ = false;
     float cutAngleDeg_ = 0.0f;
-    float rateDps_ = 0.0f;          // steering speed, + = clockwise
+    float rateDps_ = 0.0f;          // steering speed, + = in the steering direction
     float prevSteerDeg_ = 0.0f;
     bool havePrevSteer_ = false;
     void learnIfStopped();

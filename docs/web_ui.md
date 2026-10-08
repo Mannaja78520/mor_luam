@@ -8,7 +8,7 @@ Open `http://mor-luam.local/` or `http://<IP>/` (IP from `docker\mor_luam.bat fi
 
 1. Keep the robot stopped. Reset the pose if this is a new starting point.
 2. Open Route. Place points on the plane, or edit the x/y table. Values are metres.
-3. The frame is +x forward at pose reset and +y left. Wheel heading increases counter-clockwise; the real wheel steers clockwise only.
+3. The frame is +x forward at pose reset and +y left. Wheel heading increases counter-clockwise, and the real wheel also steers counter-clockwise only (its heading only increases).
 4. Edited points stay in the browser until saved or a real route is started.
 
 ## Try the simulator

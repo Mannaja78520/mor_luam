@@ -317,7 +317,7 @@ void WaypointRunner::planNext(const RobotState& s) {
     const float dx = wp.x - s.x, dy = wp.y - s.y;
     const float dist = sqrtf(dx * dx + dy * dy);
     const float bearing = angles::wrap360(angles::rad2deg(atan2f(dy, dx)));
-    // how far the wheel must still turn (it steers clockwise only). Already inside
+    // how far the wheel must still turn (it steers one way only). Already inside
     // the steering tolerance = aimed: the controller will not steer, so no plan
     // may count (or detour around) a near-full turn that will never happen.
     float phi = angles::cwErrorDeg(bearing, s.wheelHeadingDeg);

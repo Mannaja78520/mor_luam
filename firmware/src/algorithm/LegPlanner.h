@@ -6,9 +6,9 @@
 // To add an algorithm: implement LegPlanner in a new file here, then add it to
 // PlannerFactory.h. Nothing outside this folder needs to change.
 //
-// Angles: the robot steers one way only - clockwise seen from above, so the
-// wheel's heading only DEcreases (CCW frame). phiDeg is "how far the wheel must
-// still turn", 0..360 - exactly angles::cwErrorDeg, as the controller uses.
+// Angles: the robot steers one way only - counter-clockwise seen from above, so
+// the wheel's heading only INcreases (CCW frame). phiDeg is "how far the wheel
+// must still turn", 0..360 - exactly angles::cwErrorDeg, as the controller uses.
 
 struct RobotParams {
     float driveMps = 0.25f;   // v: drive speed

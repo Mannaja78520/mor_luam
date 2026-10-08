@@ -35,7 +35,7 @@ The ESP32 closes the steering and drive loops locally. The browser edits routes 
 | Browser simulator | Compares ideal Direct and HW04 Detour Steer routes without motor commands | [45_simulation.js](../firmware/web/js/45_simulation.js) |
 | Network and ROS | Wi-Fi selection, mDNS, OTA and micro-ROS | [Network services](../firmware/src/net/), [ROS bridge](../firmware/src/ros/MicroRosBridge.cpp) |
 
-The wheel steers clockwise only. Its measured angle decreases while steering. The world frame uses metres: +x is forward at pose reset, +y is left, and heading increases counter-clockwise.
+The wheel steers one way only: counter-clockwise seen from above (measured 2026-10-08). Its measured angle increases while steering. The world frame uses metres: +x is forward at pose reset, +y is left, and heading increases counter-clockwise.
 
 ## Open the robot page
 

@@ -18,7 +18,7 @@
 static const uint32_t CTRL_PERIOD_MS          = 10;     // 100 Hz
 static const float    CTRL_PERIOD_S           = CTRL_PERIOD_MS / 1000.0f;
 static const int      STEER_POWER_LIMIT_PWM   = 500;    // comfort limit from attended BNO085 A/B test; hardware maximum unchanged
-static const int      STEER_MOTOR_DIR         = +1;     // motor direction that steers (clockwise only)
+static const int      STEER_MOTOR_DIR         = +1;     // motor direction that steers (one way only: counter-clockwise from above)
 static const int      DRIVE_MOTOR_DIR         = -1;     // motor direction that drives forward
 static const uint32_t STEER_SETTLE_MS         = 50;     // inside tolerance this long before driving
 static const float    STEER_CMD_ZERO_DEG      = 0.0f;   // offset added to the commanded wheel angle

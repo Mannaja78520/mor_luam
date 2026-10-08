@@ -58,7 +58,7 @@ Run step 1 first. Run steps 2, 3 or 4 only after the owner confirms being beside
 | Step | Purpose | Motion |
 |---|---|---|
 | 1 | Settings, PID validation, waypoints and pose reset | None |
-| 2 | Clockwise steering, tolerance and coast prediction | Wheel steers in place; drive RPM is zero |
+| 2 | One-way (counter-clockwise) steering, tolerance and coast prediction | Wheel steers in place; drive RPM is zero |
 | 3 | Out-and-back drive, moving refusals and E-STOP | 7.5 rpm; each manual drive is at most 0.25 m |
 | 4 | Detour route, return and lost-heartbeat stop | 0.03 m/s; first waypoint is about 0.3 m away |
 
@@ -76,7 +76,7 @@ To check the authenticated OTA motion guard in step 3, provide the correct passw
 
 Before step 4, close all other robot pages on computers and phones. The route runner accepts heartbeat from any page; another page can prevent the no-heartbeat test from stopping. Step 4 restores its original route settings in `finally`, and the runner attempts E-STOP on exit.
 
-The step 4 waypoint is 6 degrees counter-clockwise from the current wheel heading. For the clockwise-only wheel, that means a direct turn of 354 degrees. At 0.3 m and 0.03 m/s, Detour Steer wins. At 0.4 m with the same angle and a 0.20 s extra stop, Direct is slightly faster even though `k < 2`. Both cases have host regressions.
+The step 4 waypoint is 6 degrees clockwise from (behind) the current wheel heading. The wheel steers counter-clockwise only, so a direct turn would be 354 degrees. At 0.3 m and 0.03 m/s, Detour Steer wins. At 0.4 m with the same angle and a 0.20 s extra stop, Direct is slightly faster even though `k < 2`. Both cases have host regressions.
 
 ## Read the results
 

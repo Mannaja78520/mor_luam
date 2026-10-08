@@ -1,5 +1,5 @@
-// HW04 Detour Steer geometry. World headings are CCW; physical steering
-// subtracts clockwise angles. This module makes NO HTTP or motor calls.
+// HW04 Detour Steer geometry. World headings are CCW; physical steering is
+// counter-clockwise too (adds angles, measured 2026-10-08). NO HTTP or motor calls.
 class SimulationPlanner {
   static wrap(deg) { return ((deg % 360) + 360) % 360; }
   static leg(phi, d, p, detour = true) {
@@ -34,17 +34,17 @@ class SimulationPlanner {
       const d = Math.hypot(goal.x - pose.x, goal.y - pose.y);
       if (d <= 0.02) continue;
       const bearing = Math.atan2(goal.y - pose.y, goal.x - pose.x) * 180 / Math.PI;
-      const plan = this.leg(pose.h - bearing, d, p, detour);
+      const plan = this.leg(bearing - pose.h, d, p, detour);
       if (plan.kind === 'detour') { drive(plan.a); phase(p.stop, pose, 'stop'); ++detours; }
-      if (plan.beta) { phase(plan.beta / p.w, { ...pose, h: pose.h - plan.beta }, 'steer'); phase(p.settle, pose, 'settle'); }
+      if (plan.beta) { phase(plan.beta / p.w, { ...pose, h: pose.h + plan.beta }, 'steer'); phase(p.settle, pose, 'settle'); }
       drive(plan.b);
       // Same tolerance as firmware: an already-aimed wheel need not point
       // exactly at the goal. Replan the remaining error rather than teleport.
       if (Math.hypot(goal.x - pose.x, goal.y - pose.y) > 0.02) {
         const remaining = Math.hypot(goal.x - pose.x, goal.y - pose.y);
         const aim = Math.atan2(goal.y - pose.y, goal.x - pose.x) * 180 / Math.PI;
-        const turn = this.wrap(pose.h - aim);
-        phase(turn / p.w, { ...pose, h: pose.h - turn }, 'steer'); phase(p.settle, pose, 'settle'); drive(remaining);
+        const turn = this.wrap(aim - pose.h);
+        phase(turn / p.w, { ...pose, h: pose.h + turn }, 'steer'); phase(p.settle, pose, 'settle'); drive(remaining);
       }
     }
     return { phases, path, time, length, detours, final: pose };

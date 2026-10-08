@@ -255,9 +255,9 @@ static void testWifiPolicy() {
 
 static void testSteerSensorMath() {
     printf("5. Steering direction and AS5600 spike filter\n");
-    CHECK(fabsf(angles::cwErrorDeg(80.0f, 90.0f) - 10.0f) < 1e-3f, "wheel at 90, target 80: 10 deg to turn (angle goes down)");
-    CHECK(fabsf(angles::cwErrorDeg(100.0f, 90.0f) - 350.0f) < 1e-3f, "wheel at 90, target 100: 350 deg (one way only)");
-    CHECK(fabsf(angles::cwErrorDeg(355.0f, 5.0f) - 10.0f) < 1e-3f, "across 0: wheel at 5, target 355 -> 10 deg");
+    CHECK(fabsf(angles::cwErrorDeg(100.0f, 90.0f) - 10.0f) < 1e-3f, "wheel at 90, target 100: 10 deg to turn (angle goes up)");
+    CHECK(fabsf(angles::cwErrorDeg(80.0f, 90.0f) - 350.0f) < 1e-3f, "wheel at 90, target 80: 350 deg (one way only)");
+    CHECK(fabsf(angles::cwErrorDeg(5.0f, 355.0f) - 10.0f) < 1e-3f, "across 0: wheel at 355, target 5 -> 10 deg");
     AngleSpikeFilter f(6.0f, 3);
     float out = 0;
     // steering 1 deg per tick from 100 down, with single bad readings like the robot's

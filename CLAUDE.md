@@ -58,7 +58,7 @@ docker\mor_luam.bat wifi | logs | topics | run <prog> | shell | stop     ROS sid
 
 ## Facts that are easy to get wrong
 
-- The wheel steers ONE way only: clockwise, so the measured angle DEcreases. `cwErrorDeg` uses `(current - target) mod 360`; steering tests passed 7/7 (Claude's latest update).
+- The wheel steers ONE way only: COUNTER-clockwise seen from above, so the measured angle INcreases (STEER_SENSE +1, zero 138.6 deg; verified 2026-10-08 by driving forward/left with the owner watching). `cwErrorDeg` = `(target - current) mod 360` ("in the steering direction"); steering test 7/7. The old STEER_SENSE -1 swapped left/right.
   `phi = cwErrorDeg(bearing, wheelHeading)` = how far the wheel must still turn.
 - World frame: x forward at the last pose reset, y left, angles CCW (atan2).
 - ROS_DOMAIN_ID is 10 on both sides. Default Wi-Fi is the PC hotspot (agent = gateway 192.168.137.1).

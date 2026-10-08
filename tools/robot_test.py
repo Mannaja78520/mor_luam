@@ -108,9 +108,9 @@ def countdown(what):
 
 
 def cw(a, b):
-    """how far the wheel turns from b to reach a, 0..360. It steers clockwise
-    seen from above, which DEcreases the angle (firmware angles::cwErrorDeg)."""
-    return (b - a) % 360.0
+    """how far the wheel turns from b to reach a, 0..360. It steers counter-
+    clockwise seen from above, which INcreases the angle (firmware angles::cwErrorDeg)."""
+    return (a - b) % 360.0
 
 
 def unwrap_rotation(angles):
@@ -165,7 +165,7 @@ def step1():
 def steer_once(delta, tag):
     s0 = status()["robot"]
     start_steer = s0["steerDeg"]
-    move(0, s0["wheelHeadingDeg"] - delta)            # delta = clockwise turn
+    move(0, s0["wheelHeadingDeg"] + delta)            # delta = turn in the steering direction
     t0 = time.time()
     # aimed = inside tolerance, not coasting, wheel still
     s = wait_until(lambda s: abs(s["robot"]["steerErrDeg"]) <= 3.5 and not s["robot"]["coasting"]
@@ -182,16 +182,16 @@ def steer_once(delta, tag):
     i0 = next((i for i, r in enumerate(rows) if int(r["flags"]) & 3), 0)
     seg = rows[i0:]
     target = seg[-1]["target_deg"]
-    turned = -unwrap_rotation([r["steer_deg"] for r in seg])   # + = in the steering direction
+    turned = unwrap_rotation([r["steer_deg"] for r in seg])    # + = in the steering direction
     wanted = cw(target, seg[0]["steer_deg"])
     past = turned - wanted                    # + = went past the target
     t_in = next((r["t_ms"] - seg[0]["t_ms"] for r in seg
                  if min(cw(target, r["steer_deg"]), cw(r["steer_deg"], target)) <= 3.5), None)
-    final = (seg[-1]["steer_deg"] - target + 180) % 360 - 180   # + = stopped short, - = went past
+    final = (target - seg[-1]["steer_deg"] + 180) % 360 - 180   # + = stopped short, - = went past
     peak_rate = max(r["rate_dps"] for r in seg)
     st = status()["robot"]
     ok = s is not None and abs(final) <= 3.5 and past < 180
-    report(2, f"steer {delta:>3} deg clockwise",
+    report(2, f"steer {delta:>3} deg",
            ok, f"wanted {wanted:5.1f}, turned {turned:6.1f} -> past target {past:+5.1f} deg, "
                f"in tolerance after {t_in/1000 if t_in is not None else float('nan'):.2f} s, "
                f"stopped {final:+.1f} deg before the target, peak {peak_rate:.0f} deg/s, coast {st['coastS']:.3f} s "
@@ -385,7 +385,7 @@ def step4():
         wheel = status()["robot"]["wheelHeadingDeg"]
         # At 0.03 m/s, d=0.3 m and phi=354 give k=1.095 and beat a direct turn.
         # d=0.4 m loses after including the 0.20 s stop cost (host regression).
-        b = math.radians(wheel + 6)
+        b = math.radians(wheel - 6)                  # 6 deg BEHIND the steering direction: phi = 354
         goal = {"x": round(0.3 * math.cos(b), 3), "y": round(0.3 * math.sin(b), 3)}
         countdown(f"route: to ({goal['x']}, {goal['y']}) - a Detour Steer case - then back to (0, 0)")
         end, plans, took = run_route([goal, {"x": 0.0, "y": 0.0}], tag="route_detour")
