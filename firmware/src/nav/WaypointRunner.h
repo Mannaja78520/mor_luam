@@ -56,6 +56,11 @@ public:
     // placed from the wheel heading after alignment; then back to the start (untimed).
     // byButton false (POST /api/demo/compare/start): needs ready and the web heartbeat.
     bool startCompare(const String& planner, String& err, bool byButton = true, bool ready = true);
+    // A series of `rounds` Direct + Detour pairs, run one after another by the robot
+    // (GET /api/demo/series for the results). Any stop ends the series.
+    bool startSeries(uint8_t rounds, String& err, bool byButton, bool ready);
+    void seriesJson(JsonObject out);
+    bool seriesActive();
     void noteButton(const String& text, uint8_t clicks);   // last button event, shown on the web page
     void setButtonPressed(bool p) { buttonPressed_ = p; }   // live state for the web page
     void stop(const char* why);                      // also halts the wheel
@@ -79,6 +84,8 @@ private:
     bool readPoints(const char* key, uint8_t n, Waypoint* out);
     uint32_t demoLimitMs() const;          // button route: moving-time limit for pts_ from (0,0) and back
     void closeRun();                       // demo 3/4: the timed part ended (goal, stop or fault)
+    void startNextInSeries();              // from update() while idle
+    bool seriesBusy(String& err);          // refuse other starts while a series runs
     void finish(Status st, const char* why, bool haltWheel);
     void beginReturnHome();                // button demo: route done, drive back to its start
     void borrowPts();                      // a button demo uses pts_; finish() gives the web route back
@@ -151,7 +158,14 @@ private:
         float speedMps = 0, steerDps = 0, tolM = 0;
         RunTrace<100> path;
         ActivityLog<32> acts;              // turning / driving / still over time, for the time line
+        uint8_t planner = 0;               // 0 direct, 1 detour
     };
+    static void runJson(const CompareRun& r, JsonObject j, uint32_t elapsedMs, bool flatPath);
+    CompareRun seriesRuns_[DEMO_SERIES_MAX_ROUNDS * 2];
+    uint8_t seriesTotal_ = 0, seriesCount_ = 0, seriesTries_ = 0;   // runs planned / recorded
+    bool seriesActive_ = false, seriesLocal_ = false;
+    uint32_t seriesId_ = 0, seriesNextMs_ = 0;
+    String seriesWhy_;                     // why the last series ended early ("" = it did not)
     CompareRun runs_[2];                   // [0] direct (3 clicks), [1] detour (4 clicks)
     uint8_t runIdx_ = 0;
     bool testDemo_ = false;                // the current/last test came from the button (demo 3/4)

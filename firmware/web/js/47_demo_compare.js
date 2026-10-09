@@ -3,7 +3,9 @@
 // frame - start at the origin, the wheel's start heading to the right - so both
 // runs share one start and one goal. Dashed = the plan, solid = where the robot
 // went (odometry). Turning in place leaves no line, so each turn is marked and
-// labelled. NO motor commands.
+// labelled. "Test 3 rounds" (POST /api/demo/series/start) makes the robot run
+// Direct and Detour 3 times each; then the card shows every run (GET /api/demo/series).
+// The page only starts/stops it; the robot runs the series itself.
 
 const DEMO_RUNS = [
   { key: 'direct', name: 'Direct', clicks: 3 },
@@ -11,8 +13,22 @@ const DEMO_RUNS = [
 ];
 
 class DemoCompareView {
-  constructor(api) {
-    this.api = api;
+  constructor(api, toast, onCommand = () => {}) {
+    Object.assign(this, { api, toast, onCommand });
+    this.series = null;
+    this.seriesKey = '';
+    this.seriesReady = $('#seriesReady');
+    this.seriesStart = $('#seriesStart');
+    this.seriesStop = $('#seriesStop');
+    this.seriesProg = $('#seriesProg');
+    this.seriesMsg = $('#seriesMsg');
+    this.lastStatus = null;
+    this.seriesReady.onchange = () => this.renderSeriesControls();
+    this.seriesStart.onclick = () => this.startSeries();
+    this.seriesStop.onclick = async () => {
+      this.toast.result(await this.api.post('/api/nav/stop'), 'หยุดชุดทดสอบแล้ว');
+      this.onCommand();
+    };
     this.plot = $('#demoPlot');
     this.timeline = $('#demoTimeline');
     this.canvas = $('#demoCanvas');
@@ -41,11 +57,31 @@ class DemoCompareView {
     return r;
   }
 
+  async loadSeries() {
+    const r = await this.api.get('/api/demo/series', 6000);
+    if (r.ok) { this.series = r.data; this.render(); }
+    return r;
+  }
+
+  async startSeries() {
+    if (!this.seriesReady.checked) { this.toast.show('ยืนยันว่าอยู่ข้างหุ่นและข้างหน้าว่างก่อน', true); return; }
+    this.seriesReady.checked = false;
+    const r = await this.api.post('/api/demo/series/start', { rounds: 3, ready: true });
+    this.toast.result(r, 'เริ่มทดสอบ 3 รอบแล้ว: อย่าปิดหน้านี้');
+    this.onCommand();
+    this.renderSeriesControls();
+  }
+
   // From the status poll: load again when a demo 3/4 run starts or ends, after a
   // reboot, and once a second while a run is being timed (the live path).
   onStatus(s, conn) {
     const was = this.conn;
     this.conn = conn;
+    this.lastStatus = s;
+    const se = s.nav.series || {};
+    const seKey = `${se.id}:${se.count}:${se.active}`;
+    if (conn === 'live' && se.id && seKey !== this.seriesKey) { this.seriesKey = seKey; this.loadSeries(); }
+    this.renderSeriesControls();
     const t = s.nav.test || {};
     const key = `${t.id}:${t.phase}`;
     const rebooted = s.sys.uptimeS < this.uptime;
@@ -79,16 +115,75 @@ class DemoCompareView {
     return { kind: 'direct', a: 0, turnAt: { x: 0, y: 0 }, turnDeg: leg.beta, pts: [{ x: 0, y: 0 }, goal] };
   }
 
+  static prepared(meta, run) {
+    const loc = DemoCompareView.local(run);
+    const plan = DemoCompareView.plan(loc.goal, run, meta.key === 'detour');
+    const end = loc.path[loc.path.length - 1];
+    const missMm = end ? 1000 * Math.hypot(end.x - loc.goal.x, end.y - loc.goal.y) : NaN;
+    return { ...meta, run, ...loc, plan, missMm };
+  }
+
+  // a series run keeps its path as flat [x0, y0, x1, y1, ...]
+  static unflat(run) {
+    if (run.path || !run.xy) return run;
+    const path = [];
+    for (let i = 0; i + 1 < run.xy.length; i += 2) path.push({ x: run.xy[i], y: run.xy[i + 1] });
+    return { ...run, path };
+  }
+
+  // the series is shown while it runs, and after it while its last run is the newest
+  showSeries() {
+    const se = this.series;
+    if (!se || !se.runs || !se.runs.length) return false;
+    if (se.active) return true;
+    const d = this.data || {};
+    const newest = Math.max(...DEMO_RUNS.map((r) => (d[r.key] ? d[r.key].id : 0)));
+    return se.runs.some((r) => r.id === newest);
+  }
+
   runs() {
+    if (this.showSeries()) {
+      const out = this.series.runs.map((run, i) => {
+        const meta = DEMO_RUNS.find((m) => m.key === run.planner) || DEMO_RUNS[0];
+        return DemoCompareView.prepared({ ...meta, label: `${Math.floor(i / 2) + 1}·${meta.name}` }, DemoCompareView.unflat(run));
+      });
+      const live = DEMO_RUNS.map((m) => (this.data || {})[m.key] && this.data[m.key].open ? m : null).find(Boolean);
+      if (this.series.active && live) {        // the run being timed now, from the live record
+        out.push(DemoCompareView.prepared({ ...live, label: `${Math.floor(out.length / 2) + 1}·${live.name}` }, this.data[live.key]));
+      }
+      return out;
+    }
     const d = this.data;
     if (!d) return [];
-    return DEMO_RUNS.filter((r) => d[r.key]).map((r) => {
-      const run = d[r.key], loc = DemoCompareView.local(run);
-      const plan = DemoCompareView.plan(loc.goal, run, r.key === 'detour');
-      const end = loc.path[loc.path.length - 1];
-      const missMm = end ? 1000 * Math.hypot(end.x - loc.goal.x, end.y - loc.goal.y) : NaN;
-      return { ...r, run, ...loc, plan, missMm };
-    });
+    return DEMO_RUNS.filter((r) => d[r.key]).map((r) => DemoCompareView.prepared({ ...r, label: r.name }, d[r.key]));
+  }
+
+  // ---- "test 3 rounds" controls ------------------------------------------------
+
+  renderSeriesControls() {
+    const s = this.lastStatus;
+    const se = (s && s.nav.series) || {};
+    const offline = this.conn !== 'live';
+    const running = s && s.nav.status === 'running';
+    const busy = !!se.active || running;
+    this.seriesStart.disabled = offline || busy || !this.seriesReady.checked;
+    this.seriesStop.disabled = offline || !busy;
+    this.seriesReady.disabled = busy;
+    const total = se.total || 6;
+    this.seriesProg.style.width = se.active || se.count ? `${(100 * (se.count || 0)) / total}%` : '0';
+    let msg, warn = false;
+    if (offline) { msg = 'ติดต่อหุ่นไม่ได้: ปุ่มจะใช้ได้เมื่อต่อกลับ'; warn = true; }
+    else if (se.active) {
+      const i = se.count || 0, t = s.nav.test || {};
+      const what = running ? `${t.planner === 'detour' ? 'Detour' : 'Direct'} ${t.phase === 'aligning' ? 'กำลังตั้งล้อ' : 'กำลังวิ่ง'}` : 'พักก่อนครั้งต่อไป';
+      msg = `รอบ ${Math.floor(i / 2) + 1} จาก ${total / 2} · ครั้งที่ ${Math.min(i + 1, total)}/${total}: ${what} · อย่าปิดหน้านี้`;
+    } else if (se.why) { msg = `ชุดทดสอบหยุดก่อนครบ: ${se.why}`; warn = true; }
+    else if (se.total && se.count === se.total) msg = 'ทดสอบครบแล้ว: ผลอยู่ด้านล่าง';
+    else if (running) msg = 'หุ่นกำลังทำอย่างอื่นอยู่: หยุดก่อน';
+    else if (!this.seriesReady.checked) msg = 'ติ๊กยืนยันก่อน แล้วกด "ทดสอบ 3 รอบ"';
+    else msg = 'พร้อม: กด "ทดสอบ 3 รอบ"';
+    this.seriesMsg.textContent = msg;
+    this.seriesMsg.classList.toggle('warn-text', warn);
   }
 
   // ---- text: the results (also the accessible view of the picture) ----------
@@ -112,8 +207,9 @@ class DemoCompareView {
     const maxS = Math.max(...runs.map((r) => r.run.elapsedMs / 1000), 1);
     const pct = (t) => `${(100 * t) / maxS}%`;
     const word = { turn: 'หมุนล้อ', drive: 'วิ่ง', still: 'นิ่ง' };
+    const series = this.showSeries();
     const done = runs.filter((r) => r.run.valid && !r.run.open);
-    const fast = done.length === 2 ? done.reduce((a, b) => (a.run.elapsedMs <= b.run.elapsedMs ? a : b)) : null;
+    const fast = !series && done.length === 2 ? done.reduce((a, b) => (a.run.elapsedMs <= b.run.elapsedMs ? a : b)) : null;
     const slowS = fast ? Math.max(...done.map((r) => r.run.elapsedMs / 1000)) : 0;
     const rows = runs.map((r) => {
       const segs = DemoCompareView.segments(r.run);
@@ -131,20 +227,26 @@ class DemoCompareView {
       }
       const time = r.run.open ? 'กำลังวิ่ง' : r.run.valid ? `${(r.run.elapsedMs / 1000).toFixed(1)} s` : 'ไม่ครบ';
       return el('div', { class: 'tl-row' },
-        el('span', { class: 'tl-name' }, el('i', { class: `sw ${r.key}`, 'aria-hidden': 'true' }), r.name),
+        el('span', { class: 'tl-name' }, el('i', { class: `sw ${r.key}`, 'aria-hidden': 'true' }), r.label),
         el('div', { class: 'tl-lane' }, el('div', { class: 'tl-labels' }, ...labels), track),
         el('span', { class: 'tl-end', text: time }));
     });
     const step = maxS > 30 ? 10 : maxS > 12 ? 5 : 2;
     const ticks = [];
     for (let t = 0; t <= maxS + 1e-9; t += step) ticks.push(el('span', { style: `left:${pct(t)}`, text: `${t}` }));
-    const head = fast
-      ? `${fast.name} ถึงเป้าก่อน ${(slowS - fast.run.elapsedMs / 1000).toFixed(1)} วินาที`
-      : 'แต่ละรอบทำอะไรตอนไหน';
-    const noteList = runs.map((r) => {
-      const segs = DemoCompareView.segments(r.run);
-      return `${r.name}: หมุนล้อรวม ${DemoCompareView.total(segs, 'turn').toFixed(1)} s · วิ่งรวม ${DemoCompareView.total(segs, 'drive').toFixed(1)} s`;
-    });
+    const stats = this.seriesStats();
+    const head = series
+      ? (stats.pairs ? stats.head : 'ชุดทดสอบ: แต่ละครั้งทำอะไรตอนไหน')
+      : fast
+        ? `${fast.name} ถึงเป้าก่อน ${(slowS - fast.run.elapsedMs / 1000).toFixed(1)} วินาที`
+        : 'แต่ละรอบทำอะไรตอนไหน';
+    // per planner (a series: the mean of its finished runs)
+    const noteList = DEMO_RUNS.map((m) => {
+      const mine = runs.filter((r) => r.key === m.key && !r.run.open);
+      if (!mine.length) return '';
+      const avg = (a) => mine.reduce((sum, r) => sum + DemoCompareView.total(DemoCompareView.segments(r.run), a), 0) / mine.length;
+      return `${m.name}${mine.length > 1 ? ` (เฉลี่ย ${mine.length} ครั้ง)` : ''}: หมุนล้อ ${avg('turn').toFixed(1)} s · วิ่ง ${avg('drive').toFixed(1)} s`;
+    }).filter(Boolean);
     const notes = noteList.join(' · ');
     this.timeline.replaceChildren(
       el('p', { class: 'tl-head', text: head }),
@@ -159,7 +261,64 @@ class DemoCompareView {
     this.timeline.setAttribute('aria-label', `${head}. ${notes}`);
   }
 
+  // Direct vs Detour per round of the series (runs 2r and 2r+1), only finished valid runs
+  seriesStats() {
+    const se = this.showSeries() ? this.series : null;
+    if (!se) return { pairs: 0, rounds: [] };
+    const rounds = [];
+    for (let i = 0; i + 1 < se.runs.length; i += 2) {
+      const pair = {};
+      for (const run of [se.runs[i], se.runs[i + 1]]) pair[run.planner] = run;
+      rounds.push(pair);
+    }
+    const ok = rounds.filter((p) => p.direct && p.detour && p.direct.valid && p.detour.valid);
+    const mean = (k) => ok.reduce((s, p) => s + p[k].elapsedMs / 1000, 0) / ok.length;
+    if (!ok.length) return { pairs: 0, rounds };
+    const d = mean('direct'), t = mean('detour'), diff = d - t;
+    const wins = ok.filter((p) => p.detour.elapsedMs < p.direct.elapsedMs).length;
+    const head = diff > 0
+      ? `Detour เร็วกว่าเฉลี่ย ${diff.toFixed(2)} s (${((100 * diff) / d).toFixed(1)}%) · ชนะ ${wins} จาก ${ok.length} รอบ`
+      : `เฉลี่ยแล้ว Direct เร็วกว่า ${(-diff).toFixed(2)} s · Detour ชนะ ${wins} จาก ${ok.length} รอบ`;
+    return { pairs: ok.length, rounds, d, t, diff, wins, head };
+  }
+
+  renderSeriesTable() {
+    const st = this.seriesStats();
+    const cell = (run) => (!run ? '–' : run.valid ? `${(run.elapsedMs / 1000).toFixed(2)} s` : 'ไม่ครบ');
+    const signed = (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)} s`;   // Detour − Direct: minus = Detour faster
+    const rows = st.rounds.map((p, i) => {
+      const both = p.direct && p.detour && p.direct.valid && p.detour.valid;
+      const diff = both ? (p.direct.elapsedMs - p.detour.elapsedMs) / 1000 : NaN;
+      return el('tr', {},
+        el('td', { text: `รอบ ${i + 1}` }),
+        el('td', { text: cell(p.direct) }),
+        el('td', { text: cell(p.detour) }),
+        el('td', { text: Number.isFinite(diff) ? signed(-diff) : '–' }));
+    });
+    if (st.pairs) {
+      rows.push(el('tr', { class: 'mean' },
+        el('td', { text: `เฉลี่ย ${st.pairs} รอบ` }),
+        el('td', { text: `${st.d.toFixed(2)} s` }),
+        el('td', { text: `${st.t.toFixed(2)} s` }),
+        el('td', { text: signed(-st.diff) })));
+    }
+    const head = el('tr', {},
+      el('th', { text: '' }),
+      el('th', {}, el('i', { class: 'sw direct', 'aria-hidden': 'true' }), 'Direct'),
+      el('th', {}, el('i', { class: 'sw detour', 'aria-hidden': 'true' }), 'Detour'),
+      el('th', { text: 'Detour − Direct' }));
+    const se = this.series;
+    const left = se.active ? `ยังวิ่งอยู่ ${se.count}/${se.total} ครั้ง` : se.why ? `หยุดก่อนครบ (${se.count}/${se.total} ครั้ง)` : '';
+    this.result.replaceChildren(...[
+      el('table', { class: 'series-table' }, el('thead', {}, head), el('tbody', {}, ...rows)),
+      el('p', { class: 'demo-sum', text: st.pairs ? st.head : 'รอให้ครบอย่างน้อย 1 รอบ (Direct + Detour)' }),
+      left && el('p', { class: 'hint', text: left }),
+      el('p', { class: 'hint', text: 'ค่าลบ = Detour ใช้เวลาน้อยกว่า · เวลาจับบนหุ่น ตั้งแต่ล้อหันเสร็จจนถึงเป้า' }),
+    ].filter(Boolean));
+  }
+
   renderText() {
+    if (this.showSeries()) { this.renderSeriesTable(); return; }
     if (!this.data) {
       this.result.replaceChildren(this.error
         ? el('div', { class: 'errbox' }, `โหลดผลเดโมไม่ได้: ${this.error}`,
@@ -254,7 +413,8 @@ class DemoCompareView {
       list.forEach((p, i) => { const [x, y] = S(p); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
       ctx.stroke(); ctx.setLineDash([]);
     };
-    for (const r of runs) line(r.plan.pts, C[`s-${r.key}`], [6, 5], 2);   // plans under the real paths
+    const firstOf = DEMO_RUNS.map((m) => runs.find((r) => r.key === m.key)).filter(Boolean);
+    for (const r of firstOf) line(r.plan.pts, C[`s-${r.key}`], [6, 5], 2);   // plans under the real paths
     for (const r of runs) line(r.path, C[`s-${r.key}`], [], 2.5);
 
     // the turn in place: an arc arrow at the spot, in the run's colour
@@ -271,7 +431,7 @@ class DemoCompareView {
       ctx.lineWidth = 4; ctx.strokeStyle = C.card; ctx.strokeText(text, x, y);   // halo over the grid
       ctx.fillStyle = C.txt; ctx.fillText(text, x, y);
     };
-    for (const r of runs) turn(r.plan.turnAt, C[`s-${r.key}`]);
+    for (const r of firstOf) turn(r.plan.turnAt, C[`s-${r.key}`]);
 
     // start: arrow along the start heading (+x)
     const [sx, sy] = S({ x: 0, y: 0 });
@@ -294,7 +454,7 @@ class DemoCompareView {
     }
 
     // turn labels: Direct under the start, Detour above its turn point
-    for (const r of runs) {
+    for (const r of firstOf) {
       const [tx, ty] = S(r.plan.turnAt);
       const text = `${r.name}: หมุน ${fmt.deg(r.plan.turnDeg)}${r.plan.kind === 'detour' ? ' ตรงนี้' : ' ก่อนออก'}`;
       if (r.key === 'direct') label(text, Math.max(8, tx - 16), ty + 20, 'left', 'top');

@@ -145,7 +145,7 @@ class App {
     this.settings = new SettingsView(this.api, this.toast, refresh);
     this.pid = new PidView(this.api, this.toast);
     this.simulation = new RouteSimulation(this.route, () => this.last && this.last.robot);
-    this.demo = new DemoCompareView(this.api);
+    this.demo = new DemoCompareView(this.api, this.toast, refresh);
     this.routeTest = new RouteTestPanel(this.api, this.route, this.toast, refresh, () => this.settings.loaded ? this.settings.form.base : null);
     this.ota = new OtaView(this.api, this.toast);
     this.fleet = new FleetView(this.api);

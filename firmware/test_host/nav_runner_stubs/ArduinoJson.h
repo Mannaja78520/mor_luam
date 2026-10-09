@@ -35,6 +35,8 @@ class JsonArray {
 public:
     explicit JsonArray(JsonNode* node) : node_(node) {}
     template<class T> T add() { node_->items.emplace_back(); return T(&node_->items.back()); }
+    template<class T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+    bool add(T v) { node_->items.emplace_back(); node_->items.back().number = v; node_->items.back().null = false; return true; }
 private:
     JsonNode* node_;
 };

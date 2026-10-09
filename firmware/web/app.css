@@ -347,6 +347,15 @@ details.more summary { cursor: pointer; color: var(--mut); font-size: var(--fs-1
 .tl-axis span { position: absolute; transform: translateX(-50%); }
 .tl-note { font-size: var(--fs-1); color: var(--txt); margin: var(--sp-2) 0 0; }
 .tl-line { display: block; }
+/* "test 3 rounds" */
+.series-box { border-bottom: 1px solid var(--line); padding-bottom: var(--sp-3); margin-bottom: var(--sp-3); }
+.series-box .progress { margin-top: var(--sp-2); }
+.series-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-bottom: var(--sp-2); }
+.series-table th { color: var(--mut); font-size: var(--fs-1); font-weight: 600; text-align: right; padding: 0 var(--sp-2) var(--sp-1); }
+.series-table th:first-child, .series-table td:first-child { text-align: left; }
+.series-table td { text-align: right; padding: var(--sp-1) var(--sp-2); border-top: 1px solid var(--line); }
+.series-table tr.mean td { font-weight: 700; }
+.series-table .sw { margin-right: var(--sp-1); vertical-align: middle; }
 .wptable input { width: 100%; min-width: 0; text-align: right; }
 .wptable tr.cur td:first-child { color: var(--ok); font-weight: 700; }
 .wpscroll { max-height: 320px; overflow: auto; }

@@ -61,6 +61,10 @@ static const float    DEMO_COMPARE_DIST_M      = 0.30f;
 static const float    DEMO_COMPARE_RIGHT_DEG   = 6.0f;
 static const float    DEMO_TRACE_STEP_M        = 0.005f;  // recorded path of a demo 3/4 run, for the web picture
 static const uint32_t DEMO_ACT_HOLD_MS         = 150;     // demo 3/4 time line: a change counts after this long
+// "Test 3 rounds" (web card / POST /api/demo/series/start): Direct + Detour per round, each run
+// back at its start before the next; rounds alternate who goes first (D T, T D, D T).
+static const uint8_t  DEMO_SERIES_MAX_ROUNDS   = 3;
+static const uint32_t DEMO_SERIES_GAP_MS       = 2000;    // pause between runs
 static const float    DEMO_TURN_DPS            = 3.0f;    // wheel turning faster than this = "turning" (flicker ~2)
 static const float    DEMO_DRIVE_RPM           = 0.5f;    // drive wheel faster than this = "driving"
 static const float    DEMO_COMPARE_HOLD_S      = 5.0f;   // demos 3/4: stay at the goal, then drive back (not timed)

@@ -13,6 +13,8 @@
 //   POST /api/nav/test          {planner:"direct"|"detour",startHeadingDeg:0..360,ready:true}; response {ok,nav}
 //   GET  /api/demo/compare       last button demo 3 (direct) / 4 (detour) run: start, goal, time, path, acts
 //   POST /api/demo/compare/start {planner:"direct"|"detour",ready:true}: demo 3/4 from the web (heartbeat rule)
+//   POST /api/demo/series/start  {rounds:1..3,ready:true}: Direct+Detour per round, one after another (heartbeat rule)
+//   GET  /api/demo/series        that series: progress + every run (time, time line, path as flat xy)
 //   GET  /api/wifi               saved networks WITH passwords, and the link
 //   POST /api/wifi/save|delete|move|reconnect,  GET/POST /api/wifi/scan
 //   GET/POST /api/settings,  GET/POST /api/pid,  GET/POST /api/peers

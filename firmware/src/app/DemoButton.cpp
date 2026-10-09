@@ -23,7 +23,7 @@ void DemoButton::run() {
             lastPressed_ = counter_.pressed();
             runner_->setButtonPressed(lastPressed_);
         }
-        if (ev == ClickCounter::Event::Press && (runner_->running() || ctrl_->moving())) {
+        if (ev == ClickCounter::Event::Press && (runner_->running() || ctrl_->moving() || runner_->seriesActive())) {
             runner_->stop("กดปุ่มที่หุ่น - หยุด");     // halts the wheel as well
             counter_.cancel();                         // this press stops; it is not a click
             note("หยุดด้วยปุ่มที่หุ่น", 0);

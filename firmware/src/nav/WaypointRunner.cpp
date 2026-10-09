@@ -165,7 +165,23 @@ void WaypointRunner::prepare(const SettingsData& s) {
     if (!local_) ctrl_->armWatchdog(WEB_HEARTBEAT_TIMEOUT_MS, "หน้าเว็บขาดการเชื่อมต่อ - หยุดเพื่อความปลอดภัย");
 }
 
+bool WaypointRunner::seriesBusy(String& err) {
+    lock();
+    const bool busy = seriesActive_;
+    unlock();
+    if (busy) err = "กำลังทดสอบชุดหลายรอบ: หยุดก่อน แล้วค่อยเริ่มอย่างอื่น";
+    return busy;
+}
+
+bool WaypointRunner::seriesActive() {
+    lock();
+    const bool a = seriesActive_;
+    unlock();
+    return a;
+}
+
 bool WaypointRunner::start(String& err) {
+    if (seriesBusy(err)) return false;
     const SettingsData s = settings_->get();
     lock();
     if (status_ == Status::Running) { unlock(); err = "หยุดเส้นทางก่อนเริ่มใหม่"; return false; }
@@ -191,11 +207,69 @@ bool WaypointRunner::testSensorsOk(const RobotState& s, uint32_t now) const {
 }
 
 bool WaypointRunner::startTest(const String& planner, float heading, bool ready, String& err) {
+    if (seriesBusy(err)) return false;
     return beginTest(planner, heading, ready, err, false, false);
 }
 
 bool WaypointRunner::startCompare(const String& planner, String& err, bool byButton, bool ready) {
+    if (seriesBusy(err)) return false;
     return beginTest(planner, DEMO_START_HEADING_DEG, ready, err, true, byButton);
+}
+
+// run i of a series: rounds alternate who goes first (D T, T D, D T), so drift or a
+// falling battery does not favour one planner
+static const char* seriesPlanner(uint8_t i) {
+    const bool directFirst = (i / 2) % 2 == 0, first = i % 2 == 0;
+    return directFirst == first ? "direct" : "detour";
+}
+
+bool WaypointRunner::startSeries(uint8_t rounds, String& err, bool byButton, bool ready) {
+    if (!ready) { err = "ยืนยันว่าอยู่ข้างหุ่นและข้างหน้าว่างก่อน"; return false; }
+    if (rounds < 1 || rounds > DEMO_SERIES_MAX_ROUNDS) { err = "จำนวนรอบต้องเป็น 1-" + String((int)DEMO_SERIES_MAX_ROUNDS); return false; }
+    lock();
+    if (status_ == Status::Running || seriesActive_) { unlock(); err = "หยุดเส้นทางก่อน แล้วค่อยเริ่มชุดทดสอบ"; return false; }
+    seriesActive_ = true;
+    seriesLocal_ = byButton;
+    seriesTotal_ = rounds * 2;
+    seriesCount_ = seriesTries_ = 0;
+    seriesWhy_ = "";
+    if (++seriesId_ == 0) ++seriesId_;
+    unlock();
+    if (beginTest(seriesPlanner(0), DEMO_START_HEADING_DEG, true, err, true, byButton)) return true;
+    lock();
+    seriesActive_ = false;                   // the first run was refused: nothing started
+    seriesTotal_ = 0;
+    unlock();
+    return false;
+}
+
+void WaypointRunner::startNextInSeries() {
+    lock();
+    if (!seriesActive_ || status_ == Status::Running) { unlock(); return; }
+    if (!seriesLocal_ && millis() - heartbeatMs_ > WEB_HEARTBEAT_TIMEOUT_MS) {   // nobody is watching: do not move again
+        seriesActive_ = false;
+        seriesWhy_ = "หน้าเว็บขาดการเชื่อมต่อ - ชุดทดสอบหยุด";
+        message_ = seriesWhy_;
+        unlock();
+        return;
+    }
+    const uint8_t i = seriesCount_;
+    unlock();
+    String err;
+    if (beginTest(seriesPlanner(i), DEMO_START_HEADING_DEG, true, err, true, seriesLocal_)) {
+        lock(); seriesTries_ = 0; unlock();
+        return;
+    }
+    lock();
+    const bool transient = err.indexOf("หยุดหุ่น") >= 0 || err.indexOf("รอเซนเซอร์") >= 0;
+    if (transient && ++seriesTries_ < 10) {
+        seriesNextMs_ = millis() + 300;      // the wheel is still settling: try again shortly
+    } else {
+        seriesActive_ = false;
+        seriesWhy_ = "เริ่มรอบต่อไปไม่ได้: " + err;
+        message_ = seriesWhy_;
+    }
+    unlock();
 }
 
 bool WaypointRunner::beginTest(const String& planner, float heading, bool ready, String& err, bool compare, bool local) {
@@ -287,6 +361,7 @@ void WaypointRunner::alignTest(const RobotState& s, uint32_t now) {
         count_ = 1;
         runIdx_ = plannerName_ == "detour" ? 1 : 0;
         CompareRun& r = runs_[runIdx_];
+        r.planner = runIdx_;
         r.id = testId_;
         r.open = true;
         r.valid = false;
@@ -344,6 +419,21 @@ void WaypointRunner::finish(Status st, const char* why, bool haltWheel) {
         count_ = savedCount_;
         restorePts_ = false;
     }
+    if (seriesActive_) {
+        if (st != Status::Done) {            // stopped or failed: the series ends here
+            seriesActive_ = false;
+            seriesWhy_ = why;
+        } else if (seriesCount_ < seriesTotal_) {
+            seriesNextMs_ = millis() + DEMO_SERIES_GAP_MS;
+            char msg[160];
+            snprintf(msg, sizeof(msg), "ชุดทดสอบ: เสร็จ %u จาก %u รอบวิ่ง - รอบต่อไปใน %u วินาที", (unsigned)seriesCount_,
+                     (unsigned)seriesTotal_, (unsigned)(DEMO_SERIES_GAP_MS / 1000));
+            message_ = msg;
+        } else {
+            seriesActive_ = false;
+            message_ = "ชุดทดสอบครบแล้ว - ดูผลในกล่องเดโม 3 / 4";
+        }
+    }
     if (haltWheel) ctrl_->halt(why);
 }
 
@@ -384,6 +474,7 @@ void WaypointRunner::closeRun() {
     r.open = false;
     r.elapsedMs = testElapsedMs_;
     r.valid = testValid_;
+    if (seriesActive_ && seriesCount_ < seriesTotal_) seriesRuns_[seriesCount_++] = r;
 }
 
 void WaypointRunner::borrowPts() {
@@ -394,6 +485,7 @@ void WaypointRunner::borrowPts() {
 }
 
 bool WaypointRunner::startButtonRoute(uint8_t slot, String& err) {
+    if (seriesBusy(err)) return false;
     if (slot < 1 || slot > DEMO_ROUTES) { err = "ไม่มีเส้นทางนี้"; return false; }
     const SettingsData s = settings_->get();
     lock();
@@ -474,7 +566,12 @@ void WaypointRunner::update() {
     lastUpdateMs_ = now;
 
     lock();
-    if (status_ != Status::Running) { unlock(); return; }
+    if (status_ != Status::Running) {
+        const bool next = seriesActive_ && (int32_t)(now - seriesNextMs_) >= 0;
+        unlock();
+        if (next) startNextInSeries();
+        return;
+    }
     if (testPhase_ == TestPhase::Running && updateGapMs > testMaxUpdateGapMs_) testMaxUpdateGapMs_ = updateGapMs;
     if (local_ && !waiting_ && now - localStartMs_ > localLimitMs_) {   // a stop is not moving time
         finish(Status::Stopped, "เดโมเกินเวลาที่กำหนด - หยุด", true);
@@ -629,34 +726,62 @@ void WaypointRunner::compareJson(JsonObject o) {
     for (uint8_t k = 0; k < 2; ++k) {
         const CompareRun& r = runs_[k];
         if (!r.id) { o[names[k]] = nullptr; continue; }
-        JsonObject j = o[names[k]].to<JsonObject>();
-        j["id"] = r.id;
-        j["open"] = r.open;
-        j["valid"] = r.valid;
-        j["elapsedMs"] = r.open ? millis() - testStartMs_ : r.elapsedMs;
-        j["startX"] = r.startX;
-        j["startY"] = r.startY;
-        j["headingDeg"] = r.headingDeg;
-        j["goalX"] = r.goalX;
-        j["goalY"] = r.goalY;
-        j["speedMps"] = r.speedMps;
-        j["steerDps"] = r.steerDps;
-        j["tolM"] = r.tolM;
-        static const char* const actNames[3] = {"still", "turn", "drive"};
-        JsonArray acts = j["acts"].to<JsonArray>();     // [{t: ms since the start, a: what}]
-        for (uint8_t i = 0; i < r.acts.size(); ++i) {
-            JsonObject a = acts.add<JsonObject>();
-            a["t"] = r.acts.t(i);
-            a["a"] = actNames[r.acts.act(i)];
-        }
-        JsonArray path = j["path"].to<JsonArray>();
-        for (uint8_t i = 0; i < r.path.size(); ++i) {
-            JsonObject p = path.add<JsonObject>();
-            p["x"] = roundf(r.path.x(i) * 10000.0f) / 10000.0f;   // 0.1 mm
-            p["y"] = roundf(r.path.y(i) * 10000.0f) / 10000.0f;
-        }
+        runJson(r, o[names[k]].to<JsonObject>(), r.open ? millis() - testStartMs_ : r.elapsedMs, false);
     }
     unlock();
+}
+
+void WaypointRunner::seriesJson(JsonObject o) {
+    lock();
+    o["id"] = seriesId_;
+    o["active"] = seriesActive_;
+    o["count"] = seriesCount_;
+    o["total"] = seriesTotal_;
+    o["why"] = seriesWhy_;
+    o["distM"] = DEMO_COMPARE_DIST_M;
+    o["rightDeg"] = DEMO_COMPARE_RIGHT_DEG;
+    JsonArray runs = o["runs"].to<JsonArray>();
+    for (uint8_t i = 0; i < seriesCount_; ++i) runJson(seriesRuns_[i], runs.add<JsonObject>(), seriesRuns_[i].elapsedMs, true);
+    unlock();
+}
+
+// one recorded run; flatPath: "xy": [x0, y0, x1, y1, ...] (smaller, for the series)
+void WaypointRunner::runJson(const CompareRun& r, JsonObject j, uint32_t elapsedMs, bool flatPath) {
+    static const char* const plannerNames[2] = {"direct", "detour"};
+    j["planner"] = plannerNames[r.planner & 1];
+    j["id"] = r.id;
+    j["open"] = r.open;
+    j["valid"] = r.valid;
+    j["elapsedMs"] = elapsedMs;
+    j["startX"] = r.startX;
+    j["startY"] = r.startY;
+    j["headingDeg"] = r.headingDeg;
+    j["goalX"] = r.goalX;
+    j["goalY"] = r.goalY;
+    j["speedMps"] = r.speedMps;
+    j["steerDps"] = r.steerDps;
+    j["tolM"] = r.tolM;
+    static const char* const actNames[3] = {"still", "turn", "drive"};
+    JsonArray acts = j["acts"].to<JsonArray>();     // [{t: ms since the start, a: what}]
+    for (uint8_t i = 0; i < r.acts.size(); ++i) {
+        JsonObject a = acts.add<JsonObject>();
+        a["t"] = r.acts.t(i);
+        a["a"] = actNames[r.acts.act(i)];
+    }
+    if (flatPath) {
+        JsonArray xy = j["xy"].to<JsonArray>();
+        for (uint8_t i = 0; i < r.path.size(); ++i) {
+            xy.add(roundf(r.path.x(i) * 10000.0f) / 10000.0f);
+            xy.add(roundf(r.path.y(i) * 10000.0f) / 10000.0f);
+        }
+        return;
+    }
+    JsonArray path = j["path"].to<JsonArray>();
+    for (uint8_t i = 0; i < r.path.size(); ++i) {
+        JsonObject p = path.add<JsonObject>();
+        p["x"] = roundf(r.path.x(i) * 10000.0f) / 10000.0f;   // 0.1 mm
+        p["y"] = roundf(r.path.y(i) * 10000.0f) / 10000.0f;
+    }
 }
 
 bool WaypointRunner::advance() {
@@ -686,6 +811,12 @@ void WaypointRunner::statusJson(JsonObject o) {
     o["overshoots"] = overshoots_;
     const int32_t waitLeft = (int32_t)(waitUntilMs_ - millis());
     o["waitLeftMs"] = waiting_ && waitLeft > 0 ? waitLeft : 0;
+    JsonObject se = o["series"].to<JsonObject>();
+    se["id"] = seriesId_;
+    se["active"] = seriesActive_;
+    se["count"] = seriesCount_;
+    se["total"] = seriesTotal_;
+    se["why"] = seriesWhy_;
     o["heartbeatAgeMs"] = status_ == Status::Running ? millis() - heartbeatMs_ : 0;
     // button demo: moving time so far and the limit (seconds); 0 when not running from the button
     const bool demo = local_ && status_ == Status::Running;

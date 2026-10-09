@@ -19,6 +19,8 @@ public:
     String(unsigned int n) : value_(std::to_string(n)) {}
     String(unsigned long n) : value_(std::to_string(n)) {}
     const char* c_str() const { return value_.c_str(); }
+    int indexOf(const char* s) const { const auto p = value_.find(s); return p == std::string::npos ? -1 : (int)p; }
+    unsigned length() const { return (unsigned)value_.size(); }
     bool operator==(const char* s) const { return value_ == s; }
     bool operator!=(const char* s) const { return value_ != s; }
     String operator+(const String& s) const { return String((value_ + s.value_).c_str()); }

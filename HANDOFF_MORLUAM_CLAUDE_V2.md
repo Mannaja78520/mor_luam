@@ -159,11 +159,29 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
     Pair 3 time line: Direct turn 9.4 s -> drive 10.1 s -> corrections 4.7 s; Detour drive 10.4 s -> turn 7.2 s
     -> short drive/adjust 2.4 s. Both drift ~1.3 cm right while driving, then correct; both end 2.5 mm from goal.
 
+- "TEST 3 ROUNDS" BUTTON (2026-10-09, owner: one press = 3 rounds + this comparison):
+  - Robot runs the series itself: WaypointRunner::startSeries(rounds 1..3) -> Direct + Detour per round, order
+    D T / T D / D T (battery/drift fairness), each run aligns, is timed, holds 5 s, drives home; 2 s pause
+    (DEMO_SERIES_GAP_MS); next run from update(). Each closed run is copied into seriesRuns_[6] (path + time line).
+    Any stop / failure ends the series (why kept). A web series does not start the next run without a heartbeat
+    in the last 3 s. While a series runs, start / route test / button routes / demo 3/4 are refused; a press of
+    the robot's button stops it.
+  - API: POST /api/demo/series/start {rounds, ready}, GET /api/demo/series (streamed; paths as flat xy),
+    status nav.series {id, active, count, total, why}.
+  - Web card: ready tick + "ทดสอบ 3 รอบ" + "หยุดชุดทดสอบ" + progress; results: table per round + mean + wins,
+    time line for every run, all paths overlaid. PNG: `tools/demo_compare_plot.py --series [--wait]`.
+  - Checks: fw-test ALL PASS + route runner 33 scenarios (order, refusals, stop between runs, lost page);
+    node tests PASS; mock page at 1440 / 360 px. RAM 33.1 %, flash 60.7 %. OTA OK (robot on 10.139.24.49,
+    free heap 72.6 KB, GET /api/demo/series answered).
+  - NOT RUN ON THE FLOOR YET: the robot went offline (probably powered off) right before the first series.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 
 **Next — all need the owner**
-0. Try the button on the floor: 3 then 4 clicks (Direct vs Detour; watch the picture card; then
+0. Run "ทดสอบ 3 รอบ" from the web card once on the floor (owner present, ~6 min), then
+   `python tools/demo_compare_plot.py --series` for the PNG.
+   Try the button on the floor: 3 then 4 clicks (Direct vs Detour; watch the picture card; then
    `python tools/demo_compare_plot.py` for the PNG). Also 1 click (square 1 m), 2 clicks (triangle 0.5 m).
 1. WiFi fallback to network 2 / move up / setup hotspot (`mor-luam-XXXX`, 192.168.4.1): needs a second saved network
    in range and the owner switching the `manny` hotspot off and on. Logic is unit-tested (`fw-test` part 4).

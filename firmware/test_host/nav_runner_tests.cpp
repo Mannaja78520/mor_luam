@@ -40,6 +40,19 @@ struct Trial {
         for (int i = 0; i < 5; ++i) tick();
         assert(phase() == "running");
     }
+    // one demo 3/4 run: align, reach the goal, hold, drive home
+    void compareRun() {
+        align();
+        tick(1000);
+        const float b = -DEMO_COMPARE_RIGHT_DEG * 3.14159265f / 180.0f;
+        ctrl.applied.goalActive = false; ctrl.applied.targetRpm = 0;
+        ctrl.applied.x = DEMO_COMPARE_DIST_M * std::cos(b); ctrl.applied.y = DEMO_COMPARE_DIST_M * std::sin(b);
+        tick(); tick();                                   // at the goal: the hold starts
+        for (int i = 0; i < 110; ++i) tick();            // 5.5 s: hold over, the drive home is sent
+        ctrl.applied.goalActive = false; ctrl.applied.targetRpm = 0;
+        ctrl.applied.x = 0; ctrl.applied.y = 0;
+        tick(); tick();                                   // home: done
+    }
     void complete() {
         ctrl.applied.goalActive = false;
         ctrl.applied.targetRpm = 0;
@@ -425,5 +438,55 @@ int main() {
         assert(acts.size() >= 3 && acts[1].children["a"].text == "turn" && acts[2].children["a"].text == "drive");
         t.runner.stop("test");
     }
-    std::cout << "WaypointRunner comparison tests PASS (30 scenarios)\n";
+    {   // "test N rounds": runs one after another, rounds alternate who goes first, results kept
+        Trial t;
+        assert(!t.runner.startSeries(2, t.err, false, false));                       // not ready
+        assert(!t.runner.startSeries(DEMO_SERIES_MAX_ROUNDS + 1, t.err, false, true));
+        assert(t.runner.startSeries(2, t.err, false, true));
+        assert(!t.runner.start(t.err) && !t.runner.startCompare("direct", t.err));     // nothing else meanwhile
+        assert(!t.runner.startButtonRoute(1, t.err) && t.runner.seriesActive());
+        for (int run = 0; run < 4; ++run) {
+            if (run) {
+                for (int i = 0; i < 30; ++i) t.tick();                                // 1.5 s: still the pause
+                assert(t.status().children["status"].text == "done");
+                for (int i = 0; i < 11; ++i) t.tick();                                // just past 2 s: the next run aligns
+            }
+            assert(t.phase() == "aligning");
+            t.compareRun();
+            assert(t.status().children["series"].children["count"].number == run + 1);
+        }
+        for (int i = 0; i < 60; ++i) t.tick();                                        // no fifth run
+        JsonNode o; t.runner.seriesJson(JsonObject(&o));
+        assert(o.children["count"].number == 4 && o.children["total"].number == 4);
+        assert(o.children["active"].number == 0 && o.children["why"].text.empty());
+        auto& runs = o.children["runs"].items;
+        const char* order[4] = {"direct", "detour", "detour", "direct"};
+        for (int i = 0; i < 4; ++i) {
+            assert(runs[i].children["planner"].text == order[i] && runs[i].children["valid"].number == 1);
+            assert(runs[i].children["xy"].items.size() >= 4 && !runs[i].children["acts"].items.empty());
+        }
+        assert(t.status().children["status"].text == "done" && !t.runner.seriesActive());
+    }
+    {   // a stop between runs ends the series
+        Trial t;
+        assert(t.runner.startSeries(3, t.err, false, true));
+        t.compareRun();
+        t.runner.stop("E-STOP");
+        for (int i = 0; i < 60; ++i) t.tick();
+        JsonNode o; t.runner.seriesJson(JsonObject(&o));
+        assert(o.children["count"].number == 1 && o.children["active"].number == 0 && o.children["why"].text == "E-STOP");
+        assert(t.phase() != "aligning");
+    }
+    {   // the web page goes away: the next run stops within 3 s and the series ends
+        Trial t;
+        assert(t.runner.startSeries(3, t.err, false, true));
+        t.compareRun();
+        for (int i = 0; i < 120; ++i) t.tick(50, true, false);                       // 6 s, no heartbeat
+        JsonNode o; t.runner.seriesJson(JsonObject(&o));
+        // run 2 started (page seen 2 s ago), then stopped by the 3 s rule: kept, not valid
+        assert(o.children["active"].number == 0 && o.children["count"].number == 2);
+        assert(o.children["runs"].items[1].children["valid"].number == 0 && !o.children["why"].text.empty());
+        assert(t.status().children["status"].text != "running");
+    }
+    std::cout << "WaypointRunner comparison tests PASS (33 scenarios)\n";
 }

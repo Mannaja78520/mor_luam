@@ -43,13 +43,28 @@ def mock_compare():
     base = {"startX": sx, "startY": sy, "headingDeg": 30.0, "goalX": gw["x"], "goalY": gw["y"],
             "speedMps": 0.03, "steerDps": 35.0, "tolM": 0.0025, "open": False, "valid": True}
     return {"distM": 0.3, "rightDeg": 6.0,
-            "direct": {**base, "id": 1, "elapsedMs": 25840, "path": direct,
+            "direct": {**base, "id": 15, "planner": "direct", "elapsedMs": 25840, "path": direct,
                        "acts": [{"t": 0, "a": "still"}, {"t": 300, "a": "turn"}, {"t": 10400, "a": "still"},
                                 {"t": 10750, "a": "drive"}, {"t": 25600, "a": "still"}]},
-            "detour": {**base, "id": 2, "elapsedMs": 19990, "path": detour,
+            "detour": {**base, "id": 14, "planner": "detour", "elapsedMs": 19990, "path": detour,
                        "acts": [{"t": 0, "a": "still"}, {"t": 200, "a": "drive"}, {"t": 10600, "a": "still"},
                                 {"t": 10900, "a": "turn"}, {"t": 18050, "a": "still"}, {"t": 18350, "a": "drive"},
                                 {"t": 19800, "a": "still"}]}}
+
+
+def mock_series():
+    """Fake finished 3-round series (D T, T D, D T), paths as flat xy like the robot."""
+    c = mock_compare()
+    order = ["direct", "detour", "detour", "direct", "direct", "detour"]
+    times = {"direct": [24550, 22700, 24590], "detour": [21660, 20790, 20190]}
+    runs, used = [], {"direct": 0, "detour": 0}
+    for i, k in enumerate(order):
+        r = dict(c[k])
+        r.update(id=10 + i, planner=k, elapsedMs=times[k][used[k]])
+        used[k] += 1
+        r["xy"] = [v for p in r.pop("path") for v in (p["x"], p["y"])]
+        runs.append(r)
+    return {"id": 1, "active": False, "count": 6, "total": 6, "why": "", "distM": 0.3, "rightDeg": 6, "runs": runs}
 
 
 def now_ms():
@@ -255,6 +270,7 @@ class Robot:
                 "goalY": self.goal[1] if self.goal else 0, "haltWhy": self.halt_why,
             },
             "nav": {**self.nav, "count": n, "loop": self.route_loop,
+                    "series": {"id": 1, "active": False, "count": 6, "total": 6, "why": ""},
                     "waitLeftMs": max(0, self.wait_until - now_ms()) if self.wait_until else 0,
                     "planner": self.route_planner, "plan": self.plan, "test": test,
                     "heartbeatAgeMs": now_ms() - self.heartbeat_ms if self.nav["status"] == "running" else 0},
@@ -356,6 +372,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {"slot": slot, "points": R.routes[slot] if slot else R.points})
             if p == "/api/demo/compare":
                 return self.send(200, mock_compare())
+            if p == "/api/demo/series":
+                return self.send(200, mock_series())
             if p == "/api/wifi":
                 return self.send(200, {"saved": R.wifi, "max": 6, "net": R.net()})
             if p == "/api/wifi/scan":

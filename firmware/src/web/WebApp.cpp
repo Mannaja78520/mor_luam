@@ -231,6 +231,22 @@ void WebApp::routesNav() {
         ok(r);
     });
 
+    onJson("/api/demo/series/start", [this](AsyncWebServerRequest* r, JsonDocument& doc) {
+        if (!doc["ready"].is<bool>()) { fail(r, "ต้องมี ready เป็น true"); return; }
+        const int rounds = doc["rounds"] | (int)DEMO_SERIES_MAX_ROUNDS;
+        String err;
+        if (rounds < 1 || rounds > 255 || !d_.runner->startSeries((uint8_t)rounds, err, false, doc["ready"].as<bool>())) {
+            fail(r, err.length() ? err : String("จำนวนรอบไม่ถูกต้อง")); return;
+        }
+        ok(r);
+    });
+    server_.on("/api/demo/series", HTTP_GET, [this](AsyncWebServerRequest* r) {
+        JsonDocument doc;
+        d_.runner->seriesJson(doc.to<JsonObject>());
+        AsyncResponseStream* res = r->beginResponseStream("application/json");   // no extra copy in RAM
+        serializeJson(doc, *res);
+        r->send(res);
+    });
     onJson("/api/demo/compare/start", [this](AsyncWebServerRequest* r, JsonDocument& doc) {
         if (!doc["planner"].is<const char*>() || !doc["ready"].is<bool>()) { fail(r, "ต้องมี planner และ ready เป็น true"); return; }
         String err;

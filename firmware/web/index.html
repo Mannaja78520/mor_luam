@@ -86,6 +86,16 @@
 
       <div class="card" id="demoCard">
         <h3>เดโม 3 / 4 ครั้ง <small>Direct เทียบ Detour · เป้าเดียวกัน</small></h3>
+        <div class="series-box" id="seriesBox">
+          <p class="hint">กดครั้งเดียว หุ่นวิ่งเทียบ Direct กับ Detour 3 รอบ (6 ครั้ง) ต่อกันเอง · ทุกครั้งกลับจุดเริ่มก่อน · สลับว่าแบบไหนวิ่งก่อน · ใช้ราว 6 นาที ต้องเปิดหน้านี้ไว้</p>
+          <label class="field check"><input type="checkbox" id="seriesReady"><span>หุ่นอยู่บนพื้น ฉันอยู่ข้างหุ่น และข้างหน้าว่างราว 0.5 ม.</span></label>
+          <div class="row">
+            <button class="btn go" type="button" id="seriesStart">ทดสอบ 3 รอบ</button>
+            <button class="btn stop" type="button" id="seriesStop">หยุดชุดทดสอบ</button>
+          </div>
+          <div class="progress" aria-hidden="true"><div id="seriesProg"></div></div>
+          <p class="hint reserve" id="seriesMsg" aria-live="polite">&nbsp;</p>
+        </div>
         <div class="demo-tl hidden" id="demoTimeline" role="img" aria-label="เส้นเวลา: แต่ละรอบทำอะไรตอนไหน"></div>
         <div class="demo-legend" aria-hidden="true">
           <span><i class="sw direct"></i>Direct (กด 3)</span>
