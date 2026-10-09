@@ -36,6 +36,10 @@ bool WaypointRunner::setPoints(const Waypoint* pts, size_t n, String& err, uint8
             err = "จุดที่ " + String(i + 1) + " อยู่นอกช่วง ±50 m";
             return false;
         }
+        if (!isfinite(pts[i].waitS) || pts[i].waitS < 0.0f || pts[i].waitS > NAV_MAX_WAIT_S) {
+            err = "จุดที่ " + String(i + 1) + ": เวลารอต้องอยู่ระหว่าง 0-" + String((int)NAV_MAX_WAIT_S) + " วินาที";
+            return false;
+        }
     }
     lock();
     if (slot) {                                     // a button route: a running demo keeps its own copy
@@ -63,6 +67,7 @@ void WaypointRunner::pointsJson(JsonArray out, uint8_t slot) {
         JsonObject p = out.add<JsonObject>();
         p["x"] = src[i].x;
         p["y"] = src[i].y;
+        p["waitS"] = src[i].waitS;
     }
     unlock();
 }
@@ -80,6 +85,25 @@ void WaypointRunner::saveRoute(uint8_t slot) {
     if (routeCount_[slot - 1]) prefs_.putBytes(kp, routes_[slot - 1], sizeof(Waypoint) * routeCount_[slot - 1]);
 }
 
+// Saved points are x, y, waitS (12 bytes each). Firmware before 2026-10-09 saved
+// x, y only (8 bytes): read those with no stops, so an update keeps the routes.
+bool WaypointRunner::readPoints(const char* key, uint8_t n, Waypoint* out) {
+    const size_t len = prefs_.getBytesLength(key);
+    if (len == sizeof(Waypoint) * n) {
+        prefs_.getBytes(key, out, len);
+    } else if (len == sizeof(float) * 2 * n) {
+        float xy[NAV_MAX_POINTS * 2];
+        prefs_.getBytes(key, xy, len);
+        for (uint8_t i = 0; i < n; ++i) out[i] = {xy[2 * i], xy[2 * i + 1], 0.0f};
+    } else {
+        return false;
+    }
+    for (uint8_t i = 0; i < n; ++i) {
+        if (!isfinite(out[i].waitS) || out[i].waitS < 0.0f || out[i].waitS > NAV_MAX_WAIT_S) out[i].waitS = 0.0f;
+    }
+    return true;
+}
+
 void WaypointRunner::load() {
     // button routes; never saved = forward, left, back to the start
     static_assert(DEMO_ROUTES == 2, "one default route per button slot");
@@ -90,21 +114,19 @@ void WaypointRunner::load() {
         snprintf(kn, sizeof(kn), "r%un", (unsigned)slot);
         snprintf(kp, sizeof(kp), "r%up", (unsigned)slot);
         const uint8_t n = prefs_.getUChar(kn, 0xFF);   // 0xFF = never saved (0 = cleared on purpose)
-        if (n <= NAV_MAX_POINTS && (n == 0 || prefs_.getBytesLength(kp) == sizeof(Waypoint) * n)) {
-            if (n) prefs_.getBytes(kp, r, sizeof(Waypoint) * n);
+        if (n <= NAV_MAX_POINTS && (n == 0 || readPoints(kp, n, r))) {
             routeCount_[slot - 1] = n;
         } else {
             const float side = sides[slot - 1];
-            r[0] = {side, 0.0f};
-            r[1] = {side, side};
-            r[2] = {0.0f, 0.0f};
+            r[0] = {side, 0.0f, 0.0f};
+            r[1] = {side, side, 0.0f};
+            r[2] = {0.0f, 0.0f, 0.0f};
             routeCount_[slot - 1] = 3;
         }
     }
 
     const uint8_t n = prefs_.getUChar("n", 0);
-    if (n == 0 || n > NAV_MAX_POINTS || prefs_.getBytesLength("pts") != sizeof(Waypoint) * n) return;
-    prefs_.getBytes("pts", pts_, sizeof(Waypoint) * n);
+    if (n == 0 || n > NAV_MAX_POINTS || !readPoints("pts", n, pts_)) return;
     count_ = n;
 }
 
@@ -128,6 +150,7 @@ void WaypointRunner::prepare(const SettingsData& s) {
     heartbeatMs_ = millis();
     localStartMs_ = millis();
     commandPending_ = false;
+    waiting_ = false;
     // the same 3 s rule, enforced in the control task too (loop() may be blocked);
     // a demo started from the robot's button has its own stop (the button) instead
     if (!local_) ctrl_->armWatchdog(WEB_HEARTBEAT_TIMEOUT_MS, "หน้าเว็บขาดการเชื่อมต่อ - หยุดเพื่อความปลอดภัย");
@@ -201,7 +224,7 @@ bool WaypointRunner::beginTest(const String& planner, float heading, bool ready,
     homeY_ = s.y;
     if (compare) {                           // goal placed in alignTest(); hold here until then
         borrowPts();
-        pts_[0] = {s.x, s.y};
+        pts_[0] = {s.x, s.y, 0.0f};
         count_ = 1;
     }
     prepare(settings);
@@ -249,7 +272,7 @@ void WaypointRunner::alignTest(const RobotState& s, uint32_t now) {
     testActualHeadingDeg_ = s.wheelHeadingDeg;
     if (compare_) {   // demo 3/4: same goal for both, measured from where the wheel really points
         const float b = angles::deg2rad(s.wheelHeadingDeg - DEMO_COMPARE_RIGHT_DEG);
-        pts_[0] = {s.x + DEMO_COMPARE_DIST_M * cosf(b), s.y + DEMO_COMPARE_DIST_M * sinf(b)};
+        pts_[0] = {s.x + DEMO_COMPARE_DIST_M * cosf(b), s.y + DEMO_COMPARE_DIST_M * sinf(b), 0.0f};
         count_ = 1;
     }
     testStartX_ = s.x;
@@ -282,6 +305,7 @@ void WaypointRunner::finish(Status st, const char* why, bool haltWheel) {
     message_ = why;
     legActive_ = false;
     commandPending_ = false;
+    waiting_ = false;
     returnHome_ = homing_ = compare_ = false;
     if (restorePts_) {                       // a button demo borrowed pts_: give the web route back
         for (uint8_t i = 0; i < savedCount_; ++i) pts_[i] = savedPts_[i];
@@ -301,7 +325,7 @@ void WaypointRunner::beginReturnHome() {
         testPhase_ = pidSame ? TestPhase::Done : TestPhase::Failed;
     }
     borrowPts();
-    pts_[0] = {homeX_, homeY_};
+    pts_[0] = {homeX_, homeY_, 0.0f};
     count_ = 1;
     idx_ = 0;
     tries_ = 0;
@@ -309,6 +333,14 @@ void WaypointRunner::beginReturnHome() {
     plannerName_ = "direct";
     homing_ = true;
     message_ = testTimed_ ? "กลับจุดเริ่ม (ไม่นับเวลา)" : "กลับจุดเริ่ม";
+    if (compare_ && DEMO_COMPARE_HOLD_S > 0.0f) {   // demo 3/4: stay at the goal so people can see it
+        waiting_ = true;
+        waitAdvances_ = false;                      // afterwards plan towards home
+        waitUntilMs_ = millis() + (uint32_t)(DEMO_COMPARE_HOLD_S * 1000.0f);
+        char msg[128];
+        snprintf(msg, sizeof(msg), "ถึงเป้าแล้ว: หยุด %.0f วินาที แล้วกลับจุดเริ่ม", DEMO_COMPARE_HOLD_S);
+        message_ = msg;
+    }
 }
 
 void WaypointRunner::borrowPts() {
@@ -433,6 +465,17 @@ void WaypointRunner::update() {
         else alignTest(s, sampleNow);
         unlock(); return;
     }
+    if (waiting_) {                                 // stopped at a reached point for its waitS
+        if (s.source == CommandSource::Ros) {
+            finish(Status::Stopped, "ROS สั่งงานแทน", false);
+        } else if ((int32_t)(sampleNow - waitUntilMs_) >= 0) {
+            waiting_ = false;
+            message_ = homing_ ? (testTimed_ ? "กลับจุดเริ่ม (ไม่นับเวลา)" : "กลับจุดเริ่ม")
+                               : (testTimed_ ? "กำลังเทสและจับเวลาบนหุ่น" : "กำลังวิ่ง");
+            if (!waitAdvances_ || advance()) planNext(s);
+        }
+        unlock(); return;
+    }
     if (legActive_) {
         if (s.source != CommandSource::Web) {
             finish(Status::Stopped, "ROS สั่งงานแทน", false);
@@ -460,11 +503,16 @@ void WaypointRunner::planNext(const RobotState& s) {
         const float dist = sqrtf(dx * dx + dy * dy);
         if (dist > tolM_) break;
         tries_ = 0;                                 // reached this point
-        if (++idx_ >= count_) {
-            if (returnHome_ && !homing_) { beginReturnHome(); continue; }   // then plan towards home
-            if (!loop_) { finish(Status::Done, homing_ ? "กลับถึงจุดเริ่มแล้ว" : "ถึงจุดสุดท้ายแล้ว", true); return; }
-            idx_ = 0;
+        if (!homing_ && wp.waitS > 0.0f) {          // stop here first; update() moves on afterwards
+            waiting_ = true;
+            waitAdvances_ = true;
+            waitUntilMs_ = millis() + (uint32_t)(wp.waitS * 1000.0f);
+            char msg[128];
+            snprintf(msg, sizeof(msg), "ถึงจุดที่ %u: หยุดรอ %.1f วินาที", (unsigned)idx_ + 1, wp.waitS);
+            message_ = msg;
+            return;
         }
+        if (!advance()) return;
     }
     if (tries_ >= NAV_MAX_RETRIES) {
         finish(Status::Failed, "เล็งจุดนี้หลายครั้งแล้วยังไม่ถึง - หยุด", true);
@@ -503,6 +551,15 @@ void WaypointRunner::planNext(const RobotState& s) {
     lastDistM_ = dist;
 }
 
+bool WaypointRunner::advance() {
+    if (++idx_ >= count_) {
+        if (returnHome_ && !homing_) { beginReturnHome(); return !waiting_; }   // then (after a hold) home
+        if (!loop_) { finish(Status::Done, homing_ ? "กลับถึงจุดเริ่มแล้ว" : "ถึงจุดสุดท้ายแล้ว", true); return false; }
+        idx_ = 0;
+    }
+    return true;
+}
+
 void WaypointRunner::statusJson(JsonObject o) {
     lock();
     o["status"] = statusName(status_);
@@ -519,6 +576,8 @@ void WaypointRunner::statusJson(JsonObject o) {
     o["planner"] = plannerName_;
     o["tries"] = tries_;
     o["overshoots"] = overshoots_;
+    const int32_t waitLeft = (int32_t)(waitUntilMs_ - millis());
+    o["waitLeftMs"] = waiting_ && waitLeft > 0 ? waitLeft : 0;
     o["heartbeatAgeMs"] = status_ == Status::Running ? millis() - heartbeatMs_ : 0;
     JsonObject t = o["test"].to<JsonObject>();
     static const char* const testPhases[] = {"idle", "aligning", "running", "done", "stopped", "failed"};

@@ -51,7 +51,8 @@ class Robot:
         # the demo button's routes 1 / 2 (firmware defaults: square 1 m, triangle 0.5 m)
         self.routes = {1: [{"x": 1.0, "y": 0.0}, {"x": 1.0, "y": 1.0}, {"x": 0.0, "y": 0.0}],
                        2: [{"x": 0.5, "y": 0.0}, {"x": 0.5, "y": 0.5}, {"x": 0.0, "y": 0.0}]}
-        self.nav = {"status": "idle", "message": "", "index": 0, "tries": 0, "overshoots": 0}
+        self.nav = {"status": "idle", "message": "", "index": 0, "tries": 0, "overshoots": 0, "waitLeftMs": 0}
+        self.wait_until = 0              # stopped at a point until this ms (its waitS)
         self.plan = {"kind": "direct", "phiDeg": 0, "distM": 0, "k": 0, "a": 0, "betaDeg": 0, "b": 0, "timeS": 0}
         self.heartbeat_ms = 0
         self.settings = {
@@ -85,6 +86,7 @@ class Robot:
         return s
 
     def start_test(self, planner, heading):
+        self.wait_until = 0
         self.test_id += 1
         self.route_planner = planner
         self.route_loop = False
@@ -143,6 +145,7 @@ class Robot:
 
     def stop(self, why, status="stopped"):
         self.mode, self.rpm, self.goal = "halt", 0.0, None
+        self.wait_until = 0
         self.halt_why = why
         if self.nav["status"] == "running":
             self.nav.update(status=status, message=why)
@@ -168,7 +171,15 @@ class Robot:
                     return
             if self.mode == "halt":
                 tgt = self.points[self.nav["index"]]
-                if math.hypot(tgt["x"] - self.x, tgt["y"] - self.y) <= s["navTolM"]:
+                if self.wait_until and now_ms() < self.wait_until:
+                    return
+                reached = math.hypot(tgt["x"] - self.x, tgt["y"] - self.y) <= s["navTolM"]
+                if reached and tgt.get("waitS", 0) > 0 and not self.wait_until:
+                    self.wait_until = now_ms() + tgt["waitS"] * 1000
+                    self.nav["message"] = f"ถึงจุดที่ {self.nav['index'] + 1}: หยุดรอ {tgt['waitS']:.1f} วินาที"
+                    return
+                self.wait_until = 0
+                if reached:
                     self.nav["index"] += 1
                     if self.nav["index"] >= len(self.points):
                         if s["navLoop"]:
@@ -222,6 +233,7 @@ class Robot:
                 "goalY": self.goal[1] if self.goal else 0, "haltWhy": self.halt_why,
             },
             "nav": {**self.nav, "count": n, "loop": self.route_loop,
+                    "waitLeftMs": max(0, self.wait_until - now_ms()) if self.wait_until else 0,
                     "planner": self.route_planner, "plan": self.plan, "test": test,
                     "heartbeatAgeMs": now_ms() - self.heartbeat_ms if self.nav["status"] == "running" else 0},
             "net": self.net(),
@@ -370,6 +382,7 @@ class Handler(BaseHTTPRequestHandler):
                 R.test.update(active=False, phase="idle", valid=False)
                 R.route_planner = R.settings["planner"]
                 R.route_loop = R.settings["navLoop"]
+                R.wait_until = 0
                 R.nav.update(status="running", message="", index=0, tries=0, overshoots=0)
                 R.heartbeat_ms = now_ms()
                 R.mode = "halt"
@@ -405,7 +418,10 @@ class Handler(BaseHTTPRequestHandler):
                 for i, pt in enumerate(pts):
                     if abs(pt["x"]) > 50 or abs(pt["y"]) > 50:
                         return self.fail(f"จุดที่ {i + 1} อยู่นอกช่วง ±50 m")
-                clean = [{"x": float(pt["x"]), "y": float(pt["y"])} for pt in pts]
+                for i, pt in enumerate(pts):
+                    if not 0 <= float(pt.get("waitS", 0)) <= 60:
+                        return self.fail(f"จุดที่ {i + 1}: เวลารอต้องอยู่ระหว่าง 0-60 วินาที")
+                clean = [{"x": float(pt["x"]), "y": float(pt["y"]), "waitS": float(pt.get("waitS", 0))} for pt in pts]
                 if slot:
                     R.routes[slot] = clean
                 else:

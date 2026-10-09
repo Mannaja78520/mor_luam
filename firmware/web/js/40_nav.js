@@ -100,9 +100,9 @@ class WaypointTable {
     r.points.forEach((p, i) => {
       const row = rows[i];
       row.classList.toggle('cur', i === this.activeIdx);
-      const [ix, iy] = row.querySelectorAll('input');
-      for (const [inp, v] of [[ix, p.x], [iy, p.y]]) {
-        if (document.activeElement !== inp) inp.value = v.toFixed(2);   // never overwrite while typing
+      const [ix, iy, iw] = row.querySelectorAll('input');
+      for (const [inp, v] of [[ix, p.x.toFixed(2)], [iy, p.y.toFixed(2)], [iw, String(p.waitS || 0)]]) {
+        if (document.activeElement !== inp) inp.value = v;   // never overwrite while typing
         inp.disabled = !!this.locked;
       }
       row.querySelectorAll('button').forEach((b) => { b.disabled = !!this.locked; });
@@ -117,16 +117,22 @@ class WaypointTable {
         type: 'number', step: '0.1', inputmode: 'decimal', 'aria-label': `จุด ${i + 1} ${axis} (m)`,
         onchange: (e) => this.edit(i, axis, e.target),
       });
+      const wait = el('input', {
+        type: 'number', step: '0.5', min: '0', max: String(ROUTE_MAX_WAIT_S), inputmode: 'decimal',
+        'aria-label': `จุด ${i + 1} หยุดรอ (วินาที)`, onchange: (e) => this.editWait(i, e.target),
+      });
       tb.append(el('tr', {},
         el('td', { text: String(i + 1) }),
         el('td', {}, num('x')),
         el('td', {}, num('y')),
+        el('td', { class: 'wait' }, wait),
         el('td', { class: 'act' },
           el('button', { class: 'iconbtn', type: 'button', 'data-up': '1', title: 'เลื่อนขึ้น', 'aria-label': `เลื่อนจุด ${i + 1} ขึ้น`, onclick: () => this.route.moveUp(i) }, '↑'),
           el('button', { class: 'iconbtn danger', type: 'button', title: 'ลบ', 'aria-label': `ลบจุด ${i + 1}`, onclick: () => this.route.remove(i) }, '✕'))));
     }
     this.table = el('table', { class: 'wptable' },
-      el('thead', {}, el('tr', {}, el('th', { text: '#' }), el('th', { text: 'x (m)' }), el('th', { text: 'y (m)' }), el('th'))), tb);
+      el('thead', {}, el('tr', {}, el('th', { text: '#' }), el('th', { text: 'x (m)' }), el('th', { text: 'y (m)' }),
+        el('th', { text: 'รอ (s)', title: 'ถึงจุดแล้วหยุดรอกี่วินาที (0 = ไปต่อเลย)' }), el('th'))), tb);
     this.body.replaceChildren(el('div', { class: 'wpscroll' }, this.table));
   }
 
@@ -137,6 +143,14 @@ class WaypointTable {
     if (!okv) { this.toast.show(`ค่าต้องเป็นตัวเลขระหว่าง -${ROUTE_LIMIT_M} ถึง ${ROUTE_LIMIT_M} m`, true); return; }
     const p = this.route.points[i];
     this.route.move(i, axis === 'x' ? v : p.x, axis === 'y' ? v : p.y);
+  }
+
+  editWait(i, inp) {
+    const v = inp.value.trim() === '' ? 0 : parseFloat(inp.value);
+    const okv = Number.isFinite(v) && v >= 0 && v <= ROUTE_MAX_WAIT_S;
+    inp.classList.toggle('bad', !okv);
+    if (!okv) { this.toast.show(`เวลารอต้องอยู่ระหว่าง 0 ถึง ${ROUTE_MAX_WAIT_S} วินาที`, true); return; }
+    this.route.setWait(i, v);
   }
 }
 
@@ -198,7 +212,9 @@ class NavPanel {
     this.badge.textContent = word;
     this.badge.className = 'badge ' + cls;
     const m = nav.message && nav.message !== word ? nav.message : '';   // the badge already says it
-    this.msg.textContent = m || (running ? `ไปจุดที่ ${nav.index + 1} จาก ${nav.count}` : ' ');
+    this.msg.textContent = running && nav.waitLeftMs > 0
+      ? `${m || 'หยุดรอ'} · อีก ${(nav.waitLeftMs / 1000).toFixed(1)} วินาที`   // the robot's message says why
+      : m || (running ? `ไปจุดที่ ${nav.index + 1} จาก ${nav.count}` : ' ');
     this.msg.title = this.msg.textContent;
     const done = nav.status === 'done' ? nav.count : running ? nav.index : 0;
     this.prog.style.width = nav.count ? `${(100 * done) / nav.count}%` : '0';

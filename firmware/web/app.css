@@ -297,6 +297,7 @@ details.more summary { cursor: pointer; color: var(--mut); font-size: var(--fs-1
 .wptable td { padding: 2px var(--sp-1); }
 .wptable td:first-child { width: 2.5em; color: var(--mut); text-align: right; }
 .wptable td.act { width: 1%; white-space: nowrap; text-align: right; }
+.wptable td.wait { width: 4.5em; }
 .wptable input { width: 100%; min-width: 0; text-align: right; }
 .wptable tr.cur td:first-child { color: var(--ok); font-weight: 700; }
 .wpscroll { max-height: 320px; overflow: auto; }

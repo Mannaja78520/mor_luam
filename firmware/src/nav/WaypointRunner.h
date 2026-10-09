@@ -25,6 +25,7 @@
 struct Waypoint {
     float x;
     float y;
+    float waitS;   // once reached, stop here this long (0 = drive on); 0..NAV_MAX_WAIT_S
 };
 
 class WaypointRunner {
@@ -68,6 +69,8 @@ private:
     bool testSensorsOk(const RobotState& state, uint32_t now) const;
     void sendCommand(const DriveCommand& cmd, const RobotState& before);
     void planNext(const RobotState& s);
+    bool advance();                        // next point; false = nothing to plan now (finished or holding)
+    bool readPoints(const char* key, uint8_t n, Waypoint* out);
     void finish(Status st, const char* why, bool haltWheel);
     void beginReturnHome();                // button demo: route done, drive back to its start
     void borrowPts();                      // a button demo uses pts_; finish() gives the web route back
@@ -98,6 +101,9 @@ private:
     LegPlan lastPlan_;
     float lastPhiDeg_ = 0.0f, lastDistM_ = 0.0f;
     uint8_t overshoots_ = 0;
+    bool waiting_ = false;                 // stopped at a reached point until waitUntilMs_
+    bool waitAdvances_ = true;             // after the wait: next point (false: plan the current one)
+    uint32_t waitUntilMs_ = 0;
     uint32_t heartbeatMs_ = 0;
     uint32_t lastUpdateMs_ = 0;
     // A command changes the controller before its published RobotState changes.

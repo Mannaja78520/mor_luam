@@ -72,4 +72,7 @@ A simulation is useful for checking a route and the controls. It cannot verify p
 - Web routes keep the 3 s heartbeat rule unchanged.
 - 1 / 2 clicks drive route 1 / 2 (set on the web page, saved on the robot, relative to where the robot stands:
   pose reset at the press). 3 / 4 clicks: Direct / Detour to a goal 0.20 m away, 10 deg right of the aligned wheel.
-  Every button demo drives back to its start after the last point. Check the floor for the saved route first.
+  Every button demo drives back to its start after the last point (demos 3/4 hold 5 s at the goal first).
+  Check the floor for the saved route first.
+- Per-point waits (0-60 s) hold the robot still at a reached point; the web heartbeat rule still applies
+  to web routes during a wait, and button demos keep their 5 min cap (DEMO_MAX_MS) including waits.

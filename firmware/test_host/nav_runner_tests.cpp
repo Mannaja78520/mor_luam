@@ -23,7 +23,7 @@ struct Trial {
         ctrl.state.imuMotionFlags = 3;
         ctrl.applied = ctrl.state;
         runner.begin(&ctrl, &settings);
-        const Waypoint point{0.3f, 0.03f};
+        const Waypoint point{0.3f, 0.03f, 0.0f};
         assert(runner.setPoints(&point, 1, err));
     }
     JsonNode status() { JsonNode out; runner.statusJson(JsonObject(&out)); return out; }
@@ -213,7 +213,7 @@ int main() {
     }
     {   // button routes are saved per slot, apart from the web route
         Trial t;
-        const Waypoint two[] = {{0.4f, 0.0f}, {0.4f, -0.2f}};
+        const Waypoint two[] = {{0.4f, 0.0f, 0.0f}, {0.4f, -0.2f, 0.0f}};
         assert(t.runner.setPoints(two, 2, t.err, 2));
         assert(!t.runner.setPoints(two, 2, t.err, DEMO_ROUTES + 1));
         JsonNode r2; t.runner.pointsJson(JsonArray(&r2), 2);
@@ -232,7 +232,7 @@ int main() {
     }
     {   // button route: after the last point, drive back to where it started
         Trial t;
-        const Waypoint one{0.5f, 0.0f};
+        const Waypoint one{0.5f, 0.0f, 0.0f};
         assert(t.runner.setPoints(&one, 1, t.err, 1));
         assert(t.runner.startButtonRoute(1, t.err));
         t.tick(); t.tick();
@@ -290,8 +290,15 @@ int main() {
         t.tick();
         t.tick();
         assert(t.phase() == "done" && t.field("valid") == 1 && t.field("elapsedMs") >= 4000);
-        assert(t.status().children["status"].text == "running");          // now going home
+        assert(t.status().children["status"].text == "running");          // holding at the goal
         const double elapsed = t.field("elapsedMs");
+        const size_t sent = t.ctrl.commands.size();
+        assert(t.status().children["waitLeftMs"].number > DEMO_COMPARE_HOLD_S * 1000 - 200);
+        for (int i = 0; i < 90; ++i) t.tick();                           // 4.5 s: still at the goal
+        assert(t.ctrl.commands.size() == sent);
+        for (int i = 0; i < 12; ++i) t.tick();                           // hold over: drive home
+        assert(t.ctrl.commands.size() == sent + 1 && t.field("elapsedMs") == elapsed);
+        assert(std::fabs(t.ctrl.commands.back().distM - DEMO_COMPARE_DIST_M) < 1e-3);
         t.ctrl.applied.goalActive = false; t.ctrl.applied.targetRpm = 0;
         t.ctrl.applied.x = 0; t.ctrl.applied.y = 0;                       // back at the start
         t.tick(); t.tick();
@@ -308,5 +315,31 @@ int main() {
         t.tick();
         assert(t.status().children["status"].text == "done");
     }
-    std::cout << "WaypointRunner comparison tests PASS (24 scenarios)\n";
+    {   // a point with a wait: stop there for waitS, then go on to the next point
+        Trial t;
+        const Waypoint two[] = {{0.3f, 0.0f, 2.0f}, {0.6f, 0.0f, 0.0f}};
+        assert(t.runner.setPoints(two, 2, t.err));
+        assert(t.runner.start(t.err));
+        t.tick();                                                         // leg 1 sent
+        assert(t.ctrl.commands.size() == 1);
+        t.ctrl.applied.goalActive = false; t.ctrl.applied.targetRpm = 0;
+        t.ctrl.applied.x = 0.3f;
+        t.tick(); t.tick();                                               // reached point 1: waiting
+        assert(t.status().children["waitLeftMs"].number > 1500 && t.ctrl.commands.size() == 1);
+        for (int i = 0; i < 30; ++i) t.tick();                           // 1.5 s later: still waiting
+        assert(t.ctrl.commands.size() == 1 && t.status().children["status"].text == "running");
+        for (int i = 0; i < 12; ++i) t.tick();                           // past 2 s: on to point 2
+        assert(t.ctrl.commands.size() == 2 && t.status().children["waitLeftMs"].number == 0);
+        assert(t.status().children["index"].number == 1);
+        t.runner.stop("test");
+        Waypoint bad{0.1f, 0.0f, NAV_MAX_WAIT_S + 1.0f};
+        assert(!t.runner.setPoints(&bad, 1, t.err));
+        bad.waitS = NAN;
+        assert(!t.runner.setPoints(&bad, 1, t.err));
+        bad.waitS = -1.0f;
+        assert(!t.runner.setPoints(&bad, 1, t.err, 1));
+        JsonNode pts; t.runner.pointsJson(JsonArray(&pts));
+        assert(pts.items.size() == 2 && std::fabs(pts.items[0].children["waitS"].number - 2.0) < 1e-6);
+    }
+    std::cout << "WaypointRunner comparison tests PASS (25 scenarios)\n";
 }

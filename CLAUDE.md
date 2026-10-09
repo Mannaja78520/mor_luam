@@ -23,7 +23,7 @@ Read this file first; open only the files the task needs.
 | Learned drive power (battery compensation, no ADC) | `firmware/src/algorithm/DriveGainLearner.h`, controller drive branch; saved by App to NVS |
 | Final steering power ramp and missing-feedback stop | `firmware/src/algorithm/SteerPowerRamp.h`, `MotorResponseWatch.h`; used by `SteerDriveController` |
 | Steering algorithms (plain C++) | `firmware/src/algorithm/` — see its README.md |
-| Waypoint route, heartbeat, replanning | `firmware/src/nav/WaypointRunner.cpp` |
+| Waypoint route, heartbeat, replanning, per-point wait (`waitS`, NVS blobs read old x/y format too) | `firmware/src/nav/WaypointRunner.cpp` |
 | Demo button GPIO19 (1/2 clicks = button routes 1/2 set on the web, 3/4 = Direct/Detour comparison, press = stop) | `firmware/src/app/DemoButton.cpp`, `src/util/ClickCounter.h`, runner `startButtonRoute` / `startCompare`; routes = `/api/waypoints?slot=1|2` (NVS "nav" r1n/r1p, r2n/r2p), web `RouteSlotBar` (40_nav.js) |
 | Wi-Fi list (NVS "wifi"), priority join / move up, hotspot, mDNS | `firmware/src/net/WifiStore.cpp`, `NetworkManager.cpp`, rules in `WifiPolicy.h` |
 | OTA (ArduinoOTA + web upload) | `firmware/src/net/OtaService.cpp` |

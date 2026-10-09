@@ -32,7 +32,8 @@ class SimulationPlanner {
     };
     for (const goal of points) {
       const d = Math.hypot(goal.x - pose.x, goal.y - pose.y);
-      if (d <= 0.02) continue;
+      const wait = () => { if (goal.waitS > 0) phase(goal.waitS, pose, 'wait'); };   // stop at the point
+      if (d <= 0.02) { wait(); continue; }
       const bearing = Math.atan2(goal.y - pose.y, goal.x - pose.x) * 180 / Math.PI;
       const plan = this.leg(bearing - pose.h, d, p, detour);
       if (plan.kind === 'detour') { drive(plan.a); phase(p.stop, pose, 'stop'); ++detours; }
@@ -46,6 +47,7 @@ class SimulationPlanner {
         const turn = this.wrap(aim - pose.h);
         phase(turn / p.w, { ...pose, h: pose.h + turn }, 'steer'); phase(p.settle, pose, 'settle'); drive(remaining);
       }
+      wait();
     }
     return { phases, path, time, length, detours, final: pose };
   }

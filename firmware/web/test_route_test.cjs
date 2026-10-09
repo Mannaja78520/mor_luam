@@ -89,6 +89,22 @@ const status = (test = done('direct', { id: 1, phase: 'idle', valid: false })) =
   assert.deepEqual(slotRoute.points, [{ x: 0.3, y: 0.03 }, { x: 0.5, y: 0.5 }]);
   await slotRoute.save();
   assert.deepEqual(slotCalls[3], ['post', '/api/waypoints', { points: [{ x: 0.3, y: 0.03 }, { x: 0.5, y: 0.5 }] }], 'web route body unchanged');
+
+  // Per-point wait: kept through moves and reorders, sent with the points, 0 is left out.
+  slotRoute.setWait(1, 2.04);
+  slotRoute.move(1, 0.6, 0.5);
+  assert.deepEqual(slotRoute.points[1], { x: 0.6, y: 0.5, waitS: 2 }, 'wait rounded to 0.1 s and kept on move');
+  slotRoute.moveUp(1);
+  assert.equal(slotRoute.points[0].waitS, 2, 'wait travels with its point');
+  assert.deepEqual(RouteModel.norm({ x: 1, y: 2, waitS: 0 }), { x: 1, y: 2 });
+  await slotRoute.save();
+  assert.equal(slotCalls[4][2].points[0].waitS, 2);
+  const { SimulationPlanner } = require('./js/45_simulation.js');
+  const simP = { v: 0.03, w: 60, stop: 0.2, settle: 0.05 };
+  const start = { x: 0, y: 0, h: 0 };
+  const plain = SimulationPlanner.route([{ x: 0.3, y: 0 }], start, simP, false);
+  const held = SimulationPlanner.route([{ x: 0.3, y: 0, waitS: 3 }], start, simP, false);
+  assert.ok(Math.abs(held.time - plain.time - 3) < 1e-9, 'simulation counts the stop at the point');
   panel.render(status(), 'live');
   assert.equal(panel.canStart(), false, 'readiness required');
   panel.ready.checked = true;

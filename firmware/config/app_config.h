@@ -42,6 +42,7 @@ static const uint8_t  ROS_PING_MISSES_LOST     = 4;      // that many failed che
 static const uint32_t WEB_HEARTBEAT_TIMEOUT_MS = 3000;
 static const uint8_t  NAV_MAX_RETRIES          = 6;     // re-aims per waypoint before giving up
 static const uint8_t  NAV_MAX_POINTS           = 32;
+static const float    NAV_MAX_WAIT_S           = 60.0f;  // longest stop at one point (set per point on the web page)
 static const float    TEST_MAX_RPM             = 150.0f; // POST /api/test/move limits
 // Demo button (app/DemoButton.h, pin DEMO_BUTTON_PIN in esp32_hardware.h)
 static const uint32_t DEMO_DEBOUNCE_MS         = 30;
@@ -57,6 +58,7 @@ static const float    DEMO_START_HEADING_DEG   = 0.0f;   // demos 3/4: wheel tur
 // chooses the detour at 0.03 m/s with steerDps 35..60 (2026-10-09).
 static const float    DEMO_COMPARE_DIST_M      = 0.20f;
 static const float    DEMO_COMPARE_RIGHT_DEG   = 10.0f;
+static const float    DEMO_COMPARE_HOLD_S      = 5.0f;   // demos 3/4: stay at the goal, then drive back (not timed)
 static const uint32_t DEMO_MAX_MS              = 300000; // a button demo stops by itself after 5 min
 static const float    NAV_DEFAULT_SPEED_MPS    = 0.03f;  // 7.5 rpm: full power is only ~0.039 m/s (PIDF_config.h)
 static const float    NAV_MAX_SPEED_MPS        = 0.035f; // leave the PID some power to spare

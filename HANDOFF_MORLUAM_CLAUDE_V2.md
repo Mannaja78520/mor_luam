@@ -97,12 +97,25 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
     fw-build OK (flash 59.6 %). OTA OK -> robot build "Oct 9 2026 09:21:34", idle; on the robot
     GET slot 1/2 = defaults, POST slot 2 ok, slot 3/5 refused. Button presses NOT yet tried by the owner.
 
+- PER-POINT WAIT + DEMO 3/4 HOLD (2026-10-09, owner request):
+  - Each point has `waitS` (0-60 s, NAV_MAX_WAIT_S): once reached, the robot stops there that long, then goes on.
+    Web: "รอ (s)" column in the point table, "3s" label on the plane, countdown "อีก x วินาที" (nav.waitLeftMs).
+    Works for the web route and button routes 1/2; the route test time includes waits; the simulator counts them.
+  - Demos 3/4 hold DEMO_COMPARE_HOLD_S 5 s at the goal, then drive home. Time is recorded on arrival (hold excluded).
+  - Storage: Waypoint is now x, y, waitS (12 bytes). readPoints() also reads the old 8-byte x/y blobs, so routes
+    saved by older firmware are kept. Checked on the robot: web route + route 2 (old format) loaded unchanged.
+  - Checks: fw-test ALL PASS + route runner 25 scenarios (wait at a point; 5 s hold before home, time unchanged),
+    node route/simulation tests PASS, mock: countdown at point 1 then on to point 2; table fits at 360 px.
+    OTA OK -> robot build "Oct 9 2026 09:36:59"; robot refused waitS 61, saved 2.5, route 2 restored to no waits.
+    Button demos with the hold NOT yet tried by the owner.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 
 **Next — all need the owner**
 0. Try the button on the floor: 1 click (square 1 m), 2 clicks (triangle 0.5 m), 3 then 4 clicks (Direct vs
-   Detour; watch: Direct spins ~350 deg first, Detour drives first). Set own points for routes 1/2 in the web.
+   Detour; watch: Direct spins ~350 deg first, Detour drives first; both hold 5 s at the goal). Set own points
+   and waits for routes 1/2 in the web.
 1. WiFi fallback to network 2 / move up / setup hotspot (`mor-luam-XXXX`, 192.168.4.1): needs a second saved network
    in range and the owner switching the `manny` hotspot off and on. Logic is unit-tested (`fw-test` part 4).
 2. OTA from the web page form with the real password (helper/direct OTA already passed many times).

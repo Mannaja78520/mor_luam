@@ -309,6 +309,12 @@ class Plane2D {
       ctx.beginPath(); ctx.arc(x, y, 10, 0, 2 * Math.PI); ctx.fill();
       ctx.fillStyle = C.onAcc;
       ctx.fillText(String(i + 1), x, y + 0.5);
+      if (pts[i].waitS > 0) {                      // stops here: "2s" beside the point
+        ctx.fillStyle = C.acc;
+        ctx.textAlign = 'left';
+        ctx.fillText(`${pts[i].waitS}s`, x + 14, y - 12);
+        ctx.textAlign = 'center';
+      }
     });
     ctx.globalAlpha = 1;
     ctx.font = `12px ${C.font}`;

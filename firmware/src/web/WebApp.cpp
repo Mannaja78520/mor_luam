@@ -224,7 +224,7 @@ void WebApp::routesNav() {
         size_t n = 0;
         for (JsonObjectConst p : a) {
             if (n >= NAV_MAX_POINTS) { fail(r, "จุดมากเกินไป"); return; }
-            pts[n++] = {p["x"] | NAN, p["y"] | NAN};
+            pts[n++] = {p["x"] | NAN, p["y"] | NAN, p["waitS"] | 0.0f};
         }
         String err;
         if (!d_.runner->setPoints(pts, n, err, slot)) { fail(r, err); return; }

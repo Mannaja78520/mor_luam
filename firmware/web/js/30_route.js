@@ -7,6 +7,7 @@
 // switches which one is edited; each slot keeps its own unsaved edits.
 
 const ROUTE_LIMIT_M = 50;            // nav/WaypointRunner.cpp refuses points further out
+const ROUTE_MAX_WAIT_S = 60;         // firmware NAV_MAX_WAIT_S: longest stop at one point
 const ROUTE_SLOTS = [0, 1, 2];       // firmware DEMO_ROUTES = 2
 
 class RouteModel {
@@ -45,7 +46,13 @@ class RouteModel {
   onChange(fn) { this.listeners.push(fn); }
   emit() { this.listeners.forEach((fn) => fn(this)); }
 
-  static norm(p) { return { x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000 }; }
+  // {x, y} metres to 1 mm; waitS (stop there, seconds, 0.1 s steps) only when > 0
+  static norm(p) {
+    const out = { x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000 };
+    const w = Math.round((p.waitS || 0) * 10) / 10;
+    if (w > 0) out.waitS = w;
+    return out;
+  }
   get dirty() { return JSON.stringify(this.points) !== JSON.stringify(this.saved); }
 
   add(x, y) {
@@ -54,7 +61,8 @@ class RouteModel {
     this.emit();
     return '';
   }
-  move(i, x, y) { this.points[i] = RouteModel.norm({ x, y }); this.emit(); }
+  move(i, x, y) { this.points[i] = RouteModel.norm({ ...this.points[i], x, y }); this.emit(); }
+  setWait(i, s) { this.points[i] = RouteModel.norm({ ...this.points[i], waitS: s }); this.emit(); }
   remove(i) { this.points.splice(i, 1); this.emit(); }
   moveUp(i) {
     if (i <= 0) return;
@@ -90,4 +98,4 @@ class RouteModel {
   }
 }
 
-if (typeof module !== 'undefined') module.exports = { RouteModel, ROUTE_SLOTS };
+if (typeof module !== 'undefined') module.exports = { RouteModel, ROUTE_SLOTS, ROUTE_MAX_WAIT_S };
