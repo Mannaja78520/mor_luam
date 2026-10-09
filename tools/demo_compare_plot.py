@@ -64,9 +64,22 @@ def plan(goal, run, detour):
     return {"kind": "detour", "turn": beta, "at": (a, 0.0), "pts": [(0, 0), (a, 0), goal], "time": t, "a": a}
 
 
+def fetch_retry(host, until):
+    """fetch(), trying again through Wi-Fi drops and IP changes (use the .local name) until `until`."""
+    while True:
+        try:
+            return fetch(host)
+        except (OSError, ValueError) as e:
+            if time.time() > until:
+                raise
+            print(f"  robot not answering ({e.__class__.__name__}), trying again...", flush=True)
+            time.sleep(3)
+
+
 def wait_for_new(host, limit_s):
     """Wait until both planners have a closed run newer than the ones present now."""
-    first = fetch(host)
+    t_end = time.time() + limit_s
+    first = fetch_retry(host, t_end)
     old = {k: (first.get(k) or {}).get("id", 0) for k in COLORS}
     print(f"waiting for a new Direct (3 clicks) and Detour (4 clicks) run... (ids now {old})", flush=True)
     t0 = time.time()
@@ -74,9 +87,11 @@ def wait_for_new(host, limit_s):
     while time.time() - t0 < limit_s:
         try:
             d = fetch(host)
-        except OSError:
+        except (OSError, ValueError):
             time.sleep(2)
             continue
+        if all(not d.get(k) for k in COLORS) and any(old.values()):
+            old = {k: 0 for k in COLORS}           # the robot restarted: its record starts empty
         for k in COLORS:
             r = d.get(k)
             if r and r["id"] != old[k] and not r["open"] and seen.get(k) != r["id"]:
@@ -86,7 +101,7 @@ def wait_for_new(host, limit_s):
             return d
         time.sleep(1)
     print("time limit: drawing what the robot has", flush=True)
-    return fetch(host)
+    return fetch_retry(host, time.time() + 30)
 
 
 def draw(data, out):
