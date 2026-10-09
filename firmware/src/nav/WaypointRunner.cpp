@@ -98,6 +98,7 @@ bool WaypointRunner::start(String& err) {
     if (status_ == Status::Running) { unlock(); err = "หยุดเส้นทางก่อนเริ่มใหม่"; return false; }
     if (count_ == 0) { unlock(); err = "ยังไม่มีจุด: คลิกบนระนาบเพื่อวางจุด"; return false; }
     local_ = false;
+    returnHome_ = homing_ = false;
     prepare(s);
     testPhase_ = TestPhase::Idle;
     testTimed_ = testValid_ = false;
@@ -144,6 +145,10 @@ bool WaypointRunner::startTest(const String& planner, float heading, bool ready,
         unlock(); err = "ค่าความคลาดเคลื่อนมุมล้อไม่เหมาะกับการเทส"; return false;
     }
     local_ = byButton;
+    returnHome_ = byButton;                  // so the next demo can start from the same place
+    homing_ = false;
+    homeX_ = s.x;
+    homeY_ = s.y;
     prepare(settings);
     loop_ = false;
     plannerName_ = planner;
@@ -217,12 +222,37 @@ void WaypointRunner::finish(Status st, const char* why, bool haltWheel) {
     message_ = why;
     legActive_ = false;
     commandPending_ = false;
+    returnHome_ = homing_ = false;
     if (restorePts_) {                       // demo 1 borrowed pts_: give the web route back
         for (uint8_t i = 0; i < savedCount_; ++i) pts_[i] = savedPts_[i];
         count_ = savedCount_;
         restorePts_ = false;
     }
     if (haltWheel) ctrl_->halt(why);
+}
+
+// Button demos 2/3: the timed route is done - record the result now, then drive
+// back to where the demo started (not timed), so the next demo can run at once.
+void WaypointRunner::beginReturnHome() {
+    if (testPhase_ == TestPhase::Running) {
+        const bool pidSame = ctrl_->pidRevision() == testPidRevision_;
+        testElapsedMs_ = testTimed_ ? millis() - testStartMs_ : 0;
+        testValid_ = testTimed_ && pidSame;
+        testPhase_ = pidSame ? TestPhase::Done : TestPhase::Failed;
+    }
+    if (!restorePts_) {                      // borrow pts_; finish() gives the web route back
+        for (uint8_t i = 0; i < count_; ++i) savedPts_[i] = pts_[i];
+        savedCount_ = count_;
+        restorePts_ = true;
+    }
+    pts_[0] = {homeX_, homeY_};
+    count_ = 1;
+    idx_ = 0;
+    tries_ = 0;
+    legActive_ = false;
+    plannerName_ = "direct";
+    homing_ = true;
+    message_ = "กลับจุดเริ่ม (ไม่นับเวลา)";
 }
 
 bool WaypointRunner::startDemoSquare(float side, String& err) {
@@ -240,6 +270,7 @@ bool WaypointRunner::startDemoSquare(float side, String& err) {
     count_ = 3;
     ctrl_->resetPose();                      // here becomes (0,0), +x = where the robot faces
     local_ = true;
+    returnHome_ = homing_ = false;           // the square already ends at the start
     prepare(s);
     loop_ = false;
     testPhase_ = TestPhase::Idle;
@@ -358,7 +389,8 @@ void WaypointRunner::planNext(const RobotState& s) {
         if (dist > tolM_) break;
         tries_ = 0;                                 // reached this point
         if (++idx_ >= count_) {
-            if (!loop_) { finish(Status::Done, "ถึงจุดสุดท้ายแล้ว", true); return; }
+            if (returnHome_ && !homing_) { beginReturnHome(); continue; }   // then plan towards home
+            if (!loop_) { finish(Status::Done, homing_ ? "กลับถึงจุดเริ่มแล้ว" : "ถึงจุดสุดท้ายแล้ว", true); return; }
             idx_ = 0;
         }
     }

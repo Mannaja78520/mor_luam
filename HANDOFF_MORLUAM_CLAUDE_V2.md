@@ -73,7 +73,12 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
   the web heartbeat (operator at the robot) with a 5 min cap. Files: app/DemoButton.*, util/ClickCounter.h,
   WaypointRunner startDemoSquare/startTest(byButton)/noteButton, web live button state. PC tests: click counter 7/7,
   route runner 18 scenarios. On the robot (build Oct 9 06:39): live pressed state works, long hold ignored.
-  NOT yet run on the floor: demo 1/2/3 with the owner present.
+  Owner tried demos 2/3: demo 3 could not start after demo 2 ("all points already reached" - the robot stayed at
+  the goal). Fix: button demos 2/3 record the timed result at the goal, then drive back to where they started
+  (untimed, Direct); demo start retries ~2 s if the wheel is still settling. PC: route runner 20 scenarios.
+  Robot build Oct 9 08:49 (UTC). Two OTA attempts failed because the robot rebooted mid-upload (owner was
+  power-cycling between demos); third attempt with the robot idle succeeded.
+  Owner's runs on the OLD firmware (not comparable - different start points): Detour 21.2 s, Direct 19.5 s.
 
 **Still in progress**
 - Nothing running. Robot halted on battery.

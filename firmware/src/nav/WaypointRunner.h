@@ -57,6 +57,7 @@ private:
     void sendCommand(const DriveCommand& cmd, const RobotState& before);
     void planNext(const RobotState& s);
     void finish(Status st, const char* why, bool haltWheel);
+    void beginReturnHome();                // button demo 2/3: timed part done, drive back untimed
     void load();
     void save();
     void lock() { xSemaphoreTake(mtx_, portMAX_DELAY); }
@@ -98,6 +99,8 @@ private:
     bool testStable_ = false, testTimed_ = false, testValid_ = false;
     // started from the demo button: no heartbeat, time cap; demo 1 borrows pts_
     bool local_ = false;
+    bool returnHome_ = false, homing_ = false;   // button demos 2/3 end where they started
+    float homeX_ = 0.0f, homeY_ = 0.0f;
     uint32_t localStartMs_ = 0;
     bool restorePts_ = false;
     Waypoint savedPts_[32];

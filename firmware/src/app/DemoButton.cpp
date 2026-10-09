@@ -37,11 +37,21 @@ void DemoButton::run() {
 void DemoButton::startDemo(uint8_t clicks) {
     String err;
     bool ok = false;
-    switch (clicks) {
-        case 1: ok = runner_->startDemoSquare(DEMO_SQUARE_M, err); break;
-        case 2: ok = runner_->startTest("direct", DEMO_START_HEADING_DEG, true, err, true); break;
-        case 3: ok = runner_->startTest("detour", DEMO_START_HEADING_DEG, true, err, true); break;
-        default: err = "กด " + String(clicks) + " ครั้ง: ไม่มีโหมดนี้ (มีโหมด 1-3)"; break;
+    if (clicks >= 1 && clicks <= 3 && !runner_->running() && !ctrl_->moving())
+        ctrl_->halt("เตรียมเดโม");               // a robot holding its wheel counts as stopped
+    // Right after another demo the wheel may still settle or the sensors refresh:
+    // try again for up to ~2 s before giving up.
+    for (int attempt = 0; attempt < 7; ++attempt) {
+        err = "";
+        switch (clicks) {
+            case 1: ok = runner_->startDemoSquare(DEMO_SQUARE_M, err); break;
+            case 2: ok = runner_->startTest("direct", DEMO_START_HEADING_DEG, true, err, true); break;
+            case 3: ok = runner_->startTest("detour", DEMO_START_HEADING_DEG, true, err, true); break;
+            default: err = "กด " + String(clicks) + " ครั้ง: ไม่มีโหมดนี้ (มีโหมด 1-3)"; break;
+        }
+        const bool transient = err.indexOf("หยุดหุ่น") >= 0 || err.indexOf("รอเซนเซอร์") >= 0;
+        if (ok || !transient) break;
+        vTaskDelay(pdMS_TO_TICKS(300));
     }
     static const char* const names[] = {"", "เดโม 1: หน้า-ซ้าย-กลับจุดเริ่ม", "เดโม 2: Direct (ไม่ลัด)", "เดโม 3: Detour (ลัด)"};
     const String what = clicks >= 1 && clicks <= 3 ? String(names[clicks]) : String("กด ") + clicks + " ครั้ง";

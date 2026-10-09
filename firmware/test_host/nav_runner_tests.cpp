@@ -217,5 +217,31 @@ int main() {
         for (int i = 0; i < 70; ++i) t.tick(50, true, false);            // 3.5 s
         assert(t.status().children["status"].text == "stopped");
     }
-    std::cout << "WaypointRunner comparison tests PASS (18 scenarios)\n";
+    {   // demo 2/3 from the button: after the timed goal, drive back home (untimed)
+        Trial t;
+        assert(t.runner.startTest("direct", 0, true, t.err, true));
+        t.align();
+        t.tick(4000);
+        t.complete();                                                     // reached the web point (0.3, 0.03)
+        t.tick();
+        assert(t.phase() == "done" && t.field("valid") == 1 && t.field("elapsedMs") >= 4000);
+        assert(t.status().children["status"].text == "running");          // now going home
+        const double elapsed = t.field("elapsedMs");
+        t.ctrl.applied.goalActive = false; t.ctrl.applied.targetRpm = 0;
+        t.ctrl.applied.x = 0; t.ctrl.applied.y = 0;                       // back at the start
+        t.tick(); t.tick();
+        assert(t.status().children["status"].text == "done" && t.field("elapsedMs") == elapsed);
+        JsonNode pts; t.runner.pointsJson(JsonArray(&pts));
+        assert(pts.items.size() == 1 && std::fabs(pts.items[0].children["x"].number - 0.3) < 1e-6);
+    }
+    {   // a web-started test does NOT drive home
+        Trial t;
+        assert(t.runner.startTest("direct", 0, true, t.err));
+        t.align();
+        t.tick(1000);
+        t.complete();
+        t.tick();
+        assert(t.status().children["status"].text == "done");
+    }
+    std::cout << "WaypointRunner comparison tests PASS (20 scenarios)\n";
 }
