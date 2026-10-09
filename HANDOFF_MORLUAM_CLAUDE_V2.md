@@ -116,7 +116,8 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
     Demos 3/4 keep 5 min. Status: nav.demoLimitS / nav.demoMovingS; web hint "วิ่งแล้ว m:ss จาก m:ss นาที".
   - Checks: fw-test ALL PASS + route runner 27 scenarios (limit 790 s for a 10 m route, moving time frozen
     during a 30 s stop, still running after 5 min, stops past its own limit; 5 min floor; 30 min ceiling).
-    fw-build OK. NOT FLASHED: the robot was offline (powered off) - run fw-ota when it is back.
+    fw-build OK. OTA OK -> robot build "Oct 9 2026 09:55:19", idle; status has demoLimitS/demoMovingS
+    (0 while idle), saved points intact. A button demo with the new limit NOT yet run by the owner.
 
 **Still in progress**
 - Nothing running. Robot halted on battery.
