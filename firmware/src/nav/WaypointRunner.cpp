@@ -228,6 +228,7 @@ bool WaypointRunner::beginTest(const String& planner, float heading, bool ready,
         count_ = 1;
     }
     prepare(settings);
+    localLimitMs_ = DEMO_MAX_MS;             // demos 3/4: one short goal
     loop_ = false;
     plannerName_ = planner;
     testPhase_ = TestPhase::Aligning;
@@ -336,7 +337,8 @@ void WaypointRunner::beginReturnHome() {
     if (compare_ && DEMO_COMPARE_HOLD_S > 0.0f) {   // demo 3/4: stay at the goal so people can see it
         waiting_ = true;
         waitAdvances_ = false;                      // afterwards plan towards home
-        waitUntilMs_ = millis() + (uint32_t)(DEMO_COMPARE_HOLD_S * 1000.0f);
+        waitStartMs_ = millis();
+        waitUntilMs_ = waitStartMs_ + (uint32_t)(DEMO_COMPARE_HOLD_S * 1000.0f);
         char msg[128];
         snprintf(msg, sizeof(msg), "ถึงเป้าแล้ว: หยุด %.0f วินาที แล้วกลับจุดเริ่ม", DEMO_COMPARE_HOLD_S);
         message_ = msg;
@@ -373,6 +375,7 @@ bool WaypointRunner::startButtonRoute(uint8_t slot, String& err) {
     homing_ = false;
     homeX_ = homeY_ = 0.0f;
     prepare(s);
+    localLimitMs_ = demoLimitMs();
     loop_ = false;
     // until the next control tick the snapshot still holds the pose from before the reset
     commandStampMs_ = st.stampMs;
@@ -432,7 +435,7 @@ void WaypointRunner::update() {
     lock();
     if (status_ != Status::Running) { unlock(); return; }
     if (testPhase_ == TestPhase::Running && updateGapMs > testMaxUpdateGapMs_) testMaxUpdateGapMs_ = updateGapMs;
-    if (local_ && now - localStartMs_ > DEMO_MAX_MS) {
+    if (local_ && !waiting_ && now - localStartMs_ > localLimitMs_) {   // a stop is not moving time
         finish(Status::Stopped, "เดโมเกินเวลาที่กำหนด - หยุด", true);
         unlock();
         return;
@@ -470,6 +473,7 @@ void WaypointRunner::update() {
             finish(Status::Stopped, "ROS สั่งงานแทน", false);
         } else if ((int32_t)(sampleNow - waitUntilMs_) >= 0) {
             waiting_ = false;
+            localStartMs_ += sampleNow - waitStartMs_;  // the stop does not count towards a button demo's limit
             message_ = homing_ ? (testTimed_ ? "กลับจุดเริ่ม (ไม่นับเวลา)" : "กลับจุดเริ่ม")
                                : (testTimed_ ? "กำลังเทสและจับเวลาบนหุ่น" : "กำลังวิ่ง");
             if (!waitAdvances_ || advance()) planNext(s);
@@ -506,7 +510,8 @@ void WaypointRunner::planNext(const RobotState& s) {
         if (!homing_ && wp.waitS > 0.0f) {          // stop here first; update() moves on afterwards
             waiting_ = true;
             waitAdvances_ = true;
-            waitUntilMs_ = millis() + (uint32_t)(wp.waitS * 1000.0f);
+            waitStartMs_ = millis();
+            waitUntilMs_ = waitStartMs_ + (uint32_t)(wp.waitS * 1000.0f);
             char msg[128];
             snprintf(msg, sizeof(msg), "ถึงจุดที่ %u: หยุดรอ %.1f วินาที", (unsigned)idx_ + 1, wp.waitS);
             message_ = msg;
@@ -551,6 +556,24 @@ void WaypointRunner::planNext(const RobotState& s) {
     lastDistM_ = dist;
 }
 
+// A generous moving-time limit for a button route (see DEMO_MAX_MS in app_config.h):
+// starts at (0,0) after the pose reset and drives back there at the end.
+uint32_t WaypointRunner::demoLimitMs() const {
+    if (!(speedMps_ > 0.001f)) return DEMO_MAX_MS;
+    const float turnS = 360.0f / DEMO_SLOW_STEER_DPS;
+    float x = 0.0f, y = 0.0f, s = 0.0f;
+    for (uint8_t i = 0; i < count_; ++i) {
+        s += hypotf(pts_[i].x - x, pts_[i].y - y) / speedMps_ + turnS;
+        x = pts_[i].x;
+        y = pts_[i].y;
+    }
+    s += hypotf(x, y) / speedMps_ + turnS;     // the drive back
+    const float ms = DEMO_TIME_FACTOR * s * 1000.0f;
+    if (ms <= (float)DEMO_MAX_MS) return DEMO_MAX_MS;
+    if (ms >= (float)DEMO_LIMIT_CEIL_MS) return DEMO_LIMIT_CEIL_MS;
+    return (uint32_t)ms;
+}
+
 bool WaypointRunner::advance() {
     if (++idx_ >= count_) {
         if (returnHome_ && !homing_) { beginReturnHome(); return !waiting_; }   // then (after a hold) home
@@ -579,6 +602,10 @@ void WaypointRunner::statusJson(JsonObject o) {
     const int32_t waitLeft = (int32_t)(waitUntilMs_ - millis());
     o["waitLeftMs"] = waiting_ && waitLeft > 0 ? waitLeft : 0;
     o["heartbeatAgeMs"] = status_ == Status::Running ? millis() - heartbeatMs_ : 0;
+    // button demo: moving time so far and the limit (seconds); 0 when not running from the button
+    const bool demo = local_ && status_ == Status::Running;
+    o["demoLimitS"] = demo ? localLimitMs_ / 1000 : 0;
+    o["demoMovingS"] = demo ? ((waiting_ ? waitStartMs_ : millis()) - localStartMs_) / 1000 : 0;
     JsonObject t = o["test"].to<JsonObject>();
     static const char* const testPhases[] = {"idle", "aligning", "running", "done", "stopped", "failed"};
     t["id"] = testId_;

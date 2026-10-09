@@ -11,7 +11,8 @@
 //
 // A demo starts 1 s after the last click. Demos started here do not need the
 // web page's heartbeat (the operator is at the robot; the button stops it) and
-// stop by themselves after DEMO_MAX_MS.
+// stop by themselves when their moving time passes a limit set from the route
+// (5-30 min; stops at points do not count; see DEMO_MAX_MS in app_config.h).
 //
 // The button is read every 5 ms in its own small task, so a busy loop()
 // (Wi-Fi, micro-ROS) can neither miss a click nor delay a STOP.

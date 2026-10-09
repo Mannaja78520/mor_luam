@@ -68,11 +68,13 @@ A simulation is useful for checking a route and the controls. It cannot verify p
 ## Demo button (GPIO19)
 
 - Demos started with the robot's button do NOT use the web heartbeat: the operator is at the robot.
-  Their stops: any button press while moving (read every 5 ms in its own task), web E-STOP, and a 5 min cap (DEMO_MAX_MS).
+  Their stops: any button press while moving (read every 5 ms in its own task), web E-STOP, and a moving-time limit:
+  2 x the route estimate (set speed, a full wheel turn per leg at 20 deg/s, the drive back), 5-30 min
+  (DEMO_MAX_MS / DEMO_LIMIT_CEIL_MS). Stops at points and the demo 3/4 hold do not count; each wait is <= 60 s.
 - Web routes keep the 3 s heartbeat rule unchanged.
 - 1 / 2 clicks drive route 1 / 2 (set on the web page, saved on the robot, relative to where the robot stands:
   pose reset at the press). 3 / 4 clicks: Direct / Detour to a goal 0.20 m away, 10 deg right of the aligned wheel.
   Every button demo drives back to its start after the last point (demos 3/4 hold 5 s at the goal first).
   Check the floor for the saved route first.
 - Per-point waits (0-60 s) hold the robot still at a reached point; the web heartbeat rule still applies
-  to web routes during a wait, and button demos keep their 5 min cap (DEMO_MAX_MS) including waits.
+  to web routes during a wait; a button demo's limit clock pauses during the wait.

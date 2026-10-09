@@ -109,6 +109,15 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
     OTA OK -> robot build "Oct 9 2026 09:36:59"; robot refused waitS 61, saved 2.5, route 2 restored to no waits.
     Button demos with the hold NOT yet tried by the owner.
 
+- DYNAMIC BUTTON-DEMO LIMIT (2026-10-09, owner request "make it dynamic"):
+  - The limit counts MOVING time only: localStartMs_ moves forward by every stop (point waits, demo 3/4 hold).
+  - Button routes 1/2: limit = 2 x estimate (each leg at the set speed + 360 deg at 20 deg/s, the drive back
+    included), clamped to 5-30 min (DEMO_MAX_MS, DEMO_LIMIT_CEIL_MS, DEMO_TIME_FACTOR, DEMO_SLOW_STEER_DPS).
+    Demos 3/4 keep 5 min. Status: nav.demoLimitS / nav.demoMovingS; web hint "วิ่งแล้ว m:ss จาก m:ss นาที".
+  - Checks: fw-test ALL PASS + route runner 27 scenarios (limit 790 s for a 10 m route, moving time frozen
+    during a 30 s stop, still running after 5 min, stops past its own limit; 5 min floor; 30 min ceiling).
+    fw-build OK. NOT FLASHED: the robot was offline (powered off) - run fw-ota when it is back.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 

@@ -59,7 +59,15 @@ static const float    DEMO_START_HEADING_DEG   = 0.0f;   // demos 3/4: wheel tur
 static const float    DEMO_COMPARE_DIST_M      = 0.20f;
 static const float    DEMO_COMPARE_RIGHT_DEG   = 10.0f;
 static const float    DEMO_COMPARE_HOLD_S      = 5.0f;   // demos 3/4: stay at the goal, then drive back (not timed)
-static const uint32_t DEMO_MAX_MS              = 300000; // a button demo stops by itself after 5 min
+// A button demo has no web heartbeat, so it stops by itself once its MOVING time
+// (stops at points and the demo 3/4 hold not counted) passes its limit:
+// DEMO_TIME_FACTOR x the route estimate, never below DEMO_MAX_MS nor above DEMO_LIMIT_CEIL_MS.
+// Estimate: every leg at the set speed plus a full wheel turn at DEMO_SLOW_STEER_DPS,
+// the drive back to the start included.
+static const uint32_t DEMO_MAX_MS              = 300000;  // shortest limit (5 min)
+static const uint32_t DEMO_LIMIT_CEIL_MS       = 1800000; // longest limit (30 min)
+static const float    DEMO_TIME_FACTOR         = 2.0f;
+static const float    DEMO_SLOW_STEER_DPS      = 20.0f;   // the real wheel turns ~35 deg/s; slower = more margin
 static const float    NAV_DEFAULT_SPEED_MPS    = 0.03f;  // 7.5 rpm: full power is only ~0.039 m/s (PIDF_config.h)
 static const float    NAV_MAX_SPEED_MPS        = 0.035f; // leave the PID some power to spare
 static const float    TEST_MAX_DIST_M          = 2.0f;

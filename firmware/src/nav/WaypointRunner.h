@@ -46,7 +46,7 @@ public:
     bool startTest(const String& planner, float startHeadingDeg, bool ready, String& err);
 
     // From the robot's demo button: no web heartbeat needed (the operator is
-    // there; a press stops it), DEMO_MAX_MS time cap instead. Both use their own
+    // there; a press stops it), a moving-time limit instead (see DEMO_MAX_MS). Both use their own
     // points and give the web route back when they end.
     // Button routes (1 / 2 clicks): here becomes (0,0); drive route `slot`, then back here.
     bool startButtonRoute(uint8_t slot, String& err);
@@ -71,6 +71,7 @@ private:
     void planNext(const RobotState& s);
     bool advance();                        // next point; false = nothing to plan now (finished or holding)
     bool readPoints(const char* key, uint8_t n, Waypoint* out);
+    uint32_t demoLimitMs() const;          // button route: moving-time limit for pts_ from (0,0) and back
     void finish(Status st, const char* why, bool haltWheel);
     void beginReturnHome();                // button demo: route done, drive back to its start
     void borrowPts();                      // a button demo uses pts_; finish() gives the web route back
@@ -103,7 +104,7 @@ private:
     uint8_t overshoots_ = 0;
     bool waiting_ = false;                 // stopped at a reached point until waitUntilMs_
     bool waitAdvances_ = true;             // after the wait: next point (false: plan the current one)
-    uint32_t waitUntilMs_ = 0;
+    uint32_t waitUntilMs_ = 0, waitStartMs_ = 0;
     uint32_t heartbeatMs_ = 0;
     uint32_t lastUpdateMs_ = 0;
     // A command changes the controller before its published RobotState changes.
@@ -124,7 +125,8 @@ private:
     bool compare_ = false;                       // demo 3/4: the goal is placed once the wheel is aligned
     bool returnHome_ = false, homing_ = false;   // button demos end where they started
     float homeX_ = 0.0f, homeY_ = 0.0f;
-    uint32_t localStartMs_ = 0;
+    uint32_t localStartMs_ = 0;            // moved forward by every stop, so now - it = moving time
+    uint32_t localLimitMs_ = DEMO_MAX_MS;
     bool restorePts_ = false;
     Waypoint savedPts_[NAV_MAX_POINTS];
     uint8_t savedCount_ = 0;

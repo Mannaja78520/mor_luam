@@ -341,5 +341,38 @@ int main() {
         JsonNode pts; t.runner.pointsJson(JsonArray(&pts));
         assert(pts.items.size() == 2 && std::fabs(pts.items[0].children["waitS"].number - 2.0) < 1e-6);
     }
-    std::cout << "WaypointRunner comparison tests PASS (25 scenarios)\n";
+    {   // button route limit grows with the route; stops at points are not moving time
+        Trial t;
+        const Waypoint far[] = {{3.0f, 0.0f, 30.0f}, {3.0f, 3.0f, 0.0f}};      // 3 m + 3 m + 4.24 m back
+        assert(t.runner.setPoints(far, 2, t.err, 1));
+        assert(t.runner.startButtonRoute(1, t.err));
+        // 2 x ((3 + 3 + 4.243) / 0.03 + 3 x 18) s = 790.8 s
+        const double limit = t.status().children["demoLimitS"].number;
+        assert(limit > 780 && limit < 800);
+        t.tick(); t.tick();
+        t.ctrl.applied.goalActive = false; t.ctrl.applied.targetRpm = 0;
+        t.ctrl.applied.x = 3.0f;                                          // at point 1: 30 s stop
+        t.tick(); t.tick();
+        const double moving = t.status().children["demoMovingS"].number;
+        for (int i = 0; i < 400; ++i) t.tick(50, true, false);           // 20 s of the stop
+        assert(t.status().children["demoMovingS"].number == moving);
+        for (int i = 0; i < 300; ++i) t.tick(50, true, false);           // stop over, on to point 2
+        assert(t.status().children["index"].number == 1);
+        t.tick(DEMO_MAX_MS, true, false);                                // past 5 min of moving
+        assert(t.status().children["status"].text == "running");
+        t.tick(500000, true, false);                                     // past the route's own limit
+        assert(t.status().children["status"].text == "stopped");
+    }
+    {   // a short button route keeps the 5 min floor; the 30 min ceiling holds for a huge one
+        Trial t;
+        assert(t.runner.startButtonRoute(2, t.err));                      // default 0.5 m triangle
+        assert(t.status().children["demoLimitS"].number == DEMO_MAX_MS / 1000);
+        t.runner.stop("test");
+        Waypoint huge[NAV_MAX_POINTS];
+        for (int i = 0; i < NAV_MAX_POINTS; ++i) huge[i] = {i % 2 ? 40.0f : -40.0f, 40.0f, 0.0f};
+        assert(t.runner.setPoints(huge, NAV_MAX_POINTS, t.err, 2));
+        assert(t.runner.startButtonRoute(2, t.err));
+        assert(t.status().children["demoLimitS"].number == DEMO_LIMIT_CEIL_MS / 1000);
+    }
+    std::cout << "WaypointRunner comparison tests PASS (27 scenarios)\n";
 }
