@@ -231,6 +231,12 @@ void WebApp::routesNav() {
         ok(r);
     });
 
+    onJson("/api/demo/compare/start", [this](AsyncWebServerRequest* r, JsonDocument& doc) {
+        if (!doc["planner"].is<const char*>() || !doc["ready"].is<bool>()) { fail(r, "ต้องมี planner และ ready เป็น true"); return; }
+        String err;
+        if (!d_.runner->startCompare(doc["planner"].as<const char*>(), err, false, doc["ready"].as<bool>())) { fail(r, err); return; }
+        ok(r);
+    });
     server_.on("/api/demo/compare", HTTP_GET, [this](AsyncWebServerRequest* r) {
         JsonDocument doc;
         d_.runner->compareJson(doc.to<JsonObject>());

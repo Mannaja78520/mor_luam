@@ -142,6 +142,23 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
     Picture from tools/demo_compare_plot.py matched the plan (Direct 354 deg first; Detour 31 cm, 249 deg).
     Only 1 run each: repeat 3+ times before quoting a percentage (the 2026-10-08 race: 22.6 % over 3+3).
 
+- DEMO 3/4 TIME LINE (2026-10-09, owner: "the paths look the same, make the difference easy to see"):
+  - The robot records what it does during each timed run (nav/ActivityLog.h, change points debounced 150 ms):
+    turn (steer mode, wheel > 3 deg/s), drive (drive mode, > 0.5 rpm), still. Returned as `acts` [{t, a}].
+    FIRST VERSION WAS WRONG on the robot: it used rpm only, and the drive encoder also moves while the wheel
+    steers, so a turn in place read as "drive". Now uses RobotState.driving. Test added (30 scenarios).
+  - Web card: time line on top (pink hatched = turning, blue = driving, grey = still, dashed box = time saved),
+    totals per run under it. PNG tool: time line + path. Colours validated (light #e87ba4/#2a78d6, dark #d55181/#3987e5).
+  - `POST /api/demo/compare/start {planner, ready:true}`: demo 3/4 from the web/scripts, with the heartbeat rule.
+  - Real runs today (owner present, robot on `manny` 10.139.24.49, build stamp "Oct 9 2026 12:37:47" + fix):
+    | pair | how | Direct | Detour | Detour faster |
+    | 1 | button | 24.55 s | 21.66 s | 2.89 s |
+    | 2 | API (time line not yet right) | 22.70 s | 20.79 s | 1.91 s |
+    | 3 | API | 24.59 s | 20.19 s | 4.40 s (17.9 %) |
+    Mean Direct 23.95 s, Detour 20.88 s -> Detour 3.07 s (12.8 %) faster; Detour won all 3 pairs.
+    Pair 3 time line: Direct turn 9.4 s -> drive 10.1 s -> corrections 4.7 s; Detour drive 10.4 s -> turn 7.2 s
+    -> short drive/adjust 2.4 s. Both drift ~1.3 cm right while driving, then correct; both end 2.5 mm from goal.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 

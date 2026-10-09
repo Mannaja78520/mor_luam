@@ -60,6 +60,9 @@ static const float    DEMO_START_HEADING_DEG   = 0.0f;   // demos 3/4: wheel tur
 static const float    DEMO_COMPARE_DIST_M      = 0.30f;
 static const float    DEMO_COMPARE_RIGHT_DEG   = 6.0f;
 static const float    DEMO_TRACE_STEP_M        = 0.005f;  // recorded path of a demo 3/4 run, for the web picture
+static const uint32_t DEMO_ACT_HOLD_MS         = 150;     // demo 3/4 time line: a change counts after this long
+static const float    DEMO_TURN_DPS            = 3.0f;    // wheel turning faster than this = "turning" (flicker ~2)
+static const float    DEMO_DRIVE_RPM           = 0.5f;    // drive wheel faster than this = "driving"
 static const float    DEMO_COMPARE_HOLD_S      = 5.0f;   // demos 3/4: stay at the goal, then drive back (not timed)
 // A button demo has no web heartbeat, so it stops by itself once its MOVING time
 // (stops at points and the demo 3/4 hold not counted) passes its limit:

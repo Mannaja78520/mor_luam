@@ -19,6 +19,8 @@ import time
 import urllib.request
 
 COLORS = {"direct": "#eb6834", "detour": "#1baf7a"}   # validated pair (light surface), same as the web page
+ACT_COLORS = {"turn": "#e87ba4", "drive": "#2a78d6", "still": "#d5dce8"}   # time line, validated pair + neutral
+ACT_WORDS = {"turn": "หมุนล้อ", "drive": "วิ่ง", "still": "นิ่ง"}
 NAMES = {"direct": "Direct (กด 3 ครั้ง)", "detour": "Detour (กด 4 ครั้ง)"}
 
 
@@ -104,6 +106,57 @@ def wait_for_new(host, limit_s):
     return fetch_retry(host, time.time() + 30)
 
 
+def segments(run):
+    """[(what, t0 s, t1 s)] from the robot's change points."""
+    acts, end = run.get("acts") or [], run["elapsedMs"] / 1000
+    out = []
+    for i, a in enumerate(acts):
+        t1 = acts[i + 1]["t"] / 1000 if i + 1 < len(acts) else end
+        if t1 > a["t"] / 1000:
+            out.append((a["a"], a["t"] / 1000, t1))
+    return out
+
+
+def timeline(ax, runs, ink, mut, grid):
+    """One bar per run on a shared time axis: what the robot did, second by second."""
+    from matplotlib.patches import Patch, Rectangle
+    max_s = max(r["elapsedMs"] / 1000 for _, r, *_ in runs)
+    ys = {k: i for i, (k, *_) in enumerate(reversed(runs))}
+    for k, r, *_ in runs:
+        y = ys[k]
+        for what, t0, t1 in segments(r):
+            ax.broken_barh([(t0, t1 - t0)], (y - 0.3, 0.6), facecolors=ACT_COLORS[what], edgecolor="white", lw=1.5,
+                           hatch="///" if what == "turn" else None)
+            if what != "still" and (t1 - t0) / max_s >= 0.12:
+                ax.text((t0 + t1) / 2, y + 0.36, f"{ACT_WORDS[what]} {t1 - t0:.1f} s", ha="center", va="bottom",
+                        color=ink, fontsize=10)
+        end = r["elapsedMs"] / 1000
+        ax.text(end + max_s * 0.012, y, f"{end:.2f} s" if r["valid"] else "ไม่ครบ", ha="left", va="center",
+                color=ink, fontsize=10, fontweight="bold")
+    done = [(k, r) for k, r, *_ in runs if r["valid"]]
+    if len(done) == 2:
+        (kf, rf), (_, rs) = sorted(done, key=lambda x: x[1]["elapsedMs"])
+        t0, t1 = rf["elapsedMs"] / 1000, rs["elapsedMs"] / 1000
+        ax.add_patch(Rectangle((t0, ys[kf] - 0.3), t1 - t0, 0.6, fill=False, ls="--", lw=1.5, ec=ink))
+        if (t1 - t0) / max_s >= 0.06:
+            ax.text((t0 + t1) / 2, ys[kf] + 0.36, f"ถึงก่อน {t1 - t0:.1f} s", ha="center", va="bottom", color=ink, fontsize=10)
+    ax.set_yticks([ys[k] for k, *_ in runs], [NAMES[k].split(" (")[0] for k, *_ in runs], color=ink, fontsize=11,
+                  fontweight="bold")
+    ax.set_xlim(0, max_s * 1.1)
+    ax.set_ylim(-0.6, len(runs) - 0.25)
+    ax.set_xlabel("วินาทีนับจากเริ่มจับเวลา", color=mut)
+    ax.grid(axis="x", color=grid, lw=0.8)
+    ax.set_axisbelow(True)
+    ax.tick_params(colors=mut, labelsize=9)
+    ax.tick_params(axis="y", length=0)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+    ax.legend(handles=[Patch(fc=ACT_COLORS["turn"], hatch="///", ec="white", label="หมุนล้ออยู่กับที่"),
+                       Patch(fc=ACT_COLORS["drive"], label="วิ่ง"),
+                       Patch(fc=ACT_COLORS["still"], label="นิ่ง (ตั้งล้อ / หยุดเปลี่ยนท่า)")],
+              loc="lower left", bbox_to_anchor=(0, 1.0), ncol=3, frameon=False, fontsize=10, labelcolor=ink)
+
+
 def draw(data, out):
     import matplotlib
     matplotlib.use("Agg")
@@ -125,7 +178,12 @@ def draw(data, out):
         return None
 
     ink, mut, grid = "#16202e", "#5b6878", "#e3e8f0"
-    fig, ax = plt.subplots(figsize=(10, 3.9), dpi=150)
+    timed = [x for x in runs if x[1].get("acts")]
+    if timed:
+        fig, (axt, ax) = plt.subplots(2, 1, figsize=(10, 6.6), dpi=150, gridspec_kw={"height_ratios": [1.15, 1.6]})
+        timeline(axt, timed, ink, mut, grid)
+    else:
+        fig, ax = plt.subplots(figsize=(10, 3.9), dpi=150)
     fig.patch.set_facecolor("white")
     ax.set_facecolor("white")
     for k, r, goal, path, p in runs:
@@ -163,7 +221,11 @@ def draw(data, out):
                 else f"รอบนี้ Direct เร็วกว่า {-diff:.2f} s")
     else:
         head = "ยังเทียบเวลาไม่ได้: ต้องมีรอบที่ถึงเป้าครบทั้ง 2 แบบ"
-    ax.set_title(f"เดโม 3 / 4 ครั้ง: {head}", loc="left", color=ink, fontsize=13, fontweight="bold")
+    if timed:
+        axt.set_title(f"เดโม 3 / 4 ครั้ง: {head}", loc="left", color=ink, fontsize=13, fontweight="bold", pad=30)
+        ax.set_title("ทางที่วิ่ง (มองจากด้านบน)", loc="left", color=ink, fontsize=11)
+    else:
+        ax.set_title(f"เดโม 3 / 4 ครั้ง: {head}", loc="left", color=ink, fontsize=13, fontweight="bold")
     leg = ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=2, frameon=False, fontsize=10, labelcolor=ink)
     leg.set_zorder(6)
     fig.text(0.01, 0.01, "เส้นประ = ทางตามแผน · เส้นทึบ = ทางที่หุ่นวัดได้เอง (odometry) · วาดจากจุดเริ่มของแต่ละรอบ",

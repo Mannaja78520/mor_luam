@@ -21,6 +21,7 @@
 #include "app/Settings.h"
 #include "app_config.h"
 #include "control/ControlLoop.h"
+#include "nav/ActivityLog.h"
 #include "nav/RunTrace.h"
 
 struct Waypoint {
@@ -53,7 +54,8 @@ public:
     bool startButtonRoute(uint8_t slot, String& err);
     // Demos 3 / 4: a timed "direct" / "detour" trial to the DEMO_COMPARE_* goal,
     // placed from the wheel heading after alignment; then back to the start (untimed).
-    bool startCompare(const String& planner, String& err);
+    // byButton false (POST /api/demo/compare/start): needs ready and the web heartbeat.
+    bool startCompare(const String& planner, String& err, bool byButton = true, bool ready = true);
     void noteButton(const String& text, uint8_t clicks);   // last button event, shown on the web page
     void setButtonPressed(bool p) { buttonPressed_ = p; }   // live state for the web page
     void stop(const char* why);                      // also halts the wheel
@@ -67,7 +69,7 @@ public:
 
 private:
     enum class TestPhase : uint8_t { Idle, Aligning, Running, Done, Stopped, Failed };
-    bool beginTest(const String& planner, float startHeadingDeg, bool ready, String& err, bool compare);
+    bool beginTest(const String& planner, float startHeadingDeg, bool ready, String& err, bool compare, bool local);
     void prepare(const SettingsData& settings);
     void alignTest(const RobotState& state, uint32_t now);
     bool testSensorsOk(const RobotState& state, uint32_t now) const;
@@ -148,6 +150,7 @@ private:
         float startX = 0, startY = 0, headingDeg = 0, goalX = 0, goalY = 0;
         float speedMps = 0, steerDps = 0, tolM = 0;
         RunTrace<100> path;
+        ActivityLog<32> acts;              // turning / driving / still over time, for the time line
     };
     CompareRun runs_[2];                   // [0] direct (3 clicks), [1] detour (4 clicks)
     uint8_t runIdx_ = 0;

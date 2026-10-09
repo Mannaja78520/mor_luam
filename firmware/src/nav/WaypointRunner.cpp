@@ -18,6 +18,15 @@ static const char* statusName(WaypointRunner::Status s) {
 // wheel rpm for a ground speed (same as drive_to_xy.py mps_to_rpm)
 static float rpmFor(float mps) { return mps / ((float)M_PI * WHEEL_DIAMETER) * 60.0f; }
 
+// demo 3/4 time line: what the robot is visibly doing now. The controller's own
+// mode decides drive vs turn: the drive encoder also counts while the wheel steers
+// (measured 2026-10-09), so rpm alone would call a turn in place "driving".
+static ActivityLog<32>::Act activityOf(const RobotState& s) {
+    if (s.halted) return ActivityLog<32>::Still;
+    if (s.driving) return fabsf(s.rpm) >= DEMO_DRIVE_RPM ? ActivityLog<32>::Drive : ActivityLog<32>::Still;
+    return fabsf(s.steerRateDps) >= DEMO_TURN_DPS ? ActivityLog<32>::Turn : ActivityLog<32>::Still;
+}
+
 void WaypointRunner::begin(ControlLoop* ctrl, Settings* settings) {
     ctrl_ = ctrl;
     settings_ = settings;
@@ -182,14 +191,14 @@ bool WaypointRunner::testSensorsOk(const RobotState& s, uint32_t now) const {
 }
 
 bool WaypointRunner::startTest(const String& planner, float heading, bool ready, String& err) {
-    return beginTest(planner, heading, ready, err, false);
+    return beginTest(planner, heading, ready, err, false, false);
 }
 
-bool WaypointRunner::startCompare(const String& planner, String& err) {
-    return beginTest(planner, DEMO_START_HEADING_DEG, true, err, true);
+bool WaypointRunner::startCompare(const String& planner, String& err, bool byButton, bool ready) {
+    return beginTest(planner, DEMO_START_HEADING_DEG, ready, err, true, byButton);
 }
 
-bool WaypointRunner::beginTest(const String& planner, float heading, bool ready, String& err, bool compare) {
+bool WaypointRunner::beginTest(const String& planner, float heading, bool ready, String& err, bool compare, bool local) {
     if (!ready) { err = "ยืนยันว่าอยู่ข้างหุ่นและวางหุ่นที่จุดเริ่มต้นก่อน"; return false; }
     if (planner != "direct" && planner != "detour") { err = "เลือกแบบที่ 1 direct หรือแบบที่ 2 detour"; return false; }
     if (!isfinite(heading) || heading < 0.0f || heading > 360.0f) { err = "มุมเริ่มต้นต้องอยู่ในช่วง 0-360 องศา"; return false; }
@@ -216,7 +225,7 @@ bool WaypointRunner::beginTest(const String& planner, float heading, bool ready,
     if (!isfinite(pid[4]) || pid[4] <= 0.0f || pid[4] >= 180.0f) {
         unlock(); err = "ค่าความคลาดเคลื่อนมุมล้อไม่เหมาะกับการเทส"; return false;
     }
-    local_ = compare;                        // demos 3/4 come from the button
+    local_ = local;                          // from the button: no web heartbeat
     compare_ = compare;
     testDemo_ = compare;
     returnHome_ = compare;                   // so the next demo can start from the same place
@@ -292,6 +301,8 @@ void WaypointRunner::alignTest(const RobotState& s, uint32_t now) {
         r.tolM = tolM_;
         r.path.clear(DEMO_TRACE_STEP_M);
         r.path.add(s.x, s.y, true);
+        r.acts.clear(DEMO_ACT_HOLD_MS);
+        r.acts.update(0, activityOf(s));
         trackX_ = s.x;
         trackY_ = s.y;
     }
@@ -488,6 +499,7 @@ void WaypointRunner::update() {
     }
     if (compare_ && testPhase_ == TestPhase::Running && runs_[runIdx_].open) {   // the path, for the web picture
         runs_[runIdx_].path.add(s.x, s.y);
+        runs_[runIdx_].acts.update(sampleNow - testStartMs_, activityOf(s));
         trackX_ = s.x;
         trackY_ = s.y;
     }
@@ -630,6 +642,13 @@ void WaypointRunner::compareJson(JsonObject o) {
         j["speedMps"] = r.speedMps;
         j["steerDps"] = r.steerDps;
         j["tolM"] = r.tolM;
+        static const char* const actNames[3] = {"still", "turn", "drive"};
+        JsonArray acts = j["acts"].to<JsonArray>();     // [{t: ms since the start, a: what}]
+        for (uint8_t i = 0; i < r.acts.size(); ++i) {
+            JsonObject a = acts.add<JsonObject>();
+            a["t"] = r.acts.t(i);
+            a["a"] = actNames[r.acts.act(i)];
+        }
         JsonArray path = j["path"].to<JsonArray>();
         for (uint8_t i = 0; i < r.path.size(); ++i) {
             JsonObject p = path.add<JsonObject>();

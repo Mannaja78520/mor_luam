@@ -14,6 +14,7 @@ class DemoCompareView {
   constructor(api) {
     this.api = api;
     this.plot = $('#demoPlot');
+    this.timeline = $('#demoTimeline');
     this.canvas = $('#demoCanvas');
     this.result = $('#demoResult');
     this.hint = $('#demoHint');
@@ -92,7 +93,71 @@ class DemoCompareView {
 
   // ---- text: the results (also the accessible view of the picture) ----------
 
-  render() { this.renderText(); this.renderHint(); this.draw(); }
+  render() { this.renderTimeline(); this.renderText(); this.renderHint(); this.draw(); }
+
+  // segments [{a, t0, t1}] in seconds from the run's record (acts are change points)
+  static segments(run) {
+    const end = run.elapsedMs / 1000, acts = run.acts || [];
+    return acts.map((x, i) => ({ a: x.a, t0: x.t / 1000, t1: i + 1 < acts.length ? acts[i + 1].t / 1000 : end }))
+      .filter((s) => s.t1 > s.t0);
+  }
+  static total(segs, a) { return segs.filter((s) => s.a === a).reduce((sum, s) => sum + s.t1 - s.t0, 0); }
+
+  // ---- the time line: the clearest way to see the difference ------------------
+
+  renderTimeline() {
+    const runs = this.runs().filter((r) => (r.run.acts || []).length);
+    this.timeline.classList.toggle('hidden', !runs.length);
+    if (!runs.length) return;
+    const maxS = Math.max(...runs.map((r) => r.run.elapsedMs / 1000), 1);
+    const pct = (t) => `${(100 * t) / maxS}%`;
+    const word = { turn: 'หมุนล้อ', drive: 'วิ่ง', still: 'นิ่ง' };
+    const done = runs.filter((r) => r.run.valid && !r.run.open);
+    const fast = done.length === 2 ? done.reduce((a, b) => (a.run.elapsedMs <= b.run.elapsedMs ? a : b)) : null;
+    const slowS = fast ? Math.max(...done.map((r) => r.run.elapsedMs / 1000)) : 0;
+    const rows = runs.map((r) => {
+      const segs = DemoCompareView.segments(r.run);
+      const labels = segs.filter((s) => s.a !== 'still' && (s.t1 - s.t0) / maxS >= 0.14)
+        .map((s) => el('span', { class: 'tl-lab', style: `left:${pct((s.t0 + s.t1) / 2)}`,
+          text: `${word[s.a]} ${(s.t1 - s.t0).toFixed(1)}s` }));
+      const track = el('div', { class: 'tl-track' },
+        ...segs.map((s) => el('div', { class: `tl-seg ${s.a}`, style: `left:${pct(s.t0)};width:${pct(s.t1 - s.t0)}`,
+          title: `${word[s.a]} ${s.t0.toFixed(1)}-${s.t1.toFixed(1)} s` })));
+      if (fast === r) {                                // the time it saved, on its own lane
+        const endS = r.run.elapsedMs / 1000;
+        track.append(el('div', { class: 'tl-gain', style: `left:${pct(endS)};width:${pct(slowS - endS)}`,
+          title: `ถึงก่อน ${(slowS - endS).toFixed(2)} s` }));
+        if ((slowS - endS) / maxS >= 0.1) labels.push(el('span', { class: 'tl-lab', style: `left:${pct((endS + slowS) / 2)}`, text: 'ถึงก่อน' }));
+      }
+      const time = r.run.open ? 'กำลังวิ่ง' : r.run.valid ? `${(r.run.elapsedMs / 1000).toFixed(1)} s` : 'ไม่ครบ';
+      return el('div', { class: 'tl-row' },
+        el('span', { class: 'tl-name' }, el('i', { class: `sw ${r.key}`, 'aria-hidden': 'true' }), r.name),
+        el('div', { class: 'tl-lane' }, el('div', { class: 'tl-labels' }, ...labels), track),
+        el('span', { class: 'tl-end', text: time }));
+    });
+    const step = maxS > 30 ? 10 : maxS > 12 ? 5 : 2;
+    const ticks = [];
+    for (let t = 0; t <= maxS + 1e-9; t += step) ticks.push(el('span', { style: `left:${pct(t)}`, text: `${t}` }));
+    const head = fast
+      ? `${fast.name} ถึงเป้าก่อน ${(slowS - fast.run.elapsedMs / 1000).toFixed(1)} วินาที`
+      : 'แต่ละรอบทำอะไรตอนไหน';
+    const noteList = runs.map((r) => {
+      const segs = DemoCompareView.segments(r.run);
+      return `${r.name}: หมุนล้อรวม ${DemoCompareView.total(segs, 'turn').toFixed(1)} s · วิ่งรวม ${DemoCompareView.total(segs, 'drive').toFixed(1)} s`;
+    });
+    const notes = noteList.join(' · ');
+    this.timeline.replaceChildren(
+      el('p', { class: 'tl-head', text: head }),
+      el('div', { class: 'tl-legend', 'aria-hidden': 'true' },
+        el('span', {}, el('i', { class: 'tl-key turn' }), 'หมุนล้ออยู่กับที่'),
+        el('span', {}, el('i', { class: 'tl-key drive' }), 'วิ่ง'),
+        el('span', {}, el('i', { class: 'tl-key still' }), 'นิ่ง (ตั้งล้อ/หยุดเปลี่ยนท่า)')),
+      ...rows,
+      el('div', { class: 'tl-axis', 'aria-hidden': 'true' }, ...ticks),
+      el('p', { class: 'tl-note' }, ...noteList.map((n) => el('span', { class: 'tl-line', text: n })),
+        el('span', { class: 'tl-line hint', text: 'แกนล่าง = วินาทีนับจากเริ่มจับเวลา' })));
+    this.timeline.setAttribute('aria-label', `${head}. ${notes}`);
+  }
 
   renderText() {
     if (!this.data) {

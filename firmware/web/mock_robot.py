@@ -43,8 +43,13 @@ def mock_compare():
     base = {"startX": sx, "startY": sy, "headingDeg": 30.0, "goalX": gw["x"], "goalY": gw["y"],
             "speedMps": 0.03, "steerDps": 35.0, "tolM": 0.0025, "open": False, "valid": True}
     return {"distM": 0.3, "rightDeg": 6.0,
-            "direct": {**base, "id": 1, "elapsedMs": 25840, "path": direct},
-            "detour": {**base, "id": 2, "elapsedMs": 19990, "path": detour}}
+            "direct": {**base, "id": 1, "elapsedMs": 25840, "path": direct,
+                       "acts": [{"t": 0, "a": "still"}, {"t": 300, "a": "turn"}, {"t": 10400, "a": "still"},
+                                {"t": 10750, "a": "drive"}, {"t": 25600, "a": "still"}]},
+            "detour": {**base, "id": 2, "elapsedMs": 19990, "path": detour,
+                       "acts": [{"t": 0, "a": "still"}, {"t": 200, "a": "drive"}, {"t": 10600, "a": "still"},
+                                {"t": 10900, "a": "turn"}, {"t": 18050, "a": "still"}, {"t": 18350, "a": "drive"},
+                                {"t": 19800, "a": "still"}]}}
 
 
 def now_ms():

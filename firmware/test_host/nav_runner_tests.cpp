@@ -308,6 +308,8 @@ int main() {
             assert(std::fabs(d.children["goalX"].number - DEMO_COMPARE_DIST_M * std::cos(b)) < 1e-4);
             auto& path = d.children["path"].items;
             assert(path.size() == 2 && path[0].children["x"].number == 0);  // start, then where it ended
+            auto& acts = d.children["acts"].items;
+            assert(!acts.empty() && acts[0].children["t"].number == 0 && acts[0].children["a"].text == "still");
             assert(std::fabs(path[1].children["x"].number - DEMO_COMPARE_DIST_M * std::cos(b)) < 1e-3);
         }
         t.ctrl.applied.goalActive = false; t.ctrl.applied.targetRpm = 0;
@@ -400,5 +402,28 @@ int main() {
         assert(o.children["direct"].null);
         assert(t.status().children["test"].children["goalX"].null);
     }
-    std::cout << "WaypointRunner comparison tests PASS (28 scenarios)\n";
+    {   // demo 3/4 from the web: ready needed, the heartbeat rule applies, then it drives home
+        Trial t;
+        assert(!t.runner.startCompare("direct", t.err, false, false));        // not ready
+        const int arms = t.ctrl.wdArms;
+        assert(t.runner.startCompare("direct", t.err, false, true));
+        assert(t.ctrl.wdArms == arms + 1 && t.status().children["byButton"].number == 0);
+        t.align();
+        for (int i = 0; i < 70; ++i) t.tick(50, true, false);                // 3.5 s without heartbeat
+        assert(t.status().children["status"].text == "stopped");
+    }
+    {   // demo 3 time line: steering in place is "turn" even though the drive encoder moves
+        Trial t;
+        assert(t.runner.startCompare("direct", t.err));
+        t.align();
+        t.ctrl.applied.driving = false; t.ctrl.applied.steerRateDps = 35; t.ctrl.applied.rpm = 2;   // coupling
+        for (int i = 0; i < 20; ++i) t.tick();                                                     // 1 s turning
+        t.ctrl.applied.driving = true; t.ctrl.applied.steerRateDps = 0; t.ctrl.applied.rpm = 7.5;
+        for (int i = 0; i < 20; ++i) t.tick();                                                     // 1 s driving
+        JsonNode o; t.runner.compareJson(JsonObject(&o));
+        auto& acts = o.children["direct"].children["acts"].items;
+        assert(acts.size() >= 3 && acts[1].children["a"].text == "turn" && acts[2].children["a"].text == "drive");
+        t.runner.stop("test");
+    }
+    std::cout << "WaypointRunner comparison tests PASS (30 scenarios)\n";
 }

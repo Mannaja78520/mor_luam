@@ -9,6 +9,7 @@
   --txt: #e8edf5; --mut: #9aa6b8;
   --acc: #4da3ff; --on-acc: #05121f;
   --s-direct: #d95926; --s-detour: #199e70;   /* demo 3/4 picture: series colours (validated, dataviz) */
+  --a-drive: #3987e5;  --a-turn: #d55181;      /* demo 3/4 time line: driving / turning the wheel (validated) */
   --ok: #35c46a;  --warn: #ffb020;  --err: #ff4d4d;
   --on-sem: #10141b; --on-err: #ffffff;
 
@@ -24,12 +25,12 @@
   --l-bg: #f2f5fa;  --l-card: #ffffff; --l-sunk: #eef2f8; --l-line: #d5dce8;
   --l-txt: #16202e; --l-mut: #5b6878;  --l-acc: #0b62c4;  --l-on-acc: #ffffff;
   --l-ok: #1a8f4c;  --l-warn: #8a5a00; --l-err: #c62828;
-  --l-s-direct: #eb6834; --l-s-detour: #1baf7a;
+  --l-s-direct: #eb6834; --l-s-detour: #1baf7a; --l-a-drive: #2a78d6; --l-a-turn: #e87ba4;
   --l-on-sem: #ffffff; --l-on-err: #ffffff;
   --d-bg: #0e1117;  --d-card: #171b23; --d-sunk: #10141b; --d-line: #2b3240;
   --d-txt: #e8edf5; --d-mut: #9aa6b8;  --d-acc: #4da3ff;  --d-on-acc: #05121f;
   --d-ok: #35c46a;  --d-warn: #ffb020; --d-err: #ff4d4d;
-  --d-s-direct: #d95926; --d-s-detour: #199e70;
+  --d-s-direct: #d95926; --d-s-detour: #199e70; --d-a-drive: #3987e5; --d-a-turn: #d55181;
   --d-on-sem: #10141b; --d-on-err: #ffffff;
 
   --f-ui: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", Roboto, sans-serif;
@@ -45,6 +46,7 @@
     --ok: var(--l-ok); --warn: var(--l-warn); --err: var(--l-err);
     --on-sem: var(--l-on-sem); --on-err: var(--l-on-err);
     --s-direct: var(--l-s-direct); --s-detour: var(--l-s-detour);
+    --a-drive: var(--l-a-drive); --a-turn: var(--l-a-turn);
   }
 }
 :root[data-theme="light"] {
@@ -53,6 +55,7 @@
   --ok: var(--l-ok); --warn: var(--l-warn); --err: var(--l-err);
   --on-sem: var(--l-on-sem); --on-err: var(--l-on-err);
   --s-direct: var(--l-s-direct); --s-detour: var(--l-s-detour);
+  --a-drive: var(--l-a-drive); --a-turn: var(--l-a-turn);
 }
 :root[data-theme="dark"] {
   --bg: var(--d-bg); --card: var(--d-card); --sunk: var(--d-sunk); --line: var(--d-line);
@@ -60,6 +63,7 @@
   --ok: var(--d-ok); --warn: var(--d-warn); --err: var(--d-err);
   --on-sem: var(--d-on-sem); --on-err: var(--d-on-err);
   --s-direct: var(--d-s-direct); --s-detour: var(--d-s-detour);
+  --a-drive: var(--d-a-drive); --a-turn: var(--d-a-turn);
 }
 
 * { box-sizing: border-box; }
@@ -319,6 +323,30 @@ details.more summary { cursor: pointer; color: var(--mut); font-size: var(--fs-1
 .demo-row .demo-how { grid-column: 2 / 4; color: var(--mut); font-size: var(--fs-1); }
 .demo-time { text-align: right; font-variant-numeric: tabular-nums; }
 .demo-sum { font-weight: 700; margin: var(--sp-2) 0 0; }
+/* time line: what each run did, second by second */
+.demo-tl { margin-bottom: var(--sp-4); }
+.tl-head { font-weight: 700; margin: 0 0 var(--sp-2); }
+.tl-legend { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-1); color: var(--mut); margin-bottom: var(--sp-2); }
+.tl-legend span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.tl-key { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
+.tl-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px; gap: var(--sp-2); align-items: end; margin-bottom: var(--sp-2); }
+.tl-name { font-size: var(--fs-1); font-weight: 700; display: flex; align-items: center; gap: var(--sp-1); padding-bottom: 4px; }
+.tl-name .sw { width: 10px; }
+.tl-lane { position: relative; height: 40px; }
+.tl-labels { position: absolute; left: 0; right: 0; top: 0; height: 16px; }
+.tl-lab { position: absolute; transform: translateX(-50%); font-size: var(--fs-1); color: var(--txt); white-space: nowrap; }
+.tl-track { position: absolute; left: 0; right: 0; bottom: 0; height: 20px; background: var(--sunk); border-radius: var(--r-sm); overflow: hidden; }
+.tl-seg { position: absolute; top: 0; bottom: 0; box-shadow: inset -2px 0 0 var(--card); }
+.tl-key.turn, .tl-seg.turn { background-color: var(--a-turn);
+  background-image: repeating-linear-gradient(135deg, transparent 0 5px, rgba(255, 255, 255, .28) 5px 8px); }   /* texture: not colour alone */
+.tl-key.drive, .tl-seg.drive { background-color: var(--a-drive); }
+.tl-key.still, .tl-seg.still { background-color: var(--line); }
+.tl-gain { position: absolute; top: 0; bottom: 0; border: 2px dashed var(--txt); border-left: 0; border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.tl-end { font-size: var(--fs-1); font-weight: 700; font-variant-numeric: tabular-nums; padding-bottom: 2px; }
+.tl-axis { position: relative; height: 16px; margin: 0 64px; font-size: var(--fs-1); color: var(--mut); }
+.tl-axis span { position: absolute; transform: translateX(-50%); }
+.tl-note { font-size: var(--fs-1); color: var(--txt); margin: var(--sp-2) 0 0; }
+.tl-line { display: block; }
 .wptable input { width: 100%; min-width: 0; text-align: right; }
 .wptable tr.cur td:first-child { color: var(--ok); font-weight: 700; }
 .wpscroll { max-height: 320px; overflow: auto; }

@@ -10,7 +10,7 @@
 //  4. Wi-Fi priority rules (net/WifiPolicy.h).
 //  5. Steering direction (angles::cwErrorDeg) and the AS5600 spike filter.
 //  7. Demo button click counting (util/ClickCounter.h).
-//  9. Recorded run path for the web picture (nav/RunTrace.h).
+//  9. Recorded run path for the web picture (nav/RunTrace.h) and its time line (nav/ActivityLog.h).
 //  6. Learned drive feedforward, with the real drive gains and a weaker motor.
 //
 // The motor models are made up (no measurement of the real steering exists):
@@ -31,6 +31,7 @@
 #include "algorithm/SteerPowerRamp.h"
 #include "algorithm/SteerStopPredictor.h"
 #include "net/WifiPolicy.h"
+#include "nav/ActivityLog.h"
 #include "nav/RunTrace.h"
 #include "util/AngleSpikeFilter.h"
 #include "util/ClickCounter.h"
@@ -517,6 +518,20 @@ static void testRunTrace() {
     u.add(0.002f, 0.0f, true);
     u.add(0.002f, 0.0f, true);
     CHECK(u.size() == 2, "the end point is kept once, even closer than the step");
+
+    using L = ActivityLog<8>;
+    L a;
+    a.clear(150);
+    for (uint32_t t = 0; t < 10000; t += 50) a.update(t, L::Turn);           // 10 s turning in place
+    a.update(10000, L::Still);                                              // 50 ms flicker
+    a.update(10050, L::Turn);
+    for (uint32_t t = 10100; t < 20000; t += 50) a.update(t, L::Drive);     // then driving
+    CHECK(a.size() == 2 && a.act(0) == L::Turn && a.act(1) == L::Drive, "time line: turn, then drive; flicker ignored");
+    CHECK(a.t(1) == 10100, "a change is dated from when it began, not when it was confirmed");
+    L b;
+    b.clear(150);
+    for (uint32_t t = 0; t < 20000; t += 50) b.update(t, (t / 400) % 2 ? L::Drive : L::Still);
+    CHECK(b.size() == 8, "full: no overflow, the last segment runs to the end");
 }
 
 int main() {
