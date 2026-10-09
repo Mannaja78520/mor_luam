@@ -136,6 +136,11 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
   - Does Detour help? Measured 2026-10-08 (race_test.py, 3+3 runs, goal 0.3 m / 6 deg): Detour 19.99 s vs
     Direct 25.84 s = 22.6 % faster, and steadier. Only for goals just clockwise of the wheel (Direct must spin
     almost a full turn); elsewhere the planner picks the same straight path, so both are equal.
+  - OWNER RAN DEMO 3 + 4 on the new build (robot on `manny` but new subnet, IP 10.139.24.49; use mor-luam.local):
+    Direct 24.55 s, Detour 21.66 s -> Detour 2.89 s faster (11.8 %), 1 run each, both valid, both ended
+    2.5 / 2.4 mm from the goal (odometry). Direct drifted ~1 cm right of its line, then corrected at the end.
+    Picture from tools/demo_compare_plot.py matched the plan (Direct 354 deg first; Detour 31 cm, 249 deg).
+    Only 1 run each: repeat 3+ times before quoting a percentage (the 2026-10-08 race: 22.6 % over 3+3).
 
 **Still in progress**
 - Nothing running. Robot halted on battery.
