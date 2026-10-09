@@ -10,6 +10,7 @@
 //   web        WebApp (+ the page in web/WebPage.h)
 #include <motor.h>
 #include <esp32_Encoder.h>
+#include "app/DemoButton.h"
 #include "app/Settings.h"
 #include "control/ControlLoop.h"
 #include "control/SteerDriveController.h"
@@ -44,6 +45,7 @@ private:
     ControlLoop loop_;
 
     WaypointRunner runner_;
+    DemoButton button_;
     MicroRosBridge ros_;
     WebApp web_;
     unsigned savedCoastSamples_ = 0;

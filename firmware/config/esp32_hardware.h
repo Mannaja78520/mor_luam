@@ -53,5 +53,6 @@
     // I2C communication
     #define SCL_PIN 22
     #define SDA_PIN 21
+    #define DEMO_BUTTON_PIN 19          // demo button to GND (pull-up): 1/2/3 clicks = demo 1/2/3, press while moving = stop
 
 #endif

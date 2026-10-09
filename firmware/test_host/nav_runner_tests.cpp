@@ -1,3 +1,5 @@
+#include "app_config.h"
+#include <cmath>
 // Tests the production WaypointRunner against a delayed control snapshot.
 // See test_host/nav_runner_stubs: hardware/network/NVS are not involved.
 #include "nav/WaypointRunner.h"
@@ -188,5 +190,32 @@ int main() {
         t.tick();
         assert(t.phase() == "failed" && t.field("valid") == 0 && t.ctrl.halts == 1);
     }
-    std::cout << "WaypointRunner comparison tests PASS (15 scenarios)\n";
+    {   // demo 1 from the button: own points, no web heartbeat, web route given back
+        Trial t;
+        const int arms = t.ctrl.wdArms;
+        assert(t.runner.startDemoSquare(1.0f, t.err));
+        assert(t.ctrl.poseResets == 1 && t.ctrl.wdArms == arms);          // no web watchdog
+        assert(t.status().children["count"].number == 3 && t.status().children["byButton"].number == 1);
+        for (int i = 0; i < 100; ++i) t.tick(50, true, false);           // 5 s, no heartbeat
+        assert(t.status().children["status"].text == "running");
+        t.runner.stop("button");
+        JsonNode pts; t.runner.pointsJson(JsonArray(&pts));
+        assert(pts.items.size() == 1 && std::fabs(pts.items[0].children["x"].number - 0.3) < 1e-6);  // saved route back
+    }
+    {   // demo 2/3 from the button: timed test, no heartbeat, stops at the time cap
+        Trial t;
+        assert(t.runner.startTest("detour", 0, true, t.err, true));
+        t.align();
+        for (int i = 0; i < 100; ++i) t.tick(50, true, false);           // 5 s, no heartbeat
+        assert(t.phase() == "running");
+        t.tick(DEMO_MAX_MS, true, false);
+        assert(t.status().children["status"].text == "stopped" && t.ctrl.halts == 1);
+    }
+    {   // a web route still stops after 3 s without heartbeat
+        Trial t;
+        assert(t.runner.start(t.err));
+        for (int i = 0; i < 70; ++i) t.tick(50, true, false);            // 3.5 s
+        assert(t.status().children["status"].text == "stopped");
+    }
+    std::cout << "WaypointRunner comparison tests PASS (18 scenarios)\n";
 }

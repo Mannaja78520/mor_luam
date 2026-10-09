@@ -85,9 +85,11 @@ void WaypointRunner::prepare(const SettingsData& s) {
     params_.settleS = DETOUR_SETTLE_S;
     params_.stopS = DETOUR_STOP_S;
     heartbeatMs_ = millis();
+    localStartMs_ = millis();
     commandPending_ = false;
-    // the same 3 s rule, enforced in the control task too (loop() may be blocked)
-    ctrl_->armWatchdog(WEB_HEARTBEAT_TIMEOUT_MS, "หน้าเว็บขาดการเชื่อมต่อ - หยุดเพื่อความปลอดภัย");
+    // the same 3 s rule, enforced in the control task too (loop() may be blocked);
+    // a demo started from the robot's button has its own stop (the button) instead
+    if (!local_) ctrl_->armWatchdog(WEB_HEARTBEAT_TIMEOUT_MS, "หน้าเว็บขาดการเชื่อมต่อ - หยุดเพื่อความปลอดภัย");
 }
 
 bool WaypointRunner::start(String& err) {
@@ -95,6 +97,7 @@ bool WaypointRunner::start(String& err) {
     lock();
     if (status_ == Status::Running) { unlock(); err = "หยุดเส้นทางก่อนเริ่มใหม่"; return false; }
     if (count_ == 0) { unlock(); err = "ยังไม่มีจุด: คลิกบนระนาบเพื่อวางจุด"; return false; }
+    local_ = false;
     prepare(s);
     testPhase_ = TestPhase::Idle;
     testTimed_ = testValid_ = false;
@@ -113,7 +116,7 @@ bool WaypointRunner::testSensorsOk(const RobotState& s, uint32_t now) const {
     return true;
 }
 
-bool WaypointRunner::startTest(const String& planner, float heading, bool ready, String& err) {
+bool WaypointRunner::startTest(const String& planner, float heading, bool ready, String& err, bool byButton) {
     if (!ready) { err = "ยืนยันว่าอยู่ข้างหุ่นและวางหุ่นที่จุดเริ่มต้นก่อน"; return false; }
     if (planner != "direct" && planner != "detour") { err = "เลือกแบบที่ 1 direct หรือแบบที่ 2 detour"; return false; }
     if (!isfinite(heading) || heading < 0.0f || heading > 360.0f) { err = "มุมเริ่มต้นต้องอยู่ในช่วง 0-360 องศา"; return false; }
@@ -140,6 +143,7 @@ bool WaypointRunner::startTest(const String& planner, float heading, bool ready,
     if (!isfinite(pid[4]) || pid[4] <= 0.0f || pid[4] >= 180.0f) {
         unlock(); err = "ค่าความคลาดเคลื่อนมุมล้อไม่เหมาะกับการเทส"; return false;
     }
+    local_ = byButton;
     prepare(settings);
     loop_ = false;
     plannerName_ = planner;
@@ -213,7 +217,47 @@ void WaypointRunner::finish(Status st, const char* why, bool haltWheel) {
     message_ = why;
     legActive_ = false;
     commandPending_ = false;
+    if (restorePts_) {                       // demo 1 borrowed pts_: give the web route back
+        for (uint8_t i = 0; i < savedCount_; ++i) pts_[i] = savedPts_[i];
+        count_ = savedCount_;
+        restorePts_ = false;
+    }
     if (haltWheel) ctrl_->halt(why);
+}
+
+bool WaypointRunner::startDemoSquare(float side, String& err) {
+    const SettingsData s = settings_->get();
+    lock();
+    if (status_ == Status::Running) { unlock(); err = "หยุดเส้นทางก่อน"; return false; }
+    const RobotState st = ctrl_->snapshot();
+    if (!st.halted && (st.pwm != 0 || fabsf(st.rpm) >= 0.5f)) { unlock(); err = "หยุดหุ่นก่อน"; return false; }
+    for (uint8_t i = 0; i < count_; ++i) savedPts_[i] = pts_[i];
+    savedCount_ = count_;
+    restorePts_ = true;
+    pts_[0] = {side, 0.0f};                  // forward
+    pts_[1] = {side, side};                  // then left (+y)
+    pts_[2] = {0.0f, 0.0f};                  // back to the start
+    count_ = 3;
+    ctrl_->resetPose();                      // here becomes (0,0), +x = where the robot faces
+    local_ = true;
+    prepare(s);
+    loop_ = false;
+    testPhase_ = TestPhase::Idle;
+    testTimed_ = testValid_ = false;
+    testElapsedMs_ = 0;
+    char msg[96];
+    snprintf(msg, sizeof(msg), "เดโม 1: หน้า %.1f ม. -> ซ้าย %.1f ม. -> กลับจุดเริ่ม", side, side);
+    message_ = msg;
+    unlock();
+    return true;
+}
+
+void WaypointRunner::noteButton(const String& text, uint8_t clicks) {
+    lock();
+    buttonText_ = text;
+    buttonClicks_ = clicks;
+    buttonMs_ = millis();
+    unlock();
 }
 
 void WaypointRunner::stop(const char* why) {
@@ -253,7 +297,12 @@ void WaypointRunner::update() {
     lock();
     if (status_ != Status::Running) { unlock(); return; }
     if (testPhase_ == TestPhase::Running && updateGapMs > testMaxUpdateGapMs_) testMaxUpdateGapMs_ = updateGapMs;
-    if (now - heartbeatMs_ > WEB_HEARTBEAT_TIMEOUT_MS) {
+    if (local_ && now - localStartMs_ > DEMO_MAX_MS) {
+        finish(Status::Stopped, "เดโมเกินเวลาที่กำหนด - หยุด", true);
+        unlock();
+        return;
+    }
+    if (!local_ && now - heartbeatMs_ > WEB_HEARTBEAT_TIMEOUT_MS) {
         finish(Status::Stopped, "หน้าเว็บขาดการเชื่อมต่อ - หยุดเพื่อความปลอดภัย", true);
         unlock();
         return;
@@ -354,6 +403,12 @@ void WaypointRunner::statusJson(JsonObject o) {
     lock();
     o["status"] = statusName(status_);
     o["message"] = message_;
+    o["byButton"] = local_;
+    JsonObject btn = o["button"].to<JsonObject>();
+    btn["text"] = buttonText_;
+    btn["clicks"] = buttonClicks_;
+    btn["ageMs"] = buttonMs_ ? millis() - buttonMs_ : 0;
+    btn["pressed"] = (bool)buttonPressed_;
     o["index"] = idx_;
     o["count"] = count_;
     o["loop"] = loop_;

@@ -9,6 +9,7 @@
 //     motor models, with and without SteerStopPredictor.
 //  4. Wi-Fi priority rules (net/WifiPolicy.h).
 //  5. Steering direction (angles::cwErrorDeg) and the AS5600 spike filter.
+//  7. Demo button click counting (util/ClickCounter.h).
 //  6. Learned drive feedforward, with the real drive gains and a weaker motor.
 //
 // The motor models are made up (no measurement of the real steering exists):
@@ -16,6 +17,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <initializer_list>
+#include <utility>
 
 #include "PIDF.h"
 #include "PIDF_config.h"
@@ -28,6 +31,7 @@
 #include "algorithm/SteerStopPredictor.h"
 #include "net/WifiPolicy.h"
 #include "util/AngleSpikeFilter.h"
+#include "util/ClickCounter.h"
 #include "util/Angles.h"
 #include "esp32_hardware.h"   // PWM_STEER_Max
 
@@ -456,12 +460,50 @@ static void testMotorFeedbackAndSmoothing() {
           "zero power cuts immediately and a restart ramps from zero");
 }
 
+// ---- 7: demo button clicks (util/ClickCounter.h) --------------------------------------
+
+// press pattern: {pressed?, how long ms}; returns the click count reported (0 = none)
+static int clicksOf(std::initializer_list<std::pair<bool, int>> pattern, int* presses = nullptr) {
+    ClickCounter c(30, 1000, 1500);
+    uint32_t now = 0;
+    int got = 0, pressEvents = 0;
+    for (auto& step : pattern)
+        for (int ms = 0; ms < step.second; ms += 5, now += 5) {
+            const auto ev = c.update(step.first, now);
+            if (ev == ClickCounter::Event::Clicks) got = c.clicks();
+            if (ev == ClickCounter::Event::Press) ++pressEvents;
+        }
+    if (presses) *presses = pressEvents;
+    return got;
+}
+
+static void testClickCounter() {
+    printf("8. Demo button: click counting\n");
+    CHECK(clicksOf({{false, 100}, {true, 150}, {false, 1200}}) == 1, "1 click -> demo 1 (1 s after the release)");
+    CHECK(clicksOf({{true, 150}, {false, 300}, {true, 150}, {false, 1200}}) == 2, "2 clicks -> demo 2");
+    CHECK(clicksOf({{true, 120}, {false, 250}, {true, 120}, {false, 250}, {true, 120}, {false, 1200}}) == 3, "3 clicks -> demo 3");
+    CHECK(clicksOf({{true, 150}, {false, 1200}, {true, 150}, {false, 1200}}) == 1, "two slow presses = two separate 1-click gestures");
+    CHECK(clicksOf({{true, 2000}, {false, 1500}}) == 0, "a 2 s hold is not a click");
+    int presses = 0;
+    CHECK(clicksOf({{true, 10}, {false, 10}, {true, 10}, {false, 10}, {true, 200}, {false, 1200}}, &presses) == 1 && presses == 1,
+          "contact bounce is filtered: one press, one click");
+    ClickCounter c(30, 1000, 1500);
+    uint32_t now = 0;
+    for (; now < 100; now += 5) c.update(true, now);        // a press that STOPS the robot
+    c.cancel();
+    int got = 0;
+    for (; now < 1500; now += 5)
+        if (c.update(false, now) == ClickCounter::Event::Clicks) got = c.clicks();
+    CHECK(got == 0, "the press used to stop the robot is not counted as a click");
+}
+
 int main() {
     testDetourMatchesHomework();
     testTheorems();
     testPidf();
     testWifiPolicy();
     testSteerSensorMath();
+    testClickCounter();
     testDriveLearning();
     testMotorFeedbackAndSmoothing();
     printf("\n%s (%d failure%s)\n", failures ? "FAILED" : "ALL PASS", failures, failures == 1 ? "" : "s");

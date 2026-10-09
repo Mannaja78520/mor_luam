@@ -24,6 +24,7 @@ Read this file first; open only the files the task needs.
 | Final steering power ramp and missing-feedback stop | `firmware/src/algorithm/SteerPowerRamp.h`, `MotorResponseWatch.h`; used by `SteerDriveController` |
 | Steering algorithms (plain C++) | `firmware/src/algorithm/` — see its README.md |
 | Waypoint route, heartbeat, replanning | `firmware/src/nav/WaypointRunner.cpp` |
+| Demo button GPIO19 (1/2/3 clicks = demo 1 / Direct / Detour, press = stop) | `firmware/src/app/DemoButton.cpp`, `src/util/ClickCounter.h`, runner `startDemoSquare` / `startTest(..., byButton)` |
 | Wi-Fi list (NVS "wifi"), priority join / move up, hotspot, mDNS | `firmware/src/net/WifiStore.cpp`, `NetworkManager.cpp`, rules in `WifiPolicy.h` |
 | OTA (ArduinoOTA + web upload) | `firmware/src/net/OtaService.cpp` |
 | micro-ROS topics, agent discovery | `firmware/src/ros/MicroRosBridge.cpp` |

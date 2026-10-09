@@ -64,3 +64,9 @@ A simulation is useful for checking a route and the controls. It cannot verify p
 - Wi-Fi scans and robot searches requested while the robot moves wait until it stops.
 - Heartbeats and status polls both count as "a page is still here", so one lost HTTP request does not stop a route; losing the page or Wi-Fi stops everything.
 - Tests: silent web route -> power off 2.97 s after motion started; test move -> 3.01 s; with a scan and a search requested during the drive -> still within 3 s; 0 mm of travel after the cut.
+
+## Demo button (GPIO19)
+
+- Demos started with the robot's button do NOT use the web heartbeat: the operator is at the robot.
+  Their stops: any button press while moving (read every 5 ms in its own task), web E-STOP, and a 5 min cap (DEMO_MAX_MS).
+- Web routes keep the 3 s heartbeat rule unchanged.

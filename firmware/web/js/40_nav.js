@@ -186,6 +186,7 @@ class NavPanel {
     this.resetBtn.disabled = offline || running || robot.mode !== 'halt';
     let hint = '', warn = false;
     if (offline) { hint = 'ติดต่อหุ่นไม่ได้: ปุ่มจะใช้ได้เมื่อต่อกลับ'; warn = true; }
+    else if (running && nav.byButton) hint = 'เริ่มจากปุ่มบนหุ่น: กดปุ่มอีกครั้ง หรือ E-STOP เพื่อหยุด';
     else if (running) hint = 'ถ้าปิดหน้านี้หรือเน็ตหลุดเกิน 3 วินาที หุ่นจะหยุดเอง';
     else if (robot.source === 'ros' && robot.mode !== 'halt') { hint = 'หุ่นกำลังทำตามคำสั่งจาก ROS อยู่'; warn = true; }
     else if (!this.route.loaded) hint = 'รอโหลดจุดจากหุ่น';
@@ -195,5 +196,10 @@ class NavPanel {
     else hint = `พร้อมวิ่ง ${n} จุด`;
     this.hint.textContent = hint;
     this.hint.classList.toggle('warn-text', warn);
+    // the demo button on the robot (GPIO19): live state + last event
+    const b = nav.button || {};
+    const last = b.text && b.ageMs < 120000 ? ` · ล่าสุด: ${b.text}` : '';
+    const btn = document.getElementById('btnInfo');
+    if (btn) btn.textContent = `ปุ่มบนหุ่น: ${b.pressed ? 'กำลังกดอยู่' : 'ปล่อยอยู่'}${last}`;
   }
 }

@@ -35,7 +35,14 @@ public:
     bool start(String& err);
     // One attended comparison trial. Align first, then time the current route on
     // the ESP32 with a temporary planner; saved settings/pose are not changed.
-    bool startTest(const String& planner, float startHeadingDeg, bool ready, String& err);
+    // byButton: started from the robot's demo button - no web heartbeat needed
+    // (the operator is there; a press stops it), DEMO_MAX_MS time cap instead.
+    bool startTest(const String& planner, float startHeadingDeg, bool ready, String& err, bool byButton = false);
+    // Demo 1 (button): here becomes (0,0); forward sideM, left sideM, back to the start.
+    // Uses its own points; the route saved from the web page is kept and restored.
+    bool startDemoSquare(float sideM, String& err);
+    void noteButton(const String& text, uint8_t clicks);   // last button event, shown on the web page
+    void setButtonPressed(bool p) { buttonPressed_ = p; }   // live state for the web page
     void stop(const char* why);                      // also halts the wheel
     void heartbeat();
     void cancelForRos();                             // ROS took over: stop the route, keep its command
@@ -89,4 +96,14 @@ private:
     uint32_t testPrepMs_ = 0, testStableMs_ = 0, testStableSampleMs_ = 0, testStartMs_ = 0, testElapsedMs_ = 0;
     uint32_t testMaxUpdateGapMs_ = 0;
     bool testStable_ = false, testTimed_ = false, testValid_ = false;
+    // started from the demo button: no heartbeat, time cap; demo 1 borrows pts_
+    bool local_ = false;
+    uint32_t localStartMs_ = 0;
+    bool restorePts_ = false;
+    Waypoint savedPts_[32];
+    uint8_t savedCount_ = 0;
+    String buttonText_;
+    uint8_t buttonClicks_ = 0;
+    uint32_t buttonMs_ = 0;
+    volatile bool buttonPressed_ = false;
 };

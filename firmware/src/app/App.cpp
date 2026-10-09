@@ -33,6 +33,7 @@ void App::begin() {
     net_.begin(&wifi_, &settings_);
     ota_.begin(&settings_, &loop_, settings_.get().hostname);
     runner_.begin(&loop_, &settings_);
+    button_.begin(DEMO_BUTTON_PIN, &runner_, &loop_);
     net_.setBusyCheck([this] { return loop_.moving() || runner_.running(); });
     ros_.begin(&loop_, &runner_, &settings_, &net_);
     web_.begin({&settings_, &wifi_, &net_, &loop_, &runner_, &ros_, &ota_});

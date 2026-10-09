@@ -67,6 +67,14 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
   route-test alignment uses the controller's own steerAimed flag. Earlier 5 cm-radius races were invalid
   (Detour "arrived" without its final turn); one run was touched by hand and discarded.
 
+- DEMO BUTTON (2026-10-09, owner request): button on GPIO19 to GND with pull-up. 1 click = demo 1 (pose reset,
+  (1,0) -> (1,1) -> (0,0), web route kept), 2 clicks = web route Direct, 3 clicks = web route Detour (both via the
+  timed route test, wheel to +x first), any press while moving = stop, hold > 1.5 s = nothing. Button demos skip
+  the web heartbeat (operator at the robot) with a 5 min cap. Files: app/DemoButton.*, util/ClickCounter.h,
+  WaypointRunner startDemoSquare/startTest(byButton)/noteButton, web live button state. PC tests: click counter 7/7,
+  route runner 18 scenarios. On the robot (build Oct 9 06:39): live pressed state works, long hold ignored.
+  NOT yet run on the floor: demo 1/2/3 with the owner present.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 

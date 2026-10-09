@@ -43,6 +43,13 @@ static const uint32_t WEB_HEARTBEAT_TIMEOUT_MS = 3000;
 static const uint8_t  NAV_MAX_RETRIES          = 6;     // re-aims per waypoint before giving up
 static const uint8_t  NAV_MAX_POINTS           = 32;
 static const float    TEST_MAX_RPM             = 150.0f; // POST /api/test/move limits
+// Demo button (app/DemoButton.h, pin DEMO_BUTTON_PIN in esp32_hardware.h)
+static const uint32_t DEMO_DEBOUNCE_MS         = 30;
+static const uint32_t DEMO_CLICK_GAP_MS        = 1000;   // a demo starts this long after the last click
+static const uint32_t DEMO_MAX_PRESS_MS        = 1500;   // held longer = not a click
+static const float    DEMO_SQUARE_M            = 1.0f;   // demo 1: forward, left, back (m)
+static const float    DEMO_START_HEADING_DEG   = 0.0f;   // demos 2/3: wheel turned to +x first, then timed
+static const uint32_t DEMO_MAX_MS              = 300000; // a button demo stops by itself after 5 min
 static const float    NAV_DEFAULT_SPEED_MPS    = 0.03f;  // 7.5 rpm: full power is only ~0.039 m/s (PIDF_config.h)
 static const float    NAV_MAX_SPEED_MPS        = 0.035f; // leave the PID some power to spare
 static const float    TEST_MAX_DIST_M          = 2.0f;
