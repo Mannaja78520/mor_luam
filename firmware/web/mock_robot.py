@@ -30,6 +30,23 @@ LOCK = threading.Lock()
 T0 = time.time()
 
 
+def mock_compare():
+    """Fake demo 3/4 record: start (0.2, 0.1), wheel at 30 deg, goal 0.30 m, 6 deg to the right."""
+    sx, sy, h = 0.2, 0.1, math.radians(30)
+    def world(lx, ly):
+        return {"x": round(sx + lx * math.cos(h) - ly * math.sin(h), 4), "y": round(sy + lx * math.sin(h) + ly * math.cos(h), 4)}
+    g = (0.3 * math.cos(math.radians(-6)), 0.3 * math.sin(math.radians(-6)))
+    gw = world(*g)
+    direct = [world(g[0] * i / 40 + random.gauss(0, 0.0004), g[1] * i / 40) for i in range(41)]
+    detour = [world(0.3106 * i / 40, 0.0006 * math.sin(i / 6)) for i in range(41)]
+    detour += [world(0.3106 + (g[0] - 0.3106) * i / 8, g[1] * i / 8) for i in range(1, 9)]
+    base = {"startX": sx, "startY": sy, "headingDeg": 30.0, "goalX": gw["x"], "goalY": gw["y"],
+            "speedMps": 0.03, "steerDps": 35.0, "tolM": 0.0025, "open": False, "valid": True}
+    return {"distM": 0.3, "rightDeg": 6.0,
+            "direct": {**base, "id": 1, "elapsedMs": 25840, "path": direct},
+            "detour": {**base, "id": 2, "elapsedMs": 19990, "path": detour}}
+
+
 def now_ms():
     return int((time.time() - T0) * 1000)
 
@@ -332,6 +349,8 @@ class Handler(BaseHTTPRequestHandler):
                 if slot not in (0, 1, 2):
                     return self.fail("ไม่มีเส้นทางนี้")
                 return self.send(200, {"slot": slot, "points": R.routes[slot] if slot else R.points})
+            if p == "/api/demo/compare":
+                return self.send(200, mock_compare())
             if p == "/api/wifi":
                 return self.send(200, {"saved": R.wifi, "max": 6, "net": R.net()})
             if p == "/api/wifi/scan":

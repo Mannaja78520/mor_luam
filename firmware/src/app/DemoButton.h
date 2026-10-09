@@ -4,7 +4,7 @@
 //   1 click   demo 1: route 1 (set on the web page; until then forward 1 m, left 1 m, back)
 //   2 clicks  demo 2: route 2 (set on the web page; until then the same with 0.5 m)
 //             routes 1/2: here becomes (0,0), +x = where the robot faces
-//   3 clicks  demo 3: Direct (no shortcut) to a fixed goal 10 deg right of the wheel, timed
+//   3 clicks  demo 3: Direct (no shortcut) to a fixed goal 0.30 m away, 6 deg right of the wheel, timed
 //   4 clicks  demo 4: Detour Steer (the shortcut) to the same goal, timed
 //   every demo drives back to where it started, so the next one can run at once
 //   any press while the robot moves: STOP (like E-STOP on the web page)

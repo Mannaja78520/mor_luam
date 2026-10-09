@@ -237,6 +237,7 @@ class NavPanel {
     this.resetBtn.disabled = offline || running || robot.mode !== 'halt';
     let hint = '', warn = false;
     if (offline) { hint = 'ติดต่อหุ่นไม่ได้: ปุ่มจะใช้ได้เมื่อต่อกลับ'; warn = true; }
+    else if (running && nav.byButton && nav.test && nav.test.demo) hint = 'เดโม 3/4 จากปุ่มบนหุ่น: ดูภาพในกล่อง "เดโม 3 / 4 ครั้ง" · กดปุ่มอีกครั้ง หรือ E-STOP เพื่อหยุด';
     else if (running && nav.byButton) {
       const mmss = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
       const limit = nav.demoLimitS > 0 ? ` · วิ่งแล้ว ${mmss(nav.demoMovingS)} จาก ${mmss(nav.demoLimitS)} นาที (ไม่นับเวลาหยุดรอ)` : '';

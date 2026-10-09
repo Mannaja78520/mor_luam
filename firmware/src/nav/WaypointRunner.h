@@ -21,6 +21,7 @@
 #include "app/Settings.h"
 #include "app_config.h"
 #include "control/ControlLoop.h"
+#include "nav/RunTrace.h"
 
 struct Waypoint {
     float x;
@@ -59,6 +60,9 @@ public:
     void heartbeat();
     void cancelForRos();                             // ROS took over: stop the route, keep its command
     void statusJson(JsonObject out);
+    // GET /api/demo/compare: the last demo 3 (Direct) and demo 4 (Detour) runs with
+    // their start, goal, time and recorded path, so the web page can draw both.
+    void compareJson(JsonObject out);
     bool running();
 
 private:
@@ -72,6 +76,7 @@ private:
     bool advance();                        // next point; false = nothing to plan now (finished or holding)
     bool readPoints(const char* key, uint8_t n, Waypoint* out);
     uint32_t demoLimitMs() const;          // button route: moving-time limit for pts_ from (0,0) and back
+    void closeRun();                       // demo 3/4: the timed part ended (goal, stop or fault)
     void finish(Status st, const char* why, bool haltWheel);
     void beginReturnHome();                // button demo: route done, drive back to its start
     void borrowPts();                      // a button demo uses pts_; finish() gives the web route back
@@ -134,4 +139,18 @@ private:
     uint8_t buttonClicks_ = 0;
     uint32_t buttonMs_ = 0;
     volatile bool buttonPressed_ = false;
+
+    struct CompareRun {                    // one demo 3/4 run, kept until the next run of its planner
+        uint32_t id = 0;                   // testId_; 0 = none since boot
+        bool open = false;                 // still timed (driving to the goal)
+        bool valid = false;                // reached the goal, timed, PID unchanged
+        uint32_t elapsedMs = 0;
+        float startX = 0, startY = 0, headingDeg = 0, goalX = 0, goalY = 0;
+        float speedMps = 0, steerDps = 0, tolM = 0;
+        RunTrace<100> path;
+    };
+    CompareRun runs_[2];                   // [0] direct (3 clicks), [1] detour (4 clicks)
+    uint8_t runIdx_ = 0;
+    bool testDemo_ = false;                // the current/last test came from the button (demo 3/4)
+    float trackX_ = 0, trackY_ = 0;        // last position seen while a run is recorded
 };

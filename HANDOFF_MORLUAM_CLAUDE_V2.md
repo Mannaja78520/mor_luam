@@ -119,13 +119,30 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
     fw-build OK. OTA OK -> robot build "Oct 9 2026 09:55:19", idle; status has demoLimitS/demoMovingS
     (0 while idle), saved points intact. A button demo with the new limit NOT yet run by the owner.
 
+- DEMO 3/4 PICTURE + CLEARER FLOOR DIFFERENCE (2026-10-09, owner: "make it easier to see", all 3 options + "does it help?"):
+  - Goal moved to the race geometry measured 2026-10-08: DEMO_COMPARE_DIST_M 0.30 m, DEMO_COMPARE_RIGHT_DEG 6 deg
+    (was 0.20 / 10). Robot setting steerDps 60 -> 35 (measured wheel average; owner approved). Planner now:
+    Direct turns 354 deg in place, then 0.30 m; Detour drives 0.31 m, turns 249 deg, last leg 3.4 cm.
+  - Robot records each demo 3/4 run (nav/RunTrace.h, a point per 5 mm, thins itself when full): start, wheel heading,
+    goal, time, valid, path. `GET /api/demo/compare` {distM, rightDeg, direct, detour}. Lost on reboot.
+    status nav.test.demo / goalX / goalY.
+  - Web: card "เดโม 3 / 4 ครั้ง" (js/47_demo_compare.js): both runs in their start frame, plan dashed, real solid,
+    turn-in-place rings with the angle, times + "Detour เร็วกว่า x s (y%)". Colours validated with the dataviz
+    validator (light #eb6834/#1baf7a, dark #d95926/#199e70). Under the plane on wide screens, last on phones.
+  - `tools/demo_compare_plot.py [--wait]`: the same picture as a PNG (matplotlib, Thai font Leelawadee/Tahoma).
+  - Checks: fw-test ALL PASS + route runner 28 scenarios (record of a finished and a stopped run) + RunTrace 5/5;
+    node tests PASS (start frame, plan 354 / 31 cm + 249 deg); mock page checked at 1440 and 360 px, both themes'
+    colours resolve. OTA OK -> robot build "Oct 9 2026 12:11:03"; /api/demo/compare empty until a run.
+  - Does Detour help? Measured 2026-10-08 (race_test.py, 3+3 runs, goal 0.3 m / 6 deg): Detour 19.99 s vs
+    Direct 25.84 s = 22.6 % faster, and steadier. Only for goals just clockwise of the wheel (Direct must spin
+    almost a full turn); elsewhere the planner picks the same straight path, so both are equal.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 
 **Next — all need the owner**
-0. Try the button on the floor: 1 click (square 1 m), 2 clicks (triangle 0.5 m), 3 then 4 clicks (Direct vs
-   Detour; watch: Direct spins ~350 deg first, Detour drives first; both hold 5 s at the goal). Set own points
-   and waits for routes 1/2 in the web.
+0. Try the button on the floor: 3 then 4 clicks (Direct vs Detour; watch the picture card; then
+   `python tools/demo_compare_plot.py` for the PNG). Also 1 click (square 1 m), 2 clicks (triangle 0.5 m).
 1. WiFi fallback to network 2 / move up / setup hotspot (`mor-luam-XXXX`, 192.168.4.1): needs a second saved network
    in range and the owner switching the `manny` hotspot off and on. Logic is unit-tested (`fw-test` part 4).
 2. OTA from the web page form with the real password (helper/direct OTA already passed many times).

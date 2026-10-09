@@ -231,6 +231,12 @@ void WebApp::routesNav() {
         ok(r);
     });
 
+    server_.on("/api/demo/compare", HTTP_GET, [this](AsyncWebServerRequest* r) {
+        JsonDocument doc;
+        d_.runner->compareJson(doc.to<JsonObject>());
+        reply(r, doc);
+    });
+
     server_.on("/api/nav/start", HTTP_POST, [this](AsyncWebServerRequest* r) {
         String err;
         if (!d_.runner->start(err)) { fail(r, err); return; }

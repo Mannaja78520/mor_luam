@@ -3,6 +3,7 @@
 //   Api, Poller          10_api.js       talk to the robot, poll /api/status 4x a second
 //   RouteModel           30_route.js     the points being edited + the robot's copy (web route, button routes 1/2)
 //   RouteSlotBar         40_nav.js       which of those routes the plane edits
+//   DemoCompareView      47_demo_compare.js  picture of button demos 3/4 (Direct vs Detour)
 //   Plane2D              35_plane2d.js   the canvas: draw / edit points, robot, trail
 //   WaypointTable,
 //   NavPanel             40_nav.js       point list, start / stop, plan, heartbeat
@@ -144,11 +145,12 @@ class App {
     this.settings = new SettingsView(this.api, this.toast, refresh);
     this.pid = new PidView(this.api, this.toast);
     this.simulation = new RouteSimulation(this.route, () => this.last && this.last.robot);
+    this.demo = new DemoCompareView(this.api);
     this.routeTest = new RouteTestPanel(this.api, this.route, this.toast, refresh, () => this.settings.loaded ? this.settings.form.base : null);
     this.ota = new OtaView(this.api, this.toast);
     this.fleet = new FleetView(this.api);
     this.system = new SystemView();
-    new ThemeSwitch($('#themeBtn'), () => { this.plane.readColors(); this.plane.redraw(); });
+    new ThemeSwitch($('#themeBtn'), () => { this.plane.readColors(); this.plane.redraw(); this.demo.draw(); });
     this.wirePlaneTools();
     wireRevealButtons($('#wifiForm'));
     $('#rebootBtn').onclick = async () => {
@@ -163,7 +165,7 @@ class App {
     this.poller.start();
     this.loads = [
       () => this.route.load().then((r) => { if (r.ok) this.plane.fit(); return r; }),
-      () => this.wifi.load(), () => this.settings.load(), () => this.pid.load(), () => this.fleet.load(),
+      () => this.demo.load(), () => this.wifi.load(), () => this.settings.load(), () => this.pid.load(), () => this.fleet.load(),
     ];
     this.loadAll();
   }
@@ -203,6 +205,7 @@ class App {
     this.wpTable.setState(running ? nav.index : -1, locked);
     this.nav.render(s, this.conn);
     this.routeTest.render(s, this.conn);
+    this.demo.onStatus(s, this.conn);
     this.wifi.renderLink(s.net);
     this.pid.renderCoast(r);
     this.system.render(s, this.conn);

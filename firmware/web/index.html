@@ -84,6 +84,19 @@
         </div>
       </div>
 
+      <div class="card" id="demoCard">
+        <h3>เดโม 3 / 4 ครั้ง <small>Direct เทียบ Detour · เป้าเดียวกัน</small></h3>
+        <div class="demo-legend" aria-hidden="true">
+          <span><i class="sw direct"></i>Direct (กด 3)</span>
+          <span><i class="sw detour"></i>Detour (กด 4)</span>
+          <span><i class="ln solid"></i>วิ่งจริง</span>
+          <span><i class="ln dashed"></i>ตามแผน</span>
+        </div>
+        <div class="demo-plot hidden" id="demoPlot"><canvas id="demoCanvas" role="img" aria-label="ภาพเดโม Direct เทียบ Detour"></canvas></div>
+        <div id="demoResult" aria-live="polite"></div>
+        <p class="hint" id="demoHint">&nbsp;</p>
+      </div>
+
       <div class="side">
         <div class="card" id="navCard">
           <h3>วิ่งตามจุด <small id="navAlgo">–</small></h3>
@@ -98,7 +111,7 @@
           </div>
           <p class="hint reserve" id="navHint">&nbsp;</p>
           <p class="hint" id="btnInfo">ปุ่มบนหุ่น: –</p>
-          <p class="hint">ปุ่มบนหุ่น: กด 1 / 2 ครั้ง = เส้นทาง 1 / 2 (ตั้งจุดได้บนระนาบ เลือก "ปุ่ม 1 ครั้ง" หรือ "ปุ่ม 2 ครั้ง") · 3 ครั้ง = Direct · 4 ครั้ง = Detour (เป้าเดียวกัน ห่าง 20 ซม. เยื้องขวาจากล้อ 10° จับเวลาบนหุ่น) · ทุกเดโมกลับจุดเริ่มเอง กดเดโมต่อได้เลย · กดระหว่างหุ่นเคลื่อนที่ = หยุด · กดค้างเกิน 1.5 วินาที = ไม่เริ่มอะไร</p>
+          <p class="hint">ปุ่มบนหุ่น: กด 1 / 2 ครั้ง = เส้นทาง 1 / 2 (ตั้งจุดได้บนระนาบ เลือก "ปุ่ม 1 ครั้ง" หรือ "ปุ่ม 2 ครั้ง") · 3 ครั้ง = Direct · 4 ครั้ง = Detour (เป้าเดียวกัน ห่าง 30 ซม. เยื้องขวาจากล้อ 6° จับเวลาบนหุ่น ดูภาพในกล่อง "เดโม 3 / 4 ครั้ง") · ทุกเดโมกลับจุดเริ่มเอง กดเดโมต่อได้เลย · กดระหว่างหุ่นเคลื่อนที่ = หยุด · กดค้างเกิน 1.5 วินาที = ไม่เริ่มอะไร</p>
           <details class="more">
             <summary>ตั้งตำแหน่งเริ่มใหม่</summary>
             <p class="hint">ให้ตำแหน่งที่หุ่นอยู่ตอนนี้เป็น (0,0) และทิศที่หันอยู่เป็น +x ใช้ก่อนวางจุดชุดใหม่</p>

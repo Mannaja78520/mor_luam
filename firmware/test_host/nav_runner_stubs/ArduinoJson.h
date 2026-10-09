@@ -20,7 +20,7 @@ public:
     JsonProxy& operator=(const char* value) { node_->text = value; node_->null = false; return *this; }
     JsonProxy& operator=(const String& value) { return *this = value.c_str(); }
     JsonProxy& operator=(std::nullptr_t) { node_->null = true; return *this; }
-    template<class T> T to() { return T(node_); }
+    template<class T> T to() { node_->null = false; return T(node_); }   // like ArduinoJson: now an object/array
 private:
     JsonNode* node_;
 };

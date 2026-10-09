@@ -10,6 +10,7 @@
 //  4. Wi-Fi priority rules (net/WifiPolicy.h).
 //  5. Steering direction (angles::cwErrorDeg) and the AS5600 spike filter.
 //  7. Demo button click counting (util/ClickCounter.h).
+//  9. Recorded run path for the web picture (nav/RunTrace.h).
 //  6. Learned drive feedforward, with the real drive gains and a weaker motor.
 //
 // The motor models are made up (no measurement of the real steering exists):
@@ -30,6 +31,7 @@
 #include "algorithm/SteerPowerRamp.h"
 #include "algorithm/SteerStopPredictor.h"
 #include "net/WifiPolicy.h"
+#include "nav/RunTrace.h"
 #include "util/AngleSpikeFilter.h"
 #include "util/ClickCounter.h"
 #include "util/Angles.h"
@@ -497,6 +499,26 @@ static void testClickCounter() {
     CHECK(got == 0, "the press used to stop the robot is not counted as a click");
 }
 
+static void testRunTrace() {
+    printf("9. Demo 3/4 recorded path (nav/RunTrace.h)\n");
+    RunTrace<10> t;
+    t.clear(0.005f);
+    for (int i = 0; i <= 100; ++i) t.add(0.001f * i, 0.0f);          // 0.1 m in 1 mm steps
+    CHECK(t.size() == 10 && t.x(0) == 0.0f, "full: thinned, the start kept");
+    CHECK(t.step() > 0.005f, "thinning doubles the step so the whole run still fits");
+    float maxGap = 0.0f;
+    for (uint8_t i = 1; i < t.size(); ++i) maxGap = fmaxf(maxGap, t.x(i) - t.x(i - 1));
+    CHECK(t.x(t.size() - 1) > 0.08f && maxGap < 0.03f, "covers start to end with no big holes");
+    RunTrace<10> u;
+    u.clear(0.005f);
+    u.add(0, 0, true);
+    for (int i = 0; i < 50; ++i) u.add(0.0001f * i, 0.0f);          // wheel turning in place: no new points
+    CHECK(u.size() == 1, "standing still adds nothing");
+    u.add(0.002f, 0.0f, true);
+    u.add(0.002f, 0.0f, true);
+    CHECK(u.size() == 2, "the end point is kept once, even closer than the step");
+}
+
 int main() {
     testDetourMatchesHomework();
     testTheorems();
@@ -506,6 +528,7 @@ int main() {
     testClickCounter();
     testDriveLearning();
     testMotorFeedbackAndSmoothing();
+    testRunTrace();
     printf("\n%s (%d failure%s)\n", failures ? "FAILED" : "ALL PASS", failures, failures == 1 ? "" : "s");
     return failures ? 1 : 0;
 }

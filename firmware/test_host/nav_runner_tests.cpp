@@ -268,13 +268,13 @@ int main() {
             assert(t.runner.startCompare(planner, t.err));
             t.align(357);                                                 // wheel stopped 3 deg short
             const DriveCommand& c = t.ctrl.commands.back();
-            assert(std::fabs(t.status().children["plan"].children["phiDeg"].number - 350.0) < 0.05);
+            assert(std::fabs(t.status().children["plan"].children["phiDeg"].number - (360.0 - DEMO_COMPARE_RIGHT_DEG)) < 0.05);
             if (std::string(planner) == "direct") {
                 assert(t.status().children["plan"].children["kind"].text == "direct");
-                assert(std::fabs(c.headingDeg - 347.0f) < 0.05f && std::fabs(c.distM - DEMO_COMPARE_DIST_M) < 1e-4);
+                assert(std::fabs(c.headingDeg - (357.0f - DEMO_COMPARE_RIGHT_DEG)) < 0.05f && std::fabs(c.distM - DEMO_COMPARE_DIST_M) < 1e-4);
             } else {
                 assert(t.status().children["plan"].children["kind"].text == "detour");
-                assert(std::fabs(c.headingDeg - 357.0f) < 0.05f && c.distM > 0.15f && c.distM < DEMO_COMPARE_DIST_M);
+                assert(std::fabs(c.headingDeg - 357.0f) < 0.05f && c.distM > 0.5f * DEMO_COMPARE_DIST_M && c.distM < 1.2f * DEMO_COMPARE_DIST_M);
             }
         }
     }
@@ -299,6 +299,17 @@ int main() {
         for (int i = 0; i < 12; ++i) t.tick();                           // hold over: drive home
         assert(t.ctrl.commands.size() == sent + 1 && t.field("elapsedMs") == elapsed);
         assert(std::fabs(t.ctrl.commands.back().distM - DEMO_COMPARE_DIST_M) < 1e-3);
+        {   // the robot's record of the run, for the web picture
+            JsonNode o; t.runner.compareJson(JsonObject(&o));
+            JsonNode& d = o.children["direct"];
+            assert(o.children["detour"].null && !d.null);
+            assert(d.children["valid"].number == 1 && d.children["open"].number == 0);
+            assert(d.children["elapsedMs"].number == elapsed);
+            assert(std::fabs(d.children["goalX"].number - DEMO_COMPARE_DIST_M * std::cos(b)) < 1e-4);
+            auto& path = d.children["path"].items;
+            assert(path.size() == 2 && path[0].children["x"].number == 0);  // start, then where it ended
+            assert(std::fabs(path[1].children["x"].number - DEMO_COMPARE_DIST_M * std::cos(b)) < 1e-3);
+        }
         t.ctrl.applied.goalActive = false; t.ctrl.applied.targetRpm = 0;
         t.ctrl.applied.x = 0; t.ctrl.applied.y = 0;                       // back at the start
         t.tick(); t.tick();
@@ -374,5 +385,20 @@ int main() {
         assert(t.runner.startButtonRoute(2, t.err));
         assert(t.status().children["demoLimitS"].number == DEMO_LIMIT_CEIL_MS / 1000);
     }
-    std::cout << "WaypointRunner comparison tests PASS (27 scenarios)\n";
+    {   // demo 4 stopped on the way: the record keeps the path, not valid
+        Trial t;
+        assert(t.runner.startCompare("detour", t.err));
+        t.align();
+        assert(t.status().children["test"].children["demo"].number == 1);
+        assert(!t.status().children["test"].children["goalX"].null);
+        for (int i = 1; i <= 10; ++i) { t.ctrl.applied.x = 0.01f * i; t.tick(); }   // 10 cm
+        t.runner.stop("button");
+        JsonNode o; t.runner.compareJson(JsonObject(&o));
+        JsonNode& d = o.children["detour"];
+        assert(!d.null && d.children["valid"].number == 0 && d.children["open"].number == 0);
+        assert(d.children["path"].items.size() >= 10);
+        assert(o.children["direct"].null);
+        assert(t.status().children["test"].children["goalX"].null);
+    }
+    std::cout << "WaypointRunner comparison tests PASS (28 scenarios)\n";
 }

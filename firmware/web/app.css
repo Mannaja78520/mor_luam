@@ -8,6 +8,7 @@
   --bg: #0e1117;  --card: #171b23;  --sunk: #10141b;  --line: #2b3240;
   --txt: #e8edf5; --mut: #9aa6b8;
   --acc: #4da3ff; --on-acc: #05121f;
+  --s-direct: #d95926; --s-detour: #199e70;   /* demo 3/4 picture: series colours (validated, dataviz) */
   --ok: #35c46a;  --warn: #ffb020;  --err: #ff4d4d;
   --on-sem: #10141b; --on-err: #ffffff;
 
@@ -23,10 +24,12 @@
   --l-bg: #f2f5fa;  --l-card: #ffffff; --l-sunk: #eef2f8; --l-line: #d5dce8;
   --l-txt: #16202e; --l-mut: #5b6878;  --l-acc: #0b62c4;  --l-on-acc: #ffffff;
   --l-ok: #1a8f4c;  --l-warn: #8a5a00; --l-err: #c62828;
+  --l-s-direct: #eb6834; --l-s-detour: #1baf7a;
   --l-on-sem: #ffffff; --l-on-err: #ffffff;
   --d-bg: #0e1117;  --d-card: #171b23; --d-sunk: #10141b; --d-line: #2b3240;
   --d-txt: #e8edf5; --d-mut: #9aa6b8;  --d-acc: #4da3ff;  --d-on-acc: #05121f;
   --d-ok: #35c46a;  --d-warn: #ffb020; --d-err: #ff4d4d;
+  --d-s-direct: #d95926; --d-s-detour: #199e70;
   --d-on-sem: #10141b; --d-on-err: #ffffff;
 
   --f-ui: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", Roboto, sans-serif;
@@ -41,6 +44,7 @@
     --txt: var(--l-txt); --mut: var(--l-mut); --acc: var(--l-acc); --on-acc: var(--l-on-acc);
     --ok: var(--l-ok); --warn: var(--l-warn); --err: var(--l-err);
     --on-sem: var(--l-on-sem); --on-err: var(--l-on-err);
+    --s-direct: var(--l-s-direct); --s-detour: var(--l-s-detour);
   }
 }
 :root[data-theme="light"] {
@@ -48,12 +52,14 @@
   --txt: var(--l-txt); --mut: var(--l-mut); --acc: var(--l-acc); --on-acc: var(--l-on-acc);
   --ok: var(--l-ok); --warn: var(--l-warn); --err: var(--l-err);
   --on-sem: var(--l-on-sem); --on-err: var(--l-on-err);
+  --s-direct: var(--l-s-direct); --s-detour: var(--l-s-detour);
 }
 :root[data-theme="dark"] {
   --bg: var(--d-bg); --card: var(--d-card); --sunk: var(--d-sunk); --line: var(--d-line);
   --txt: var(--d-txt); --mut: var(--d-mut); --acc: var(--d-acc); --on-acc: var(--d-on-acc);
   --ok: var(--d-ok); --warn: var(--d-warn); --err: var(--d-err);
   --on-sem: var(--d-on-sem); --on-err: var(--d-on-err);
+  --s-direct: var(--d-s-direct); --s-detour: var(--d-s-detour);
 }
 
 * { box-sizing: border-box; }
@@ -298,6 +304,21 @@ details.more summary { cursor: pointer; color: var(--mut); font-size: var(--fs-1
 .wptable td:first-child { width: 2.5em; color: var(--mut); text-align: right; }
 .wptable td.act { width: 1%; white-space: nowrap; text-align: right; }
 .wptable td.wait { width: 4.5em; }
+/* demo 3/4 picture (js/47_demo_compare.js) */
+.drive-layout > #demoCard { order: 3; }          /* phone: after the route controls */
+.demo-legend { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-1); color: var(--mut); margin-bottom: var(--sp-2); }
+.demo-legend span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.sw, .ln { display: inline-block; width: 16px; height: 0; border-top: 3px solid; border-radius: 2px; }
+.sw.direct { border-color: var(--s-direct); }
+.sw.detour { border-color: var(--s-detour); }
+.ln { border-top-width: 2px; border-color: var(--mut); }
+.ln.dashed { border-top-style: dashed; }
+.demo-plot { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card); margin-bottom: var(--sp-2); }
+.demo-plot canvas { display: block; width: 100%; }
+.demo-row { display: grid; grid-template-columns: 16px 1fr auto; gap: 0 var(--sp-2); align-items: center; padding: var(--sp-1) 0; }
+.demo-row .demo-how { grid-column: 2 / 4; color: var(--mut); font-size: var(--fs-1); }
+.demo-time { text-align: right; font-variant-numeric: tabular-nums; }
+.demo-sum { font-weight: 700; margin: var(--sp-2) 0 0; }
 .wptable input { width: 100%; min-width: 0; text-align: right; }
 .wptable tr.cur td:first-child { color: var(--ok); font-weight: 700; }
 .wpscroll { max-height: 320px; overflow: auto; }
@@ -366,6 +387,11 @@ input.bad { border-color: var(--err); }
 @media (min-width: 1100px) {
   .drive-layout { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
   .plane-wrap { aspect-ratio: 4 / 3; }
+  /* the demo 3/4 picture under the plane; the route panel spans both rows */
+  .drive-layout { grid-template-rows: auto 1fr; }
+  .drive-layout > .plane-card { grid-column: 1; grid-row: 1; }
+  .drive-layout > .side { grid-column: 2; grid-row: 1 / span 2; }
+  .drive-layout > #demoCard { grid-column: 1; grid-row: 2; order: 0; }
 }
 @media (pointer: coarse) {
   .btn, .tab { min-height: 44px; }

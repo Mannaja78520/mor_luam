@@ -105,6 +105,21 @@ const status = (test = done('direct', { id: 1, phase: 'idle', valid: false })) =
   const plain = SimulationPlanner.route([{ x: 0.3, y: 0 }], start, simP, false);
   const held = SimulationPlanner.route([{ x: 0.3, y: 0, waitS: 3 }], start, simP, false);
   assert.ok(Math.abs(held.time - plain.time - 3) < 1e-9, 'simulation counts the stop at the point');
+
+  // Demo 3/4 picture: each run in its own start frame, plan from the robot's maths.
+  global.SimulationPlanner = SimulationPlanner;
+  const { DemoCompareView } = require('./js/47_demo_compare.js');
+  const h = 30 * Math.PI / 180, gl = { x: 0.3 * Math.cos(-6 * Math.PI / 180), y: 0.3 * Math.sin(-6 * Math.PI / 180) };
+  const run = { startX: 1, startY: 2, headingDeg: 30, speedMps: 0.03, steerDps: 35,
+    goalX: 1 + gl.x * Math.cos(h) - gl.y * Math.sin(h), goalY: 2 + gl.x * Math.sin(h) + gl.y * Math.cos(h),
+    path: [{ x: 1, y: 2 }] };
+  const loc = DemoCompareView.local(run);
+  assert.ok(Math.abs(loc.goal.x - gl.x) < 1e-9 && Math.abs(loc.goal.y - gl.y) < 1e-9 && loc.path[0].x === 0, 'start frame');
+  const dPlan = DemoCompareView.plan(loc.goal, run, false), tPlan = DemoCompareView.plan(loc.goal, run, true);
+  assert.equal(dPlan.kind, 'direct');
+  assert.ok(Math.abs(dPlan.turnDeg - 354) < 1e-6, 'Direct turns 354 deg at the start');
+  assert.equal(tPlan.kind, 'detour');
+  assert.ok(Math.abs(tPlan.a - 0.3106) < 0.001 && Math.abs(tPlan.turnDeg - 248.8) < 0.2, 'Detour: 31 cm, then 249 deg');
   panel.render(status(), 'live');
   assert.equal(panel.canStart(), false, 'readiness required');
   panel.ready.checked = true;

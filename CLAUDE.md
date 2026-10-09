@@ -24,7 +24,7 @@ Read this file first; open only the files the task needs.
 | Final steering power ramp and missing-feedback stop | `firmware/src/algorithm/SteerPowerRamp.h`, `MotorResponseWatch.h`; used by `SteerDriveController` |
 | Steering algorithms (plain C++) | `firmware/src/algorithm/` — see its README.md |
 | Waypoint route, heartbeat, replanning, per-point wait (`waitS`, NVS blobs read old x/y format too) | `firmware/src/nav/WaypointRunner.cpp` |
-| Demo button GPIO19 (1/2 clicks = button routes 1/2 set on the web, 3/4 = Direct/Detour comparison, press = stop) | `firmware/src/app/DemoButton.cpp`, `src/util/ClickCounter.h`, runner `startButtonRoute` / `startCompare`; routes = `/api/waypoints?slot=1|2` (NVS "nav" r1n/r1p, r2n/r2p), web `RouteSlotBar` (40_nav.js) |
+| Demo button GPIO19 (1/2 clicks = button routes 1/2 set on the web, 3/4 = Direct/Detour comparison, press = stop) | `firmware/src/app/DemoButton.cpp`, `src/util/ClickCounter.h`, runner `startButtonRoute` / `startCompare`; routes = `/api/waypoints?slot=1|2` (NVS "nav" r1n/r1p, r2n/r2p), web `RouteSlotBar` (40_nav.js); demo 3/4 record `GET /api/demo/compare` (`nav/RunTrace.h`), picture `web/js/47_demo_compare.js`, PNG `tools/demo_compare_plot.py` |
 | Wi-Fi list (NVS "wifi"), priority join / move up, hotspot, mDNS | `firmware/src/net/WifiStore.cpp`, `NetworkManager.cpp`, rules in `WifiPolicy.h` |
 | OTA (ArduinoOTA + web upload) | `firmware/src/net/OtaService.cpp` |
 | micro-ROS topics, agent discovery | `firmware/src/ros/MicroRosBridge.cpp` |
@@ -41,7 +41,7 @@ Read this file first; open only the files the task needs.
 | PC ROS nodes | `mor_luam_ws/src/mor_luam/src/*.py` |
 
 Web JS: one class per job — `Api/Poller` (10), `RouteModel` (30, slots 0 web / 1-2 button), `Plane2D` (35),
-`RouteSlotBar/WaypointTable/NavPanel` (40), `SimulationPlanner/RouteSimulation` (45), `WifiView` (50), `SettingsView/PidView` (60),
+`RouteSlotBar/WaypointTable/NavPanel` (40), `SimulationPlanner/RouteSimulation` (45), `DemoCompareView` (47), `WifiView` (50), `SettingsView/PidView` (60),
 `OtaView/FleetView/SystemView` (70), `App/TopBar/Tabs` (99). Files load in name order.
 
 ## Commands (Windows, from the repo root)

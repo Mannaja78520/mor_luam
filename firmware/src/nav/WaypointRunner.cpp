@@ -218,6 +218,7 @@ bool WaypointRunner::beginTest(const String& planner, float heading, bool ready,
     }
     local_ = compare;                        // demos 3/4 come from the button
     compare_ = compare;
+    testDemo_ = compare;
     returnHome_ = compare;                   // so the next demo can start from the same place
     homing_ = false;
     homeX_ = s.x;
@@ -275,6 +276,24 @@ void WaypointRunner::alignTest(const RobotState& s, uint32_t now) {
         const float b = angles::deg2rad(s.wheelHeadingDeg - DEMO_COMPARE_RIGHT_DEG);
         pts_[0] = {s.x + DEMO_COMPARE_DIST_M * cosf(b), s.y + DEMO_COMPARE_DIST_M * sinf(b), 0.0f};
         count_ = 1;
+        runIdx_ = plannerName_ == "detour" ? 1 : 0;
+        CompareRun& r = runs_[runIdx_];
+        r.id = testId_;
+        r.open = true;
+        r.valid = false;
+        r.elapsedMs = 0;
+        r.startX = s.x;
+        r.startY = s.y;
+        r.headingDeg = s.wheelHeadingDeg;
+        r.goalX = pts_[0].x;
+        r.goalY = pts_[0].y;
+        r.speedMps = speedMps_;
+        r.steerDps = params_.steerDps;
+        r.tolM = tolM_;
+        r.path.clear(DEMO_TRACE_STEP_M);
+        r.path.add(s.x, s.y, true);
+        trackX_ = s.x;
+        trackY_ = s.y;
     }
     testStartX_ = s.x;
     testStartY_ = s.y;
@@ -302,6 +321,7 @@ void WaypointRunner::finish(Status st, const char* why, bool haltWheel) {
         testPhase_ = st == Status::Done ? TestPhase::Done :
                      (st == Status::Failed ? TestPhase::Failed : TestPhase::Stopped);
     }
+    closeRun();
     status_ = st;
     message_ = why;
     legActive_ = false;
@@ -325,6 +345,7 @@ void WaypointRunner::beginReturnHome() {
         testValid_ = testTimed_ && pidSame;
         testPhase_ = pidSame ? TestPhase::Done : TestPhase::Failed;
     }
+    closeRun();
     borrowPts();
     pts_[0] = {homeX_, homeY_, 0.0f};
     count_ = 1;
@@ -343,6 +364,15 @@ void WaypointRunner::beginReturnHome() {
         snprintf(msg, sizeof(msg), "ถึงเป้าแล้ว: หยุด %.0f วินาที แล้วกลับจุดเริ่ม", DEMO_COMPARE_HOLD_S);
         message_ = msg;
     }
+}
+
+void WaypointRunner::closeRun() {
+    CompareRun& r = runs_[runIdx_];
+    if (!compare_ || !r.open) return;
+    r.path.add(trackX_, trackY_, true);       // where the timed part ended
+    r.open = false;
+    r.elapsedMs = testElapsedMs_;
+    r.valid = testValid_;
 }
 
 void WaypointRunner::borrowPts() {
@@ -455,6 +485,11 @@ void WaypointRunner::update() {
     if (testing && !testSensorsOk(s, sampleNow)) {
         finish(Status::Failed, "เซนเซอร์ขาดข้อมูลระหว่างเทส - หยุด", true);
         unlock(); return;
+    }
+    if (compare_ && testPhase_ == TestPhase::Running && runs_[runIdx_].open) {   // the path, for the web picture
+        runs_[runIdx_].path.add(s.x, s.y);
+        trackX_ = s.x;
+        trackY_ = s.y;
     }
     // apply() is synchronous but snapshot() is published at the next 10 ms tick.
     // An old halted/goal-free state must never complete or cancel a new command.
@@ -574,6 +609,37 @@ uint32_t WaypointRunner::demoLimitMs() const {
     return (uint32_t)ms;
 }
 
+void WaypointRunner::compareJson(JsonObject o) {
+    lock();
+    o["distM"] = DEMO_COMPARE_DIST_M;
+    o["rightDeg"] = DEMO_COMPARE_RIGHT_DEG;
+    static const char* const names[2] = {"direct", "detour"};
+    for (uint8_t k = 0; k < 2; ++k) {
+        const CompareRun& r = runs_[k];
+        if (!r.id) { o[names[k]] = nullptr; continue; }
+        JsonObject j = o[names[k]].to<JsonObject>();
+        j["id"] = r.id;
+        j["open"] = r.open;
+        j["valid"] = r.valid;
+        j["elapsedMs"] = r.open ? millis() - testStartMs_ : r.elapsedMs;
+        j["startX"] = r.startX;
+        j["startY"] = r.startY;
+        j["headingDeg"] = r.headingDeg;
+        j["goalX"] = r.goalX;
+        j["goalY"] = r.goalY;
+        j["speedMps"] = r.speedMps;
+        j["steerDps"] = r.steerDps;
+        j["tolM"] = r.tolM;
+        JsonArray path = j["path"].to<JsonArray>();
+        for (uint8_t i = 0; i < r.path.size(); ++i) {
+            JsonObject p = path.add<JsonObject>();
+            p["x"] = roundf(r.path.x(i) * 10000.0f) / 10000.0f;   // 0.1 mm
+            p["y"] = roundf(r.path.y(i) * 10000.0f) / 10000.0f;
+        }
+    }
+    unlock();
+}
+
 bool WaypointRunner::advance() {
     if (++idx_ >= count_) {
         if (returnHome_ && !homing_) { beginReturnHome(); return !waiting_; }   // then (after a hold) home
@@ -622,6 +688,13 @@ void WaypointRunner::statusJson(JsonObject o) {
     } else {
         t["actualStartHeadingDeg"] = nullptr;
         t["startX"] = nullptr; t["startY"] = nullptr; t["startThetaDeg"] = nullptr;
+    }
+    t["demo"] = testDemo_;                         // demo 3/4 from the button
+    if (compare_ && testPhase_ == TestPhase::Running) {
+        t["goalX"] = pts_[0].x;
+        t["goalY"] = pts_[0].y;
+    } else {
+        t["goalX"] = nullptr; t["goalY"] = nullptr;
     }
     t["speedMps"] = speedMps_;
     t["tolM"] = tolM_;

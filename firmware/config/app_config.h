@@ -53,11 +53,13 @@ static const float    DEMO_SQUARE_M            = 1.0f;   // route 1 until set: f
 static const float    DEMO_TRIANGLE_M          = 0.5f;   // route 2 until set: forward, left, back (m)
 static const float    DEMO_START_HEADING_DEG   = 0.0f;   // demos 3/4: wheel turned to +x first, then timed
 // Demos 3/4 (Direct / Detour): one goal this far away, this far clockwise (to the
-// right) of the wheel once it is aligned. Direct must first turn the wheel ~350 deg;
-// Detour drives first, turns less, then a short leg sideways. Picked so the planner
-// chooses the detour at 0.03 m/s with steerDps 35..60 (2026-10-09).
-static const float    DEMO_COMPARE_DIST_M      = 0.20f;
-static const float    DEMO_COMPARE_RIGHT_DEG   = 10.0f;
+// right) of the wheel once it is aligned. Direct must first turn the wheel ~354 deg
+// in place; Detour drives ~0.3 m first, then turns less and makes a short last leg.
+// The race geometry measured on the robot 2026-10-08 (tools/race_test.py): Detour
+// 22.6 % faster over 3+3 runs. The planner picks the detour with steerDps 35..60.
+static const float    DEMO_COMPARE_DIST_M      = 0.30f;
+static const float    DEMO_COMPARE_RIGHT_DEG   = 6.0f;
+static const float    DEMO_TRACE_STEP_M        = 0.005f;  // recorded path of a demo 3/4 run, for the web picture
 static const float    DEMO_COMPARE_HOLD_S      = 5.0f;   // demos 3/4: stay at the goal, then drive back (not timed)
 // A button demo has no web heartbeat, so it stops by itself once its MOVING time
 // (stops at points and the demo 3/4 hold not counted) passes its limit:
