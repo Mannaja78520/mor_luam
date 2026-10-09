@@ -5,7 +5,9 @@
 #include "nav/WaypointRunner.h"
 #include <cassert>
 #include <iostream>
+#include <initializer_list>
 #include <limits>
+#include <string>
 uint32_t g_nav_ms = 1000;
 struct Trial {
     ControlLoop ctrl;
@@ -190,21 +192,63 @@ int main() {
         t.tick();
         assert(t.phase() == "failed" && t.field("valid") == 0 && t.ctrl.halts == 1);
     }
-    {   // demo 1 from the button: own points, no web heartbeat, web route given back
+    {   // button route 1 (default square): own points, no web heartbeat, web route given back
         Trial t;
         const int arms = t.ctrl.wdArms;
-        assert(t.runner.startDemoSquare(1.0f, t.err));
+        t.ctrl.state.x = t.ctrl.applied.x = 5; t.ctrl.state.y = t.ctrl.applied.y = 5;   // far from (0,0)
+        assert(t.runner.startButtonRoute(1, t.err));
         assert(t.ctrl.poseResets == 1 && t.ctrl.wdArms == arms);          // no web watchdog
         assert(t.status().children["count"].number == 3 && t.status().children["byButton"].number == 1);
+        JsonNode web; t.runner.pointsJson(JsonArray(&web));               // a page loading now sees the web route
+        assert(web.items.size() == 1 && std::fabs(web.items[0].children["x"].number - 0.3) < 1e-6);
+        t.tick(50, false);                                                // pose before the reset: no leg yet
+        assert(t.ctrl.commands.empty());
+        t.tick();                                                         // reset pose published
+        assert(t.ctrl.commands.size() == 1 && std::fabs(t.ctrl.commands[0].headingDeg) < 1e-3);  // towards (1,0)
         for (int i = 0; i < 100; ++i) t.tick(50, true, false);           // 5 s, no heartbeat
         assert(t.status().children["status"].text == "running");
         t.runner.stop("button");
         JsonNode pts; t.runner.pointsJson(JsonArray(&pts));
         assert(pts.items.size() == 1 && std::fabs(pts.items[0].children["x"].number - 0.3) < 1e-6);  // saved route back
     }
-    {   // demo 2/3 from the button: timed test, no heartbeat, stops at the time cap
+    {   // button routes are saved per slot, apart from the web route
         Trial t;
-        assert(t.runner.startTest("detour", 0, true, t.err, true));
+        const Waypoint two[] = {{0.4f, 0.0f}, {0.4f, -0.2f}};
+        assert(t.runner.setPoints(two, 2, t.err, 2));
+        assert(!t.runner.setPoints(two, 2, t.err, DEMO_ROUTES + 1));
+        JsonNode r2; t.runner.pointsJson(JsonArray(&r2), 2);
+        assert(r2.items.size() == 2 && std::fabs(r2.items[1].children["y"].number + 0.2) < 1e-6);
+        JsonNode r1; t.runner.pointsJson(JsonArray(&r1), 1);
+        assert(r1.items.size() == 3 && std::fabs(r1.items[1].children["y"].number - DEMO_SQUARE_M) < 1e-6);
+        JsonNode web; t.runner.pointsJson(JsonArray(&web));
+        assert(web.items.size() == 1);
+        assert(t.runner.startButtonRoute(2, t.err));
+        assert(t.runner.setPoints(two, 1, t.err, 1));                     // a button route can change while one runs
+        assert(!t.runner.setPoints(two, 1, t.err));                       // the web route cannot
+        t.runner.stop("button");
+        assert(t.runner.setPoints(two, 0, t.err, 2));                     // cleared on purpose
+        assert(!t.runner.startButtonRoute(2, t.err) && std::string(t.err.c_str()).find("ยังไม่มีจุด") != std::string::npos);
+        assert(!t.runner.startButtonRoute(0, t.err) && !t.runner.startButtonRoute(DEMO_ROUTES + 1, t.err));
+    }
+    {   // button route: after the last point, drive back to where it started
+        Trial t;
+        const Waypoint one{0.5f, 0.0f};
+        assert(t.runner.setPoints(&one, 1, t.err, 1));
+        assert(t.runner.startButtonRoute(1, t.err));
+        t.tick(); t.tick();
+        t.ctrl.applied.goalActive = false; t.ctrl.applied.targetRpm = 0;
+        t.ctrl.applied.x = 0.5f; t.ctrl.applied.y = 0;                     // at the point
+        t.tick(); t.tick();
+        assert(t.status().children["status"].text == "running");           // going home
+        assert(std::fabs(t.ctrl.commands.back().headingDeg - 180.0f) < 1e-3);
+        t.ctrl.applied.goalActive = false; t.ctrl.applied.targetRpm = 0;
+        t.ctrl.applied.x = 0; t.ctrl.applied.y = 0;
+        t.tick(); t.tick();
+        assert(t.status().children["status"].text == "done" && t.status().children["message"].text == "กลับถึงจุดเริ่มแล้ว");
+    }
+    {   // demo 3/4 from the button: timed test, no heartbeat, stops at the time cap
+        Trial t;
+        assert(t.runner.startCompare("detour", t.err));
         t.align();
         for (int i = 0; i < 100; ++i) t.tick(50, true, false);           // 5 s, no heartbeat
         assert(t.phase() == "running");
@@ -217,12 +261,33 @@ int main() {
         for (int i = 0; i < 70; ++i) t.tick(50, true, false);            // 3.5 s
         assert(t.status().children["status"].text == "stopped");
     }
-    {   // demo 2/3 from the button: after the timed goal, drive back home (untimed)
+    {   // demo 3/4: goal 10 deg clockwise of the aligned wheel - Direct turns ~350, Detour drives first
+        for (const char* planner : {"direct", "detour"}) {
+            Trial t;
+            t.ctrl.state.x = t.ctrl.applied.x = 1; t.ctrl.state.y = t.ctrl.applied.y = 2;
+            assert(t.runner.startCompare(planner, t.err));
+            t.align(357);                                                 // wheel stopped 3 deg short
+            const DriveCommand& c = t.ctrl.commands.back();
+            assert(std::fabs(t.status().children["plan"].children["phiDeg"].number - 350.0) < 0.05);
+            if (std::string(planner) == "direct") {
+                assert(t.status().children["plan"].children["kind"].text == "direct");
+                assert(std::fabs(c.headingDeg - 347.0f) < 0.05f && std::fabs(c.distM - DEMO_COMPARE_DIST_M) < 1e-4);
+            } else {
+                assert(t.status().children["plan"].children["kind"].text == "detour");
+                assert(std::fabs(c.headingDeg - 357.0f) < 0.05f && c.distM > 0.15f && c.distM < DEMO_COMPARE_DIST_M);
+            }
+        }
+    }
+    {   // demo 3/4 from the button: after the timed goal, drive back home (untimed)
         Trial t;
-        assert(t.runner.startTest("direct", 0, true, t.err, true));
+        assert(t.runner.startCompare("direct", t.err));
         t.align();
         t.tick(4000);
-        t.complete();                                                     // reached the web point (0.3, 0.03)
+        const float b = -DEMO_COMPARE_RIGHT_DEG * 3.14159265f / 180.0f;
+        t.ctrl.applied.goalActive = false; t.ctrl.applied.targetRpm = 0;
+        t.ctrl.applied.x = DEMO_COMPARE_DIST_M * std::cos(b);           // reached the demo goal
+        t.ctrl.applied.y = DEMO_COMPARE_DIST_M * std::sin(b);
+        t.tick();
         t.tick();
         assert(t.phase() == "done" && t.field("valid") == 1 && t.field("elapsedMs") >= 4000);
         assert(t.status().children["status"].text == "running");          // now going home
@@ -243,5 +308,5 @@ int main() {
         t.tick();
         assert(t.status().children["status"].text == "done");
     }
-    std::cout << "WaypointRunner comparison tests PASS (20 scenarios)\n";
+    std::cout << "WaypointRunner comparison tests PASS (24 scenarios)\n";
 }

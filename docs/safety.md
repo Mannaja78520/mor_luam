@@ -70,3 +70,6 @@ A simulation is useful for checking a route and the controls. It cannot verify p
 - Demos started with the robot's button do NOT use the web heartbeat: the operator is at the robot.
   Their stops: any button press while moving (read every 5 ms in its own task), web E-STOP, and a 5 min cap (DEMO_MAX_MS).
 - Web routes keep the 3 s heartbeat rule unchanged.
+- 1 / 2 clicks drive route 1 / 2 (set on the web page, saved on the robot, relative to where the robot stands:
+  pose reset at the press). 3 / 4 clicks: Direct / Detour to a goal 0.20 m away, 10 deg right of the aligned wheel.
+  Every button demo drives back to its start after the last point. Check the floor for the saved route first.

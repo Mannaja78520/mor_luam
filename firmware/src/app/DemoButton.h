@@ -1,9 +1,12 @@
 #pragma once
 // The demo button on the robot (DEMO_BUTTON_PIN, to GND, pull-up).
 //
-//   1 click   demo 1: here becomes (0,0); forward 1 m, left 1 m, back to the start
-//   2 clicks  demo 2: the route set on the web page, Direct (no shortcut), timed
-//   3 clicks  demo 3: the same route with Detour Steer (the shortcut), timed
+//   1 click   demo 1: route 1 (set on the web page; until then forward 1 m, left 1 m, back)
+//   2 clicks  demo 2: route 2 (set on the web page; until then the same with 0.5 m)
+//             routes 1/2: here becomes (0,0), +x = where the robot faces
+//   3 clicks  demo 3: Direct (no shortcut) to a fixed goal 10 deg right of the wheel, timed
+//   4 clicks  demo 4: Detour Steer (the shortcut) to the same goal, timed
+//   every demo drives back to where it started, so the next one can run at once
 //   any press while the robot moves: STOP (like E-STOP on the web page)
 //
 // A demo starts 1 s after the last click. Demos started here do not need the

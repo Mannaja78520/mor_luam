@@ -10,11 +10,16 @@
 // Safety: a route keeps going only while a page sends heartbeat() (or polls
 // /api/status) at least every WEB_HEARTBEAT_TIMEOUT_MS. Close the tab or lose
 // Wi-Fi and it stops - enforced in the control task too (ControlLoop watchdog).
+//
+// The demo button (app/DemoButton.h) starts its own runs here: routes 1/2 (points
+// saved per click count, relative to where the robot stands) and the Direct /
+// Detour comparison (demos 3/4). They need no heartbeat and drive back to their start.
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include "algorithm/LegPlanner.h"
 #include "app/Settings.h"
+#include "app_config.h"
 #include "control/ControlLoop.h"
 
 struct Waypoint {
@@ -29,18 +34,24 @@ public:
     void begin(ControlLoop* ctrl, Settings* settings);
     void update();                                   // from loop(), any rate
 
-    // from the web page (thread-safe)
-    bool setPoints(const Waypoint* pts, size_t n, String& err);
-    void pointsJson(JsonArray out);
+    // from the web page (thread-safe). slot 0 = the web route; slot 1..DEMO_ROUTES =
+    // the route the demo button drives on 1 / 2 clicks ((0,0) = where the robot
+    // stands when the button is pressed, +x = where it faces).
+    bool setPoints(const Waypoint* pts, size_t n, String& err, uint8_t slot = 0);
+    void pointsJson(JsonArray out, uint8_t slot = 0);
     bool start(String& err);
     // One attended comparison trial. Align first, then time the current route on
     // the ESP32 with a temporary planner; saved settings/pose are not changed.
-    // byButton: started from the robot's demo button - no web heartbeat needed
-    // (the operator is there; a press stops it), DEMO_MAX_MS time cap instead.
-    bool startTest(const String& planner, float startHeadingDeg, bool ready, String& err, bool byButton = false);
-    // Demo 1 (button): here becomes (0,0); forward sideM, left sideM, back to the start.
-    // Uses its own points; the route saved from the web page is kept and restored.
-    bool startDemoSquare(float sideM, String& err);
+    bool startTest(const String& planner, float startHeadingDeg, bool ready, String& err);
+
+    // From the robot's demo button: no web heartbeat needed (the operator is
+    // there; a press stops it), DEMO_MAX_MS time cap instead. Both use their own
+    // points and give the web route back when they end.
+    // Button routes (1 / 2 clicks): here becomes (0,0); drive route `slot`, then back here.
+    bool startButtonRoute(uint8_t slot, String& err);
+    // Demos 3 / 4: a timed "direct" / "detour" trial to the DEMO_COMPARE_* goal,
+    // placed from the wheel heading after alignment; then back to the start (untimed).
+    bool startCompare(const String& planner, String& err);
     void noteButton(const String& text, uint8_t clicks);   // last button event, shown on the web page
     void setButtonPressed(bool p) { buttonPressed_ = p; }   // live state for the web page
     void stop(const char* why);                      // also halts the wheel
@@ -51,15 +62,18 @@ public:
 
 private:
     enum class TestPhase : uint8_t { Idle, Aligning, Running, Done, Stopped, Failed };
+    bool beginTest(const String& planner, float startHeadingDeg, bool ready, String& err, bool compare);
     void prepare(const SettingsData& settings);
     void alignTest(const RobotState& state, uint32_t now);
     bool testSensorsOk(const RobotState& state, uint32_t now) const;
     void sendCommand(const DriveCommand& cmd, const RobotState& before);
     void planNext(const RobotState& s);
     void finish(Status st, const char* why, bool haltWheel);
-    void beginReturnHome();                // button demo 2/3: timed part done, drive back untimed
+    void beginReturnHome();                // button demo: route done, drive back to its start
+    void borrowPts();                      // a button demo uses pts_; finish() gives the web route back
     void load();
     void save();
+    void saveRoute(uint8_t slot);
     void lock() { xSemaphoreTake(mtx_, portMAX_DELAY); }
     void unlock() { xSemaphoreGive(mtx_); }
 
@@ -68,8 +82,10 @@ private:
     Preferences prefs_;
     SemaphoreHandle_t mtx_ = nullptr;
 
-    Waypoint pts_[32];
+    Waypoint pts_[NAV_MAX_POINTS];
     uint8_t count_ = 0;
+    Waypoint routes_[DEMO_ROUTES][NAV_MAX_POINTS];   // the button routes (slot 1..)
+    uint8_t routeCount_[DEMO_ROUTES] = {};
     Status status_ = Status::Idle;
     String message_ = "พร้อม";
     uint8_t idx_ = 0;
@@ -97,13 +113,14 @@ private:
     uint32_t testPrepMs_ = 0, testStableMs_ = 0, testStableSampleMs_ = 0, testStartMs_ = 0, testElapsedMs_ = 0;
     uint32_t testMaxUpdateGapMs_ = 0;
     bool testStable_ = false, testTimed_ = false, testValid_ = false;
-    // started from the demo button: no heartbeat, time cap; demo 1 borrows pts_
+    // started from the demo button: no heartbeat, time cap; borrows pts_
     bool local_ = false;
-    bool returnHome_ = false, homing_ = false;   // button demos 2/3 end where they started
+    bool compare_ = false;                       // demo 3/4: the goal is placed once the wheel is aligned
+    bool returnHome_ = false, homing_ = false;   // button demos end where they started
     float homeX_ = 0.0f, homeY_ = 0.0f;
     uint32_t localStartMs_ = 0;
     bool restorePts_ = false;
-    Waypoint savedPts_[32];
+    Waypoint savedPts_[NAV_MAX_POINTS];
     uint8_t savedCount_ = 0;
     String buttonText_;
     uint8_t buttonClicks_ = 0;

@@ -28,7 +28,8 @@ void WaypointRunner::begin(ControlLoop* ctrl, Settings* settings) {
 
 // ---- points -----------------------------------------------------------------
 
-bool WaypointRunner::setPoints(const Waypoint* pts, size_t n, String& err) {
+bool WaypointRunner::setPoints(const Waypoint* pts, size_t n, String& err, uint8_t slot) {
+    if (slot > DEMO_ROUTES) { err = "ไม่มีเส้นทางนี้"; return false; }
     if (n > NAV_MAX_POINTS) { err = "จุดได้ไม่เกิน " + String(NAV_MAX_POINTS) + " จุด"; return false; }
     for (size_t i = 0; i < n; ++i) {
         if (!isfinite(pts[i].x) || !isfinite(pts[i].y) || fabsf(pts[i].x) > 50.0f || fabsf(pts[i].y) > 50.0f) {
@@ -37,6 +38,13 @@ bool WaypointRunner::setPoints(const Waypoint* pts, size_t n, String& err) {
         }
     }
     lock();
+    if (slot) {                                     // a button route: a running demo keeps its own copy
+        for (size_t i = 0; i < n; ++i) routes_[slot - 1][i] = pts[i];
+        routeCount_[slot - 1] = n;
+        saveRoute(slot);
+        unlock();
+        return true;
+    }
     if (status_ == Status::Running) { unlock(); err = "หยุดเส้นทางก่อน แล้วค่อยแก้จุด"; return false; }
     for (size_t i = 0; i < n; ++i) pts_[i] = pts[i];
     count_ = n;
@@ -45,12 +53,16 @@ bool WaypointRunner::setPoints(const Waypoint* pts, size_t n, String& err) {
     return true;
 }
 
-void WaypointRunner::pointsJson(JsonArray out) {
+void WaypointRunner::pointsJson(JsonArray out, uint8_t slot) {
+    if (slot > DEMO_ROUTES) return;
     lock();
-    for (uint8_t i = 0; i < count_; ++i) {
+    // while a button demo runs, pts_ is borrowed and the web route waits in savedPts_
+    const Waypoint* src = slot ? routes_[slot - 1] : (restorePts_ ? savedPts_ : pts_);
+    const uint8_t n = slot ? routeCount_[slot - 1] : (restorePts_ ? savedCount_ : count_);
+    for (uint8_t i = 0; i < n; ++i) {
         JsonObject p = out.add<JsonObject>();
-        p["x"] = pts_[i].x;
-        p["y"] = pts_[i].y;
+        p["x"] = src[i].x;
+        p["y"] = src[i].y;
     }
     unlock();
 }
@@ -60,7 +72,36 @@ void WaypointRunner::save() {
     if (count_) prefs_.putBytes("pts", pts_, sizeof(Waypoint) * count_);
 }
 
+void WaypointRunner::saveRoute(uint8_t slot) {
+    char kn[6], kp[6];
+    snprintf(kn, sizeof(kn), "r%un", (unsigned)slot);
+    snprintf(kp, sizeof(kp), "r%up", (unsigned)slot);
+    prefs_.putUChar(kn, routeCount_[slot - 1]);
+    if (routeCount_[slot - 1]) prefs_.putBytes(kp, routes_[slot - 1], sizeof(Waypoint) * routeCount_[slot - 1]);
+}
+
 void WaypointRunner::load() {
+    // button routes; never saved = forward, left, back to the start
+    static_assert(DEMO_ROUTES == 2, "one default route per button slot");
+    const float sides[DEMO_ROUTES] = {DEMO_SQUARE_M, DEMO_TRIANGLE_M};
+    for (uint8_t slot = 1; slot <= DEMO_ROUTES; ++slot) {
+        Waypoint* r = routes_[slot - 1];
+        char kn[6], kp[6];
+        snprintf(kn, sizeof(kn), "r%un", (unsigned)slot);
+        snprintf(kp, sizeof(kp), "r%up", (unsigned)slot);
+        const uint8_t n = prefs_.getUChar(kn, 0xFF);   // 0xFF = never saved (0 = cleared on purpose)
+        if (n <= NAV_MAX_POINTS && (n == 0 || prefs_.getBytesLength(kp) == sizeof(Waypoint) * n)) {
+            if (n) prefs_.getBytes(kp, r, sizeof(Waypoint) * n);
+            routeCount_[slot - 1] = n;
+        } else {
+            const float side = sides[slot - 1];
+            r[0] = {side, 0.0f};
+            r[1] = {side, side};
+            r[2] = {0.0f, 0.0f};
+            routeCount_[slot - 1] = 3;
+        }
+    }
+
     const uint8_t n = prefs_.getUChar("n", 0);
     if (n == 0 || n > NAV_MAX_POINTS || prefs_.getBytesLength("pts") != sizeof(Waypoint) * n) return;
     prefs_.getBytes("pts", pts_, sizeof(Waypoint) * n);
@@ -97,7 +138,7 @@ bool WaypointRunner::start(String& err) {
     lock();
     if (status_ == Status::Running) { unlock(); err = "หยุดเส้นทางก่อนเริ่มใหม่"; return false; }
     if (count_ == 0) { unlock(); err = "ยังไม่มีจุด: คลิกบนระนาบเพื่อวางจุด"; return false; }
-    local_ = false;
+    local_ = compare_ = false;
     returnHome_ = homing_ = false;
     prepare(s);
     testPhase_ = TestPhase::Idle;
@@ -117,21 +158,29 @@ bool WaypointRunner::testSensorsOk(const RobotState& s, uint32_t now) const {
     return true;
 }
 
-bool WaypointRunner::startTest(const String& planner, float heading, bool ready, String& err, bool byButton) {
+bool WaypointRunner::startTest(const String& planner, float heading, bool ready, String& err) {
+    return beginTest(planner, heading, ready, err, false);
+}
+
+bool WaypointRunner::startCompare(const String& planner, String& err) {
+    return beginTest(planner, DEMO_START_HEADING_DEG, true, err, true);
+}
+
+bool WaypointRunner::beginTest(const String& planner, float heading, bool ready, String& err, bool compare) {
     if (!ready) { err = "ยืนยันว่าอยู่ข้างหุ่นและวางหุ่นที่จุดเริ่มต้นก่อน"; return false; }
     if (planner != "direct" && planner != "detour") { err = "เลือกแบบที่ 1 direct หรือแบบที่ 2 detour"; return false; }
     if (!isfinite(heading) || heading < 0.0f || heading > 360.0f) { err = "มุมเริ่มต้นต้องอยู่ในช่วง 0-360 องศา"; return false; }
     const SettingsData settings = settings_->get();
     lock();
     if (status_ == Status::Running) { unlock(); err = "หยุดเส้นทางก่อนเริ่มเทส"; return false; }
-    if (count_ == 0) { unlock(); err = "บันทึกจุดเส้นทางก่อนเริ่มเทส"; return false; }
+    if (!compare && count_ == 0) { unlock(); err = "บันทึกจุดเส้นทางก่อนเริ่มเทส"; return false; }
     const RobotState s = ctrl_->snapshot();
     if (!s.halted || s.pwm != 0 || fabsf(s.rpm) >= 0.5f || fabsf(s.steerRateDps) >= 2.0f) {
         unlock(); err = "หยุดหุ่นและรอให้ล้อหยุดนิ่งก่อนเริ่มเทส"; return false;
     }
     if (!testSensorsOk(s, millis())) { unlock(); err = "รอเซนเซอร์มุมล้อและ IMU ส่งข้อมูลใหม่ก่อนเริ่มเทส"; return false; }
-    bool needsMotion = false;
-    for (uint8_t i = 0; i < count_; ++i) {
+    bool needsMotion = compare;                  // the demo goal is DEMO_COMPARE_DIST_M away
+    for (uint8_t i = 0; i < count_ && !compare; ++i) {
         if (hypotf(pts_[i].x - s.x, pts_[i].y - s.y) > settings.navTolM) needsMotion = true;
     }
     if (!needsMotion) { unlock(); err = "ทุกจุดอยู่ในระยะถึงแล้ว เลือกจุดที่ต้องเคลื่อนที่ก่อน"; return false; }
@@ -144,11 +193,17 @@ bool WaypointRunner::startTest(const String& planner, float heading, bool ready,
     if (!isfinite(pid[4]) || pid[4] <= 0.0f || pid[4] >= 180.0f) {
         unlock(); err = "ค่าความคลาดเคลื่อนมุมล้อไม่เหมาะกับการเทส"; return false;
     }
-    local_ = byButton;
-    returnHome_ = byButton;                  // so the next demo can start from the same place
+    local_ = compare;                        // demos 3/4 come from the button
+    compare_ = compare;
+    returnHome_ = compare;                   // so the next demo can start from the same place
     homing_ = false;
     homeX_ = s.x;
     homeY_ = s.y;
+    if (compare) {                           // goal placed in alignTest(); hold here until then
+        borrowPts();
+        pts_[0] = {s.x, s.y};
+        count_ = 1;
+    }
     prepare(settings);
     loop_ = false;
     plannerName_ = planner;
@@ -192,6 +247,11 @@ void WaypointRunner::alignTest(const RobotState& s, uint32_t now) {
     testStableSampleMs_ = now;
     if (now - testStableMs_ < 200) return;
     testActualHeadingDeg_ = s.wheelHeadingDeg;
+    if (compare_) {   // demo 3/4: same goal for both, measured from where the wheel really points
+        const float b = angles::deg2rad(s.wheelHeadingDeg - DEMO_COMPARE_RIGHT_DEG);
+        pts_[0] = {s.x + DEMO_COMPARE_DIST_M * cosf(b), s.y + DEMO_COMPARE_DIST_M * sinf(b)};
+        count_ = 1;
+    }
     testStartX_ = s.x;
     testStartY_ = s.y;
     testStartThetaDeg_ = angles::rad2deg(s.thetaRad);
@@ -222,8 +282,8 @@ void WaypointRunner::finish(Status st, const char* why, bool haltWheel) {
     message_ = why;
     legActive_ = false;
     commandPending_ = false;
-    returnHome_ = homing_ = false;
-    if (restorePts_) {                       // demo 1 borrowed pts_: give the web route back
+    returnHome_ = homing_ = compare_ = false;
+    if (restorePts_) {                       // a button demo borrowed pts_: give the web route back
         for (uint8_t i = 0; i < savedCount_; ++i) pts_[i] = savedPts_[i];
         count_ = savedCount_;
         restorePts_ = false;
@@ -231,8 +291,8 @@ void WaypointRunner::finish(Status st, const char* why, bool haltWheel) {
     if (haltWheel) ctrl_->halt(why);
 }
 
-// Button demos 2/3: the timed route is done - record the result now, then drive
-// back to where the demo started (not timed), so the next demo can run at once.
+// Button demos: the route is done - record a timed result now, then drive back
+// to where the demo started (not timed), so the next demo can run at once.
 void WaypointRunner::beginReturnHome() {
     if (testPhase_ == TestPhase::Running) {
         const bool pidSame = ctrl_->pidRevision() == testPidRevision_;
@@ -240,11 +300,7 @@ void WaypointRunner::beginReturnHome() {
         testValid_ = testTimed_ && pidSame;
         testPhase_ = pidSame ? TestPhase::Done : TestPhase::Failed;
     }
-    if (!restorePts_) {                      // borrow pts_; finish() gives the web route back
-        for (uint8_t i = 0; i < count_; ++i) savedPts_[i] = pts_[i];
-        savedCount_ = count_;
-        restorePts_ = true;
-    }
+    borrowPts();
     pts_[0] = {homeX_, homeY_};
     count_ = 1;
     idx_ = 0;
@@ -252,32 +308,48 @@ void WaypointRunner::beginReturnHome() {
     legActive_ = false;
     plannerName_ = "direct";
     homing_ = true;
-    message_ = "กลับจุดเริ่ม (ไม่นับเวลา)";
+    message_ = testTimed_ ? "กลับจุดเริ่ม (ไม่นับเวลา)" : "กลับจุดเริ่ม";
 }
 
-bool WaypointRunner::startDemoSquare(float side, String& err) {
-    const SettingsData s = settings_->get();
-    lock();
-    if (status_ == Status::Running) { unlock(); err = "หยุดเส้นทางก่อน"; return false; }
-    const RobotState st = ctrl_->snapshot();
-    if (!st.halted && (st.pwm != 0 || fabsf(st.rpm) >= 0.5f)) { unlock(); err = "หยุดหุ่นก่อน"; return false; }
+void WaypointRunner::borrowPts() {
+    if (restorePts_) return;                 // already borrowed: savedPts_ holds the web route
     for (uint8_t i = 0; i < count_; ++i) savedPts_[i] = pts_[i];
     savedCount_ = count_;
     restorePts_ = true;
-    pts_[0] = {side, 0.0f};                  // forward
-    pts_[1] = {side, side};                  // then left (+y)
-    pts_[2] = {0.0f, 0.0f};                  // back to the start
-    count_ = 3;
+}
+
+bool WaypointRunner::startButtonRoute(uint8_t slot, String& err) {
+    if (slot < 1 || slot > DEMO_ROUTES) { err = "ไม่มีเส้นทางนี้"; return false; }
+    const SettingsData s = settings_->get();
+    lock();
+    if (status_ == Status::Running) { unlock(); err = "หยุดเส้นทางก่อน"; return false; }
+    const uint8_t n = routeCount_[slot - 1];
+    if (n == 0) {
+        unlock();
+        err = "เส้นทาง " + String((int)slot) + " ยังไม่มีจุด: ตั้งในเว็บ แท็บเส้นทาง";
+        return false;
+    }
+    const RobotState st = ctrl_->snapshot();
+    if (!st.halted && (st.pwm != 0 || fabsf(st.rpm) >= 0.5f)) { unlock(); err = "หยุดหุ่นก่อน"; return false; }
+    borrowPts();
+    for (uint8_t i = 0; i < n; ++i) pts_[i] = routes_[slot - 1][i];
+    count_ = n;
     ctrl_->resetPose();                      // here becomes (0,0), +x = where the robot faces
     local_ = true;
-    returnHome_ = homing_ = false;           // the square already ends at the start
+    compare_ = false;
+    returnHome_ = true;                      // end here, so the next demo can start at once
+    homing_ = false;
+    homeX_ = homeY_ = 0.0f;
     prepare(s);
     loop_ = false;
+    // until the next control tick the snapshot still holds the pose from before the reset
+    commandStampMs_ = st.stampMs;
+    commandPending_ = true;
     testPhase_ = TestPhase::Idle;
     testTimed_ = testValid_ = false;
     testElapsedMs_ = 0;
     char msg[96];
-    snprintf(msg, sizeof(msg), "เดโม 1: หน้า %.1f ม. -> ซ้าย %.1f ม. -> กลับจุดเริ่ม", side, side);
+    snprintf(msg, sizeof(msg), "เส้นทาง %u: %u จุด เริ่มจากตรงนี้", (unsigned)slot, (unsigned)n);
     message_ = msg;
     unlock();
     return true;

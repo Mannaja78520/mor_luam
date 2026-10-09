@@ -15,7 +15,7 @@ public:
     // motion watchdog (the real one lives in the control task)
     int wdArms = 0, wdFeeds = 0, wdDisarms = 0;
     int poseResets = 0;
-    void resetPose() { ++poseResets; state.x = state.y = applied.x = applied.y = 0; }
+    void resetPose() { ++poseResets; applied.x = applied.y = 0; }   // seen after the next publish()
     void armWatchdog(uint32_t, const char*) { ++wdArms; }
     void feedWatchdog() { ++wdFeeds; }
     void disarmWatchdog() { ++wdDisarms; }

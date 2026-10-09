@@ -48,6 +48,9 @@ class Robot:
         self.sensors_ok = True
         self.coast_s, self.coast_n = 0.10, 0
         self.points = [{"x": 1.0, "y": 0.0}, {"x": 1.0, "y": 1.0}, {"x": -0.5, "y": 1.0}]
+        # the demo button's routes 1 / 2 (firmware defaults: square 1 m, triangle 0.5 m)
+        self.routes = {1: [{"x": 1.0, "y": 0.0}, {"x": 1.0, "y": 1.0}, {"x": 0.0, "y": 0.0}],
+                       2: [{"x": 0.5, "y": 0.0}, {"x": 0.5, "y": 0.5}, {"x": 0.0, "y": 0.0}]}
         self.nav = {"status": "idle", "message": "", "index": 0, "tries": 0, "overshoots": 0}
         self.plan = {"kind": "direct", "phiDeg": 0, "distM": 0, "k": 0, "a": 0, "betaDeg": 0, "b": 0, "timeS": 0}
         self.heartbeat_ms = 0
@@ -313,7 +316,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {"type": "morluam", "id": "3a5f", "name": R.settings["robotName"],
                                        "host": R.settings["hostname"] + ".local", "ip": "127.0.0.1", "fw": "mock"})
             if p == "/api/waypoints":
-                return self.send(200, {"points": R.points})
+                slot = int((parse_qs(u.query).get("slot") or ["0"])[0])
+                if slot not in (0, 1, 2):
+                    return self.fail("ไม่มีเส้นทางนี้")
+                return self.send(200, {"slot": slot, "points": R.routes[slot] if slot else R.points})
             if p == "/api/wifi":
                 return self.send(200, {"saved": R.wifi, "max": 6, "net": R.net()})
             if p == "/api/wifi/scan":
@@ -389,14 +395,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self.ok()
             if p == "/api/waypoints":
                 pts = b.get("points", [])
-                if running:
+                slot = b.get("slot", 0)
+                if slot not in (0, 1, 2):
+                    return self.fail("ไม่มีเส้นทางนี้")
+                if running and not slot:
                     return self.fail("หยุดเส้นทางก่อน แล้วค่อยแก้จุด")
                 if len(pts) > 32:
                     return self.fail("จุดได้ไม่เกิน 32 จุด")
                 for i, pt in enumerate(pts):
                     if abs(pt["x"]) > 50 or abs(pt["y"]) > 50:
                         return self.fail(f"จุดที่ {i + 1} อยู่นอกช่วง ±50 m")
-                R.points = [{"x": float(pt["x"]), "y": float(pt["y"])} for pt in pts]
+                clean = [{"x": float(pt["x"]), "y": float(pt["y"])} for pt in pts]
+                if slot:
+                    R.routes[slot] = clean
+                else:
+                    R.points = clean
                 return self.ok()
             if p == "/api/wifi/save":
                 ssid, pw, orig = b.get("ssid", ""), b.get("pass", ""), b.get("original", "")

@@ -66,6 +66,29 @@ const status = (test = done('direct', { id: 1, phase: 'idle', valid: false })) =
   assert.deepEqual(realRoute.saved, [{ x: 0.3, y: 0.03 }]);
   assert.deepEqual(realRoute.points, [{ x: 0.7, y: 0.04 }]);
   assert.equal(realRoute.dirty, true, 'edit during pending save remains unsaved');
+
+  // Button routes (slots 1/2): own load/save URL, edits kept per slot.
+  const slotCalls = [];
+  const slotApi = {
+    async get(path) { slotCalls.push(['get', path]); return { ok: true, data: { points: path.endsWith('slot=1') ? [{ x: 1, y: 0 }] : [{ x: 0.3, y: 0.03 }] } }; },
+    async post(path, body) { slotCalls.push(['post', path, body]); return { ok: true }; },
+  };
+  const slotRoute = new RouteModel(slotApi);
+  await slotRoute.load();
+  slotRoute.add(0.5, 0.5);
+  await slotRoute.select(1);
+  assert.deepEqual(slotCalls[1], ['get', '/api/waypoints?slot=1'], 'slot loads with ?slot=');
+  assert.deepEqual(slotRoute.points, [{ x: 1, y: 0 }]);
+  assert.equal(slotRoute.isDirty(0), true, 'web route edit kept while a button route is shown');
+  slotRoute.add(1, 1);
+  await slotRoute.save();
+  assert.deepEqual(slotCalls[2], ['post', '/api/waypoints', { slot: 1, points: [{ x: 1, y: 0 }, { x: 1, y: 1 }] }]);
+  assert.equal(slotRoute.dirty, false);
+  await slotRoute.select(0);
+  assert.equal(slotCalls.length, 3, 'a loaded slot is not fetched again');
+  assert.deepEqual(slotRoute.points, [{ x: 0.3, y: 0.03 }, { x: 0.5, y: 0.5 }]);
+  await slotRoute.save();
+  assert.deepEqual(slotCalls[3], ['post', '/api/waypoints', { points: [{ x: 0.3, y: 0.03 }, { x: 0.5, y: 0.5 }] }], 'web route body unchanged');
   panel.render(status(), 'live');
   assert.equal(panel.canStart(), false, 'readiness required');
   panel.ready.checked = true;

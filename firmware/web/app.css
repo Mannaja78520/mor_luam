@@ -267,6 +267,8 @@ details.more summary { cursor: pointer; color: var(--mut); font-size: var(--fs-1
 .drive-layout { display: grid; gap: var(--sp-3); grid-template-columns: minmax(0, 1fr); }
 .plane-card { padding: var(--sp-3); }
 .plane-tools { margin: 0 0 var(--sp-2); }
+.slot-label { font-size: var(--fs-1); color: var(--mut); }
+.slot-hint { margin: 0 0 var(--sp-2); }
 .plane-wrap {
   position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 70vh;
   border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--sunk);

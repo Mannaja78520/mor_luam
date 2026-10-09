@@ -209,11 +209,16 @@ void WebApp::routesNav() {
     });
 
     server_.on("/api/waypoints", HTTP_GET, [this](AsyncWebServerRequest* r) {
+        const long slot = r->hasParam("slot") ? r->getParam("slot")->value().toInt() : 0;
+        if (slot < 0 || slot > DEMO_ROUTES) { fail(r, "ไม่มีเส้นทางนี้"); return; }
         JsonDocument doc;
-        d_.runner->pointsJson(doc["points"].to<JsonArray>());
+        doc["slot"] = slot;
+        d_.runner->pointsJson(doc["points"].to<JsonArray>(), slot);
         reply(r, doc);
     });
     onJson("/api/waypoints", [this](AsyncWebServerRequest* r, JsonDocument& doc) {
+        const int slot = doc["slot"] | 0;
+        if (slot < 0 || slot > DEMO_ROUTES) { fail(r, "ไม่มีเส้นทางนี้"); return; }
         JsonArrayConst a = doc["points"].as<JsonArrayConst>();
         Waypoint pts[NAV_MAX_POINTS];
         size_t n = 0;
@@ -222,7 +227,7 @@ void WebApp::routesNav() {
             pts[n++] = {p["x"] | NAN, p["y"] | NAN};
         }
         String err;
-        if (!d_.runner->setPoints(pts, n, err)) { fail(r, err); return; }
+        if (!d_.runner->setPoints(pts, n, err, slot)) { fail(r, err); return; }
         ok(r);
     });
 

@@ -9,6 +9,39 @@ const NAV_STATUS = {
 };
 const PLANNER_NAMES = { detour: 'Detour Steer', direct: 'เลี้ยวตรงไปหาจุด' };
 
+// Which route the plane and the list edit: the web route, or the demo button's
+// route 1 / 2 (saved on the robot). " •" marks a slot with unsaved edits.
+const SLOT_NAMES = { 0: 'หน้าเว็บ', 1: 'ปุ่ม 1 ครั้ง', 2: 'ปุ่ม 2 ครั้ง' };
+class RouteSlotBar {
+  constructor(route, toast, onSwitch) {
+    Object.assign(this, { route, toast });
+    this.buttons = [...document.querySelectorAll('[data-slot]')];
+    this.hint = $('#slotHint');
+    this.buttons.forEach((b) => {
+      b.onclick = async () => {
+        const r = await route.select(Number(b.dataset.slot));
+        if (r.ok) onSwitch(); else this.toast.result(r);
+      };
+    });
+    route.onChange(() => this.render());
+    this.render();
+  }
+
+  render() {
+    const r = this.route;
+    for (const b of this.buttons) {
+      const slot = Number(b.dataset.slot), on = slot === r.slot;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+      b.textContent = SLOT_NAMES[slot] + (r.isDirty(slot) ? ' •' : '');
+    }
+    this.hint.classList.toggle('hidden', !r.slot);
+    this.hint.textContent = r.slot
+      ? `เส้นทางของปุ่มบนหุ่น กด ${r.slot} ครั้ง: (0,0) = ที่หุ่นยืนตอนกดปุ่ม · +x = ทิศหน้าหุ่น · จบแล้วหุ่นกลับจุดเริ่มเอง · กด "บันทึกลงหุ่น" หุ่นจึงใช้จุดชุดใหม่`
+      : '';
+  }
+}
+
 // The list of points as a table, editable by keyboard as well as on the plane.
 class WaypointTable {
   constructor(route, toast) {
@@ -124,6 +157,7 @@ class NavPanel {
     this.heartbeat = 0;
     this.ready = $('#realRunReady');
     this.ready.onchange = () => { if (this.lastState) this.render(...this.lastState); };
+    route.onChange(() => { if (this.lastState) this.render(...this.lastState); });   // slot switch
 
     this.startBtn.onclick = () => this.start();
     this.stopBtn.onclick = async () => { this.toast.result(await api.post('/api/nav/stop'), 'หยุดเส้นทางแล้ว'); onCommand(); };
@@ -135,6 +169,7 @@ class NavPanel {
   }
 
   async start() {
+    if (this.route.slot) return;                // the start button drives the web route only
     if (!this.ready.checked) { this.toast.show('ตรวจพื้นและยืนยันว่าอยู่ข้างหุ่นก่อนวิ่งจริง', true); return; }
     this.ready.checked = false;
     if (this.route.dirty) {
@@ -180,8 +215,8 @@ class NavPanel {
     }
 
     const offline = conn === 'offline';
-    const n = this.route.points.length;
-    this.startBtn.disabled = offline || running || !n || !this.route.loaded || !this.ready.checked;
+    const n = this.route.points.length, slot = this.route.slot;
+    this.startBtn.disabled = offline || running || !n || !this.route.loaded || !this.ready.checked || !!slot;
     this.stopBtn.disabled = offline || !running;
     this.resetBtn.disabled = offline || running || robot.mode !== 'halt';
     let hint = '', warn = false;
@@ -189,6 +224,7 @@ class NavPanel {
     else if (running && nav.byButton) hint = 'เริ่มจากปุ่มบนหุ่น: กดปุ่มอีกครั้ง หรือ E-STOP เพื่อหยุด';
     else if (running) hint = 'ถ้าปิดหน้านี้หรือเน็ตหลุดเกิน 3 วินาที หุ่นจะหยุดเอง';
     else if (robot.source === 'ros' && robot.mode !== 'halt') { hint = 'หุ่นกำลังทำตามคำสั่งจาก ROS อยู่'; warn = true; }
+    else if (slot) hint = `กำลังแก้เส้นทางปุ่ม ${slot} ครั้ง: ปุ่มเริ่มวิ่งใช้เส้นทางหน้าเว็บ เลือก "หน้าเว็บ" ก่อน`;
     else if (!this.route.loaded) hint = 'รอโหลดจุดจากหุ่น';
     else if (!n) hint = 'วางจุดบนระนาบก่อน แล้วจึงเริ่มวิ่ง';
     else if (!robot.imuOk || !robot.steerOk) { hint = 'เซนเซอร์ยังไม่พร้อม (ดูช่องด้านบน): หุ่นอาจวิ่งผิดทิศ'; warn = true; }

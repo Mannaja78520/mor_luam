@@ -47,8 +47,16 @@ static const float    TEST_MAX_RPM             = 150.0f; // POST /api/test/move 
 static const uint32_t DEMO_DEBOUNCE_MS         = 30;
 static const uint32_t DEMO_CLICK_GAP_MS        = 1000;   // a demo starts this long after the last click
 static const uint32_t DEMO_MAX_PRESS_MS        = 1500;   // held longer = not a click
-static const float    DEMO_SQUARE_M            = 1.0f;   // demo 1: forward, left, back (m)
-static const float    DEMO_START_HEADING_DEG   = 0.0f;   // demos 2/3: wheel turned to +x first, then timed
+static const uint8_t  DEMO_ROUTES              = 2;      // 1 and 2 clicks: routes set on the web page
+static const float    DEMO_SQUARE_M            = 1.0f;   // route 1 until set: forward, left, back (m)
+static const float    DEMO_TRIANGLE_M          = 0.5f;   // route 2 until set: forward, left, back (m)
+static const float    DEMO_START_HEADING_DEG   = 0.0f;   // demos 3/4: wheel turned to +x first, then timed
+// Demos 3/4 (Direct / Detour): one goal this far away, this far clockwise (to the
+// right) of the wheel once it is aligned. Direct must first turn the wheel ~350 deg;
+// Detour drives first, turns less, then a short leg sideways. Picked so the planner
+// chooses the detour at 0.03 m/s with steerDps 35..60 (2026-10-09).
+static const float    DEMO_COMPARE_DIST_M      = 0.20f;
+static const float    DEMO_COMPARE_RIGHT_DEG   = 10.0f;
 static const uint32_t DEMO_MAX_MS              = 300000; // a button demo stops by itself after 5 min
 static const float    NAV_DEFAULT_SPEED_MPS    = 0.03f;  // 7.5 rpm: full power is only ~0.039 m/s (PIDF_config.h)
 static const float    NAV_MAX_SPEED_MPS        = 0.035f; // leave the PID some power to spare

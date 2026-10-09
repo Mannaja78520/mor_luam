@@ -43,6 +43,7 @@ class RouteTestPanel {
       this.heading.oninput();
     };
     route.onChange(() => {
+      if (route.slot) { this.draw(); return; }    // a button route is shown; the web route is unchanged
       const key = JSON.stringify(route.points);
       if (key !== this.pointsKey) { this.pointsKey = key; this.invalidate('จุดเปลี่ยนแล้ว ผลเดิมถูกล้าง'); }
       this.draw();
@@ -71,7 +72,7 @@ class RouteTestPanel {
     const rb = this.last && this.last.robot, nav = this.last && this.last.nav;
     const h = Number(this.heading.value);
     return this.conn === 'live' && !this.busy && rb && rb.mode === 'halt' && !rb.coasting &&
-      nav.status !== 'running' && this.route.loaded && this.route.points.length > 0 &&
+      nav.status !== 'running' && !this.route.slot && this.route.loaded && this.route.points.length > 0 &&
       this.ready.checked && this.heading.value.trim() !== '' && Number.isFinite(h) && h >= 0 && h < 360;
   }
   async start(planner) {
@@ -158,6 +159,7 @@ class RouteTestPanel {
       ? 'กำลังหันล้อไปมุมเริ่มร่วมกัน ยังไม่จับเวลา'
       : `กำลังทดสอบ ${test.planner === 'direct' ? 'แบบที่ 1' : 'แบบที่ 2'} · ${(test.elapsedMs / 1000).toFixed(2)} s จากหุ่น`;
     else if (running) message = 'เส้นทางอื่นกำลังทำงาน หยุดก่อนทดสอบ';
+    else if (this.route.slot) message = 'การทดสอบนี้ใช้เส้นทางหน้าเว็บ: เลือก "หน้าเว็บ" บนระนาบก่อน';
     else if (!message) message = this.ready.checked ? 'พร้อมทดสอบ ตรวจว่าคืนจุดเริ่มเดิมก่อนเลือกแบบ' : 'วางจุดและยืนยันว่าพร้อมก่อนทดสอบแต่ละครั้ง';
     this.message.textContent = message;
     for (const [planner, prefix] of [['direct', 'testDirect'], ['detour', 'testDetour']]) {

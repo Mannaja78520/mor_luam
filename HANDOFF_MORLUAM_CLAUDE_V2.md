@@ -79,11 +79,30 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
   Robot build Oct 9 08:49 (UTC). Two OTA attempts failed because the robot rebooted mid-upload (owner was
   power-cycling between demos); third attempt with the robot idle succeeded.
   Owner's runs on the OLD firmware (not comparable - different start points): Detour 21.2 s, Direct 19.5 s.
+- BUTTON ROUTES (2026-10-09, owner request): owner saw demos 2/3 behave the same (web point 6 deg off = inside
+  the steering tolerance after alignment, so both drove straight). New mapping:
+  - 1 / 2 clicks = button route 1 / 2, points set on the web page (route tab -> "แก้เส้นทาง" -> ปุ่ม 1/2 ครั้ง ->
+    บันทึกลงหุ่น). Saved in NVS "nav" (r1n/r1p, r2n/r2p); default square 1 m / triangle 0.5 m. Pose reset at the
+    press: (0,0) = where the robot stands, +x = its front. Drives back to the start after the last point.
+  - 3 / 4 clicks = Direct / Detour, timed, to one goal DEMO_COMPARE_DIST_M 0.20 m, DEMO_COMPARE_RIGHT_DEG 10 deg
+    clockwise of the wheel AFTER alignment (phi = 350 exactly, planner picks the detour with steerDps 35..60).
+    Then back to the start, untimed.
+  - API: GET /api/waypoints?slot=1|2, POST {slot, points}. Slot routes can be edited while a demo runs.
+    GET /api/waypoints (web route) now returns the web route even while a button demo borrows pts_.
+  - Fixed: after resetPose the first leg waited for a fresh control snapshot (old pose could plan a wrong leg).
+  - Code: WaypointRunner startButtonRoute/startCompare (startDemoSquare and startTest's byButton removed),
+    DemoButton 1-4, web RouteModel slots + RouteSlotBar, mock_robot.py slots.
+  - Checks: fw-test ALL PASS + route runner 24 scenarios; node test_route_test.cjs (slot load/save/edits),
+    test_simulation(.cjs/_noise) PASS, test_mock_route_test.py OK; page checked at 360 px with the mock.
+    fw-build OK (flash 59.6 %). OTA OK -> robot build "Oct 9 2026 09:21:34", idle; on the robot
+    GET slot 1/2 = defaults, POST slot 2 ok, slot 3/5 refused. Button presses NOT yet tried by the owner.
 
 **Still in progress**
 - Nothing running. Robot halted on battery.
 
 **Next — all need the owner**
+0. Try the button on the floor: 1 click (square 1 m), 2 clicks (triangle 0.5 m), 3 then 4 clicks (Direct vs
+   Detour; watch: Direct spins ~350 deg first, Detour drives first). Set own points for routes 1/2 in the web.
 1. WiFi fallback to network 2 / move up / setup hotspot (`mor-luam-XXXX`, 192.168.4.1): needs a second saved network
    in range and the owner switching the `manny` hotspot off and on. Logic is unit-tested (`fw-test` part 4).
 2. OTA from the web page form with the real password (helper/direct OTA already passed many times).

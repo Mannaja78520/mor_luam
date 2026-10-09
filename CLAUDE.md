@@ -24,7 +24,7 @@ Read this file first; open only the files the task needs.
 | Final steering power ramp and missing-feedback stop | `firmware/src/algorithm/SteerPowerRamp.h`, `MotorResponseWatch.h`; used by `SteerDriveController` |
 | Steering algorithms (plain C++) | `firmware/src/algorithm/` — see its README.md |
 | Waypoint route, heartbeat, replanning | `firmware/src/nav/WaypointRunner.cpp` |
-| Demo button GPIO19 (1/2/3 clicks = demo 1 / Direct / Detour, press = stop) | `firmware/src/app/DemoButton.cpp`, `src/util/ClickCounter.h`, runner `startDemoSquare` / `startTest(..., byButton)` |
+| Demo button GPIO19 (1/2 clicks = button routes 1/2 set on the web, 3/4 = Direct/Detour comparison, press = stop) | `firmware/src/app/DemoButton.cpp`, `src/util/ClickCounter.h`, runner `startButtonRoute` / `startCompare`; routes = `/api/waypoints?slot=1|2` (NVS "nav" r1n/r1p, r2n/r2p), web `RouteSlotBar` (40_nav.js) |
 | Wi-Fi list (NVS "wifi"), priority join / move up, hotspot, mDNS | `firmware/src/net/WifiStore.cpp`, `NetworkManager.cpp`, rules in `WifiPolicy.h` |
 | OTA (ArduinoOTA + web upload) | `firmware/src/net/OtaService.cpp` |
 | micro-ROS topics, agent discovery | `firmware/src/ros/MicroRosBridge.cpp` |
@@ -40,8 +40,8 @@ Read this file first; open only the files the task needs.
 | Ubuntu helper (same commands) + install guide | `docker/mor_luam.sh`, `docs/install_and_run.md` |
 | PC ROS nodes | `mor_luam_ws/src/mor_luam/src/*.py` |
 
-Web JS: one class per job — `Api/Poller` (10), `RouteModel` (30), `Plane2D` (35),
-`WaypointTable/NavPanel` (40), `SimulationPlanner/RouteSimulation` (45), `WifiView` (50), `SettingsView/PidView` (60),
+Web JS: one class per job — `Api/Poller` (10), `RouteModel` (30, slots 0 web / 1-2 button), `Plane2D` (35),
+`RouteSlotBar/WaypointTable/NavPanel` (40), `SimulationPlanner/RouteSimulation` (45), `WifiView` (50), `SettingsView/PidView` (60),
 `OtaView/FleetView/SystemView` (70), `App/TopBar/Tabs` (99). Files load in name order.
 
 ## Commands (Windows, from the repo root)

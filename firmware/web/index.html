@@ -57,6 +57,13 @@
     <div class="drive-layout">
       <div class="card plane-card">
         <h3>ระนาบ 2 มิติ <small>หน่วยเมตร · (0,0) คือจุดที่ตั้งไว้ล่าสุด · +x คือทิศที่หุ่นหันตอนนั้น</small></h3>
+        <div class="row tight route-slots" role="group" aria-label="เส้นทางที่กำลังแก้">
+          <span class="slot-label">แก้เส้นทาง</span>
+          <button class="chipbtn active" type="button" data-slot="0" aria-pressed="true">หน้าเว็บ</button>
+          <button class="chipbtn" type="button" data-slot="1" aria-pressed="false">ปุ่ม 1 ครั้ง</button>
+          <button class="chipbtn" type="button" data-slot="2" aria-pressed="false">ปุ่ม 2 ครั้ง</button>
+        </div>
+        <p class="hint slot-hint hidden" id="slotHint" aria-live="polite"></p>
         <div class="row plane-tools" role="toolbar" aria-label="เครื่องมือระนาบ">
           <div class="seg" role="group" aria-label="โหมดแตะ">
             <button class="chipbtn active" type="button" data-mode="add">วางจุด</button>
@@ -91,7 +98,7 @@
           </div>
           <p class="hint reserve" id="navHint">&nbsp;</p>
           <p class="hint" id="btnInfo">ปุ่มบนหุ่น: –</p>
-          <p class="hint">ปุ่มบนหุ่น: กด 1 ครั้ง = เดโม 1 (หน้า 1 ม. ซ้าย 1 ม. กลับจุดเริ่ม) · 2 ครั้ง = เส้นทางนี้แบบ Direct · 3 ครั้ง = เส้นทางนี้แบบ Detour (จับเวลาถึงเป้า แล้วกลับจุดเริ่มเอง กดเดโมต่อได้เลย) · กดระหว่างหุ่นเคลื่อนที่ = หยุด · กดค้างเกิน 1.5 วินาที = ไม่เริ่มอะไร</p>
+          <p class="hint">ปุ่มบนหุ่น: กด 1 / 2 ครั้ง = เส้นทาง 1 / 2 (ตั้งจุดได้บนระนาบ เลือก "ปุ่ม 1 ครั้ง" หรือ "ปุ่ม 2 ครั้ง") · 3 ครั้ง = Direct · 4 ครั้ง = Detour (เป้าเดียวกัน ห่าง 20 ซม. เยื้องขวาจากล้อ 10° จับเวลาบนหุ่น) · ทุกเดโมกลับจุดเริ่มเอง กดเดโมต่อได้เลย · กดระหว่างหุ่นเคลื่อนที่ = หยุด · กดค้างเกิน 1.5 วินาที = ไม่เริ่มอะไร</p>
           <details class="more">
             <summary>ตั้งตำแหน่งเริ่มใหม่</summary>
             <p class="hint">ให้ตำแหน่งที่หุ่นอยู่ตอนนี้เป็น (0,0) และทิศที่หันอยู่เป็น +x ใช้ก่อนวางจุดชุดใหม่</p>

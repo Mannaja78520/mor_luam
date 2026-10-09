@@ -1,7 +1,8 @@
 // Puts the page together. One object per part of the page:
 //
 //   Api, Poller          10_api.js       talk to the robot, poll /api/status 4x a second
-//   RouteModel           30_route.js     the points being edited + the robot's copy
+//   RouteModel           30_route.js     the points being edited + the robot's copy (web route, button routes 1/2)
+//   RouteSlotBar         40_nav.js       which of those routes the plane edits
 //   Plane2D              35_plane2d.js   the canvas: draw / edit points, robot, trail
 //   WaypointTable,
 //   NavPanel             40_nav.js       point list, start / stop, plan, heartbeat
@@ -134,6 +135,7 @@ class App {
       onFollowOff: () => this.setChip($('#followBtn'), false),
     });
     this.wpTable = new WaypointTable(this.route, this.toast);
+    this.slots = new RouteSlotBar(this.route, this.toast, () => this.plane.fit());
     const refresh = () => this.poller.now();
     this.nav = new NavPanel(this.api, this.route, this.toast, { onPoseReset: () => this.plane.clearTrail(), onCommand: refresh });
     this.top = new TopBar(this.api, this.toast, refresh);
