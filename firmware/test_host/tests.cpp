@@ -11,6 +11,7 @@
 //  5. Steering direction (angles::cwErrorDeg) and the AS5600 spike filter.
 //  7. Demo button click counting (util/ClickCounter.h).
 //  9. Recorded run path for the web picture (nav/RunTrace.h) and its time line (nav/ActivityLog.h).
+// 10. Straighter legs: the coast lands closer (still short) and the re-aim stop (FinalApproach.h).
 //  6. Learned drive feedforward, with the real drive gains and a weaker motor.
 //
 // The motor models are made up (no measurement of the real steering exists):
@@ -27,6 +28,9 @@
 #include "algorithm/DetourSteer.h"
 #include "algorithm/DirectPlanner.h"
 #include "algorithm/DriveGainLearner.h"
+#include "algorithm/FinalApproach.h"
+#include "algorithm/SteerApproach.h"
+#include "app_config.h"
 #include "algorithm/MotorResponseWatch.h"
 #include "algorithm/SteerPowerRamp.h"
 #include "algorithm/SteerStopPredictor.h"
@@ -153,13 +157,16 @@ struct SteerRun {
     float worstPastDeg = 0.0f;    // furthest past the target over all steers
     float lastPastDeg = 0.0f;     // in the last steer (after learning)
     float totalS = 0.0f;
+    float lastShortDeg = 0.0f;    // where the last steer stopped: + = short of the target, - = past it
+    float worstShortDeg = 0.0f;   // furthest short over the learned steers (2..n)
 };
 
 // N steers of 300 deg in a row, driven the way the firmware drives them:
 // clockwise only, base speed + PID, motor off inside the tolerance.
 // Plant: geared DC motor, first-order lag K/tau, braked by tauBrake when off.
 template <class P>
-static SteerRun steerRuns(bool newController, bool predict, float K, float tau, float tauBrake, int n = 5) {
+static SteerRun steerRuns(bool newController, bool predict, float K, float tau, float tauBrake, int n = 5,
+                          float land = Wheel_STEER_ERROR_TOLERANCE) {
     P pid = makeSteerPid<P>();
     if (newController) applyZone(pid);
     SteerStopPredictor pred;
@@ -169,28 +176,32 @@ static SteerRun steerRuns(bool newController, bool predict, float K, float tau, 
     for (int run = 0; run < n; ++run) {
         const float target = angle + 300.0f;
         pid.reset();
-        bool coasting = false;
+        bool coasting = false, approaching = false;
         float cutAngle = 0.0f, past = 0.0f;
         int settled = 0, i = 0;
         for (; i < 3000; ++i) {
             g_fake_us += 10000;
             const float e = fmodf(target - angle + 7200.0f, 360.0f);
             const bool inTol = e <= tol || e >= 360.0f - tol;
-            int pwm = 0;
-            if (!inTol) {
+            int pwm = 0;   // as SteerDriveController: on through the band while still moving
+            if (steerapproach::keepPushing(inTol, approaching, coasting, e, land, rate, STEER_APPROACH_MIN_DPS)) {
                 settled = 0;
                 if (coasting) {
                     if (fabsf(rate) < 2.0f) { coasting = false; pred.onStopped(angle - cutAngle); }
-                } else if (predict && pred.shouldCut(e, rate, tol)) {
+                } else if (predict && pred.shouldCut(e, rate, land)) {
                     coasting = true;
+                    approaching = false;
                     cutAngle = angle;
                     pred.onCut(rate);
                 } else {
+                    approaching = true;
                     float mag = pid.compute_with_error(e) + Wheel_STEER_BASE_SPEED;
                     if (mag > PWM_STEER_Max) mag = PWM_STEER_Max;
                     pwm = (int)lroundf(mag);
                 }
             } else {
+                if (approaching && !coasting && predict) { coasting = true; cutAngle = angle; pred.onCut(rate); }
+                approaching = false;
                 if (newController) pid.reset(); else pid.compute_with_error(0.0f);
                 if (coasting && fabsf(rate) < 2.0f) { coasting = false; pred.onStopped(angle - cutAngle); }
                 if (++settled > 30 && fabsf(w) < 0.5f) break;
@@ -203,6 +214,9 @@ static SteerRun steerRuns(bool newController, bool predict, float K, float tau, 
         }
         out.totalS += i * DT;
         out.lastPastDeg = past;
+        const float eEnd = fmodf(target - angle + 7200.0f, 360.0f);
+        out.lastShortDeg = eEnd < 180.0f ? eEnd : eEnd - 360.0f;
+        if (run > 0 && out.lastShortDeg > out.worstShortDeg) out.worstShortDeg = out.lastShortDeg;
         if (past > out.worstPastDeg) out.worstPastDeg = past;
         angle = target + fmodf(angle - target + 7200.0f, 360.0f) - (fmodf(angle - target + 7200.0f, 360.0f) > 180 ? 360.0f : 0.0f);
     }
@@ -534,6 +548,56 @@ static void testRunTrace() {
     CHECK(b.size() == 8, "full: no overflow, the last segment runs to the end");
 }
 
+static void testStraighterLegs() {
+    printf("10. Straighter legs: coast landing and the early re-aim stop\n");
+    struct NewPid : PIDF {
+        NewPid(float a, float b, float c, float d, float e, float f, float g, float h, float i)
+            : PIDF(a, b, c, d, e, f, g, h, i) {}
+    };
+    const float plants[][3] = {{0.20f, 0.10f, 0.04f}, {0.20f, 0.15f, 0.15f}, {0.30f, 0.20f, 0.30f},
+                               {0.40f, 0.25f, 0.50f}, {0.15f, 0.30f, 0.60f}};
+    bool closer = true, neverPast = true;
+    for (auto& pl : plants) {
+        const SteerRun edge = steerRuns<NewPid>(true, true, pl[0], pl[1], pl[2], 6);
+        const SteerRun land = steerRuns<NewPid>(true, true, pl[0], pl[1], pl[2], 6, STEER_LAND_DEG);
+        printf("        K %.2f tau %.2f brake %.2f: stops %.1f deg short (land at edge) -> %.1f deg (land %.1f)\n",
+               pl[0], pl[1], pl[2], edge.lastShortDeg, land.lastShortDeg, STEER_LAND_DEG);
+        if (land.lastShortDeg > edge.lastShortDeg + 0.2f) closer = false;
+        if (land.lastPastDeg >= Wheel_STEER_ERROR_TOLERANCE) neverPast = false;   // past the band = a full extra turn
+    }
+    CHECK(closer, "aiming the coast at %.1f deg stops the wheel closer to its angle", STEER_LAND_DEG);
+    CHECK(neverPast, "and never past it by the tolerance (%.1f deg), which would cost a near-full extra turn",
+          Wheel_STEER_ERROR_TOLERANCE);
+
+    using steerapproach::keepPushing;
+    const float mv = STEER_APPROACH_MIN_DPS;
+    CHECK(keepPushing(false, false, false, 40, 2, 0, mv), "outside the band: steer");
+    CHECK(keepPushing(true, true, false, 3.0f, 2, 30, mv), "moving approach inside the band: on to the landing point");
+    CHECK(!keepPushing(true, true, false, 3.4f, 2, 0, mv) && !keepPushing(true, true, false, 3.4f, 2, mv - 1, mv),
+          "a wheel STANDING inside the band is never pushed (it jumped 9 deg past on the robot)");
+    CHECK(!keepPushing(true, true, false, 1.9f, 2, 30, mv) && !keepPushing(true, true, false, 359, 2, 30, mv),
+          "at the landing point or past the angle: stop pushing");
+    CHECK(!keepPushing(true, false, false, 3.0f, 2, 30, mv) && !keepPushing(true, true, true, 3.0f, 2, 30, mv),
+          "no powered approach under way, or already coasting: no push");
+
+    using namespace finalapproach;
+    float ahead = 0, left = 0;
+    goalInWheelFrame(0.3f * cosf(-0.105f), 0.3f * sinf(-0.105f), -0.19f, ahead, left);   // goal -6 deg, wheel -10.9
+    CHECK(left > 0.02f && left < 0.03f && fabsf(ahead - 0.299f) < 0.002f,
+          "goal 6 deg right, wheel 11 deg right: goal %.1f cm to the LEFT of its line", left * 100);
+    const float tol = 0.0025f, ratio = DRIVE_REAIM_RATIO, minM = DRIVE_REAIM_MIN_M;
+    CHECK(!stopToReaim(0.30f, left, tol, ratio, minM) && !stopToReaim(0.08f, left, tol, ratio, minM) &&
+          stopToReaim(0.07f, left, tol, ratio, minM),
+          "drive on, then stop %.0f cm before the goal (3 x %.1f cm beside)", ratio * left * 100, left * 100);
+    CHECK(fabsf(atan2f(left, ratio * left) * 57.2958f - 18.43f) < 0.1f, "the re-aim is then an 18 deg left turn");
+    CHECK(!stopToReaim(0.05f, 0.002f, tol, ratio, minM), "passing within the goal radius: no stop");
+    CHECK(!stopToReaim(0.05f, -0.02f, tol, ratio, minM),
+          "goal to the RIGHT (would need a near-full turn): no early stop, drive on");
+    CHECK(!stopToReaim(-0.01f, 0.02f, tol, ratio, minM), "already past: the normal end handles it");
+    CHECK(stopToReaim(0.019f, 0.004f, tol, ratio, minM) && !stopToReaim(0.021f, 0.004f, tol, ratio, minM),
+          "small offsets: stop at the %.0f cm minimum, not later", minM * 100);
+}
+
 int main() {
     testDetourMatchesHomework();
     testTheorems();
@@ -544,6 +608,7 @@ int main() {
     testDriveLearning();
     testMotorFeedbackAndSmoothing();
     testRunTrace();
+    testStraighterLegs();
     printf("\n%s (%d failure%s)\n", failures ? "FAILED" : "ALL PASS", failures, failures == 1 ? "" : "s");
     return failures ? 1 : 0;
 }

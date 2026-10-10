@@ -2,6 +2,8 @@
 #include <math.h>
 #include <config.h>
 #include "app_config.h"
+#include "algorithm/FinalApproach.h"
+#include "algorithm/SteerApproach.h"
 #include "util/Angles.h"
 
 using namespace angles;
@@ -82,6 +84,7 @@ void SteerDriveController::apply(const DriveCommand& m, CommandSource src) {
     overshot_ = false;
     havePrevE_ = false;
     coasting_ = false;
+    approaching_ = false;
     targetRpm_ = rpm;
     targetHeadingDeg_ = heading;
     targetDistM_ = m.distM;
@@ -114,6 +117,7 @@ void SteerDriveController::apply(const DriveCommand& m, CommandSource src) {
 
 void SteerDriveController::halt() {
     steerPower_.reset();
+    approaching_ = false;
     overshot_ = false;
     motor_.spin(0);
     pwm_ = 0;
@@ -189,6 +193,11 @@ void SteerDriveController::step() {
     lastDeltaM_ = odom_.update(mode_ == Mode::Drive, ticks_, imu_.bodyHeadingDeg(), steerDeg_);
 
     headingMeasDeg_ = imu_.available() ? wrap360(imu_.yawDeg()) : imu_.bodyHeadingDeg();
+    if (headFill_ == RATE_WINDOW)
+        bodyRateDps_ = errDeg(headingMeasDeg_, headHist_[headIdx_]) / (RATE_WINDOW * CTRL_PERIOD_S);
+    headHist_[headIdx_] = headingMeasDeg_;
+    headIdx_ = (headIdx_ + 1) % RATE_WINDOW;
+    if (headFill_ < RATE_WINDOW) ++headFill_;
     steerTargetDeg_ = wrap360((targetHeadingDeg_ - headingMeasDeg_) + STEER_CMD_ZERO_DEG);
     steerErrDeg_ = errDeg(steerTargetDeg_, steerDeg_);
     const float eCw = cwErrorDeg(steerTargetDeg_, steerDeg_);       // 0..360
@@ -230,20 +239,28 @@ void SteerDriveController::step() {
 
     switch (mode_) {
         case Mode::Steer: {
-            if (!steerAimed_) {
+            // A powered approach goes on INSIDE the tolerance band, until the cut that lets the
+            // wheel coast to STEER_LAND_DEG short of its angle. (Until 2026-10-10 the motor
+            // stopped at the band edge, so the wheel always ended 3-5 deg short.)
+            const float land = STEER_LAND_DEG < steerTol_ ? STEER_LAND_DEG : steerTol_;
+            if (steerapproach::keepPushing(steerAimed_, approaching_, coasting_, eCw, land, rateDps_,
+                                           STEER_APPROACH_MIN_DPS)) {
                 steerOkSinceMs_ = millis();
+                aimedSinceMs_ = millis();
                 if (coasting_) {                                    // power is off: let it run out
                     motor_.spin(0);
                     pwm_ = 0;
                     learnIfStopped();                               // stopped short: drive again next tick
-                } else if (STEER_STOP_PREDICT && predictor_.shouldCut(eCw, rateDps_, steerTol_)) {
+                } else if (STEER_STOP_PREDICT && predictor_.shouldCut(eCw, rateDps_, land)) {
                     motor_.spin(0);                                 // cut now: the wheel coasts the rest
                     pwm_ = 0;
                     coasting_ = true;
+                    approaching_ = false;
                     cutAngleDeg_ = steerDeg_;
                     predictor_.onCut(rateDps_);
                     steer_.reset();                                 // resume later without a stale D
                 } else {
+                    approaching_ = true;
                     // one way only (counter-clockwise): the error is always positive, the motor one way
                     float mag = steer_.compute_with_error(eCw) + Wheel_STEER_BASE_SPEED;
                     if (mag > STEER_EFFECTIVE_MAX) mag = STEER_EFFECTIVE_MAX;
@@ -252,11 +269,21 @@ void SteerDriveController::step() {
                     motor_.spin(pwm_);
                 }
             } else {
+                if (approaching_ && !coasting_) {                   // reached the landing point under power:
+                    coasting_ = true;                               // cut late, and learn from this coast too
+                    cutAngleDeg_ = steerDeg_;
+                    predictor_.onCut(rateDps_);
+                }
+                approaching_ = false;
                 motor_.spin(0);
                 pwm_ = 0;
                 steer_.reset();                                     // clear I and D
                 learnIfStopped();
                 if (coasting_) steerOkSinceMs_ = millis();          // still rolling: not settled yet
+                // the body still swinging after the steer moves where the wheel really points:
+                // wait for the IMU to say it is still, but not forever (a vibrating robot)
+                if (fabsf(bodyRateDps_) > STEER_SETTLE_BODY_DPS && millis() - aimedSinceMs_ < STEER_SETTLE_MAX_MS)
+                    steerOkSinceMs_ = millis();
                 if (millis() - steerOkSinceMs_ >= STEER_SETTLE_MS) {
                     spin_.reset();
                     if (fabsf(targetRpm_) <= 1e-3f) {
@@ -300,6 +327,19 @@ void SteerDriveController::step() {
                 const bool atGoal = sqrtf(dxg * dxg + dyg * dyg) <= targetTolM_;
                 const bool overshot = goalLenSq_ > 1e-6f && along >= goalLenSq_;
                 reached = reached || atGoal || overshot;
+            }
+            // It cannot steer while it drives (one motor). If the line it drives on
+            // passes the goal more than the goal radius to the left, stop while a
+            // small left turn still fixes it (algorithm/FinalApproach.h).
+            if (!reached && DRIVE_REAIM && goalActive_) {
+                float ahead = 0.0f, left = 0.0f;
+                finalapproach::goalInWheelFrame(goalX_ - odom_.x(), goalY_ - odom_.y(),
+                                                deg2rad(wrap360(steerDeg_ - STEER_CMD_ZERO_DEG + headingMeasDeg_)),
+                                                ahead, left);
+                if (finalapproach::stopToReaim(ahead, left, targetTolM_, DRIVE_REAIM_RATIO, DRIVE_REAIM_MIN_M)) {
+                    reached = true;                                 // the planner aims again from here
+                    ++reaims_;
+                }
             }
             if (reached) {
                 targetRpm_ = 0.0f;
@@ -379,6 +419,8 @@ void SteerDriveController::fillState() {
     s.steerTargetDeg = steerTargetDeg_;
     s.steerErrDeg = steerErrDeg_;
     s.steerRateDps = rateDps_;
+    s.bodyRateDps = bodyRateDps_;
+    s.reaims = reaims_;
     s.coasting = coasting_;
     s.coastS = predictor_.coastS();
     s.coastSamples = predictor_.samples();

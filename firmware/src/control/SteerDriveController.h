@@ -97,6 +97,12 @@ private:
     static constexpr uint8_t RATE_WINDOW = 5;   // ticks (50 ms) for the steering speed
     float steerHist_[RATE_WINDOW] = {};
     uint8_t rateIdx_ = 0, rateFill_ = 0;
+    float headHist_[RATE_WINDOW] = {};    // IMU body heading, same window: how fast the body still turns
+    uint8_t headIdx_ = 0, headFill_ = 0;
+    float bodyRateDps_ = 0.0f;
+    uint32_t aimedSinceMs_ = 0;           // when the wheel came inside the tolerance (caps the body wait)
+    uint32_t reaims_ = 0;                 // drives stopped early to aim again (algorithm/FinalApproach.h)
+    bool approaching_ = false;            // powered toward the angle: goes on inside the band until the cut
     void learnIfStopped();
 
     // overshoot watch (DriveCommand::stopOnOvershoot)

@@ -10,6 +10,8 @@ checked by `test_host/tests.cpp` (`docker\mor_luam.bat fw-test`).
 | `DirectPlanner.h` | steer straight at the goal, then drive (the baseline) |
 | `PlannerFactory.h` | the list of algorithms; the web page's "Algorithm" choice comes from here |
 | `SteerStopPredictor.h` | when to cut the steering motor so the wheel coasts onto its angle (learns the coast time) |
+| `SteerApproach.h` | keep pushing through the tolerance band to the landing point (STEER_LAND_DEG) only while the wheel still moves |
+| `FinalApproach.h` | stop a drive early and re-aim when the goal would be passed beside it (one motor: no steering while driving) |
 | `SteerPowerRamp.h` | smooth final powered steering PWM; zero cuts immediately |
 | `MotorResponseWatch.h` | stop when a powered command has no sufficient angle/encoder response |
 | `DriveGainLearner.h` | bounded drive feedforward correction learned at steady speed |

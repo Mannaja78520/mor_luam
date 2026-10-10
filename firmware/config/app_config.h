@@ -23,6 +23,21 @@ static const int      DRIVE_MOTOR_DIR         = -1;     // motor direction that 
 static const uint32_t STEER_SETTLE_MS         = 50;     // inside tolerance this long before driving
 static const float    STEER_CMD_ZERO_DEG      = 0.0f;   // offset added to the commanded wheel angle
 static const float    STEER_TOL_HYST_DEG      = 1.0f;   // once aimed, stay aimed until this much past the tolerance
+// Straighter legs (2026-10-10: Direct drove 3-5.5 deg right of its line and turned back at the goal):
+// - the early cut aims the coast to stop this far SHORT of the angle (was: at the tolerance edge,
+//   3.5 deg). Still short on purpose: past it, a correction would be a near-full turn.
+static const float    STEER_LAND_DEG          = 2.0f;
+// ...but inside the band only while the wheel is still moving this fast (algorithm/SteerApproach.h):
+// pushing a standing wheel made it jump 9 deg past (2026-10-10)
+static const float    STEER_APPROACH_MIN_DPS  = 8.0f;
+// - before driving, the body must have stopped swinging (IMU yaw rate), at most this much longer
+static const float    STEER_SETTLE_BODY_DPS   = 5.0f;
+static const uint32_t STEER_SETTLE_MAX_MS     = 400;
+// - while driving: if the goal would be passed more than the goal radius to the left, stop when it is
+//   RATIO x that offset ahead (not nearer than MIN) and let the planner aim again (algorithm/FinalApproach.h)
+static const bool     DRIVE_REAIM             = true;
+static const float    DRIVE_REAIM_RATIO       = 3.0f;    // re-aim = atan(1/3) = 18 deg left
+static const float    DRIVE_REAIM_MIN_M       = 0.02f;
 static const float    STEER_GLITCH_DEG        = 6.0f;   // AS5600: a bigger jump in one tick is a bad reading
 static const uint8_t  STEER_GLITCH_CONFIRM    = 3;      // ...unless this many readings in a row agree
 static const float    CMD_SMALL_HEADING_EPS   = 2.5f;   // deg: smaller re-commands are ignored

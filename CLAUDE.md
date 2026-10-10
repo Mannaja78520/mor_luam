@@ -59,6 +59,9 @@ docker\mor_luam.bat wifi | logs | topics | run <prog> | shell | stop     ROS sid
 
 ## Facts that are easy to get wrong
 
+- ONE motor: one direction drives the wheel, the other steers it. So it steers one way only and
+  can NOT steer while it drives: course errors are fixed by stopping and re-aiming
+  (`algorithm/FinalApproach.h`), never by steering on the move.
 - The wheel steers ONE way only: COUNTER-clockwise seen from above, so the measured angle INcreases (STEER_SENSE +1, zero 138.6 deg; verified 2026-10-08 by driving forward/left with the owner watching). `cwErrorDeg` = `(target - current) mod 360` ("in the steering direction"); steering test 7/7. The old STEER_SENSE -1 swapped left/right.
   `phi = cwErrorDeg(bearing, wheelHeading)` = how far the wheel must still turn.
 - World frame: x forward at the last pose reset, y left, angles CCW (atan2).

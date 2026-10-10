@@ -129,6 +129,8 @@ void WebApp::statusJson(JsonObject o) {
     r["overshot"] = s.overshot;
     r["overshootDeg"] = s.overshootDeg;
     r["steerRateDps"] = s.steerRateDps;
+    r["bodyRateDps"] = s.bodyRateDps;
+    r["reaims"] = s.reaims;
     r["steerPowerLimit"] = STEER_POWER_LIMIT_PWM;
     r["coasting"] = s.coasting;
     r["coastS"] = s.coastS;

@@ -37,6 +37,8 @@ struct RobotState {
     float steerTargetDeg = 0.0f;   // wanted wheel angle vs the body
     float steerErrDeg = 0.0f;      // signed
     float steerRateDps = 0.0f;     // how fast the wheel is steering
+    float bodyRateDps = 0.0f;      // how fast the body turns (IMU yaw, 50 ms)
+    uint32_t reaims = 0;           // drives stopped early to aim again, since boot
     bool coasting = false;         // power cut early, wheel coasting into its angle
     float coastS = 0.0f;           // learned coast time (SteerStopPredictor)
     unsigned coastSamples = 0;

@@ -188,6 +188,29 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
       2.4-2.5 mm from the goal. Time line: Direct turns ~8.7 s then drives ~10 s, then a ~2.7 s correction
       turn (it drifts ~2 cm right while driving); Detour drives ~10.3 s, turns ~6.8 s, short leg + small turn.
 
+- STRAIGHTER DIRECT LEGS (2026-10-10, owner: "why does Direct aim off and cut back in? use the IMU"):
+  - The IMU IS used every 10 ms (wheel world heading = AS5600 + IMU yaw; odometry uses IMU heading).
+    The miss came from the steering design: the motor stopped at the tolerance band edge (3.5 deg), so the
+    wheel always ended 3-5.5 deg SHORT (always the same side), and with ONE motor (one direction drives,
+    the other steers) it cannot correct while driving -> 2-3 cm beside the goal -> ~90 deg turn back.
+  - Changes (SteerDriveController + plain-C++ helpers, all in tests.cpp section 10):
+    1. STEER_LAND_DEG 2.0: a powered approach goes on INSIDE the band to the cut that lands ~2 deg short
+       (algorithm/SteerApproach.h) - but ONLY while the wheel still moves (>= STEER_APPROACH_MIN_DPS 8):
+       the first version pushed a STANDING wheel, it jumped 9 deg past and turned full circles until the
+       30 s alignment limit (seen on the floor, fixed, test added).
+    2. Settle waits for the body to stop turning (IMU yaw rate < 5 deg/s, max 400 ms extra).
+    3. Early re-aim (algorithm/FinalApproach.h): while driving, if the goal would be passed > goal radius to
+       the LEFT, stop when it is 3x that offset ahead (min 2 cm) -> planner re-aims with a ~18 deg left turn.
+       (First version was overwritten by the distance check in the same tick - fixed.)
+    Status: robot.bodyRateDps, robot.reaims. Coast learning works again (53 samples; before: never cut).
+  - Floor, 3 rounds each, same robot/battery session:
+    BEFORE  Direct 25.31 / 23.93 / 24.60 (mean 24.61, aim error 4.42 deg)  Detour mean 20.73
+    AFTER   Direct 24.17 / 22.94 / 23.36 (mean 23.49, aim error 2.96 deg)  Detour 20.83 / 20.77 / 22.33 (21.31)
+    -> Direct 1.1 s faster; Detour still faster in 3/3 rounds, by 2.18 s (9.3 %) instead of 3.89 s - part of the
+    old gap was Direct's aiming miss. Diagnostic run: the body turns ~4 deg CW during a 354 deg spin (IMU
+    compensates) and drifts ~3 deg while driving (only the re-aim can fix that). Heap ~70 KB at rest, no leak.
+  - Possible next step (not done, risk of passing the angle = full turn): STEER_LAND_DEG 1.0 after more data.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 
