@@ -299,13 +299,22 @@ bool WaypointRunner::beginTest(const String& planner, float heading, bool ready,
     if (!isfinite(pid[4]) || pid[4] <= 0.0f || pid[4] >= 180.0f) {
         unlock(); err = "ค่าความคลาดเคลื่อนมุมล้อไม่เหมาะกับการเทส"; return false;
     }
+    // Demo 3/4 from the BUTTON: the robot was just put down for a demo, so here becomes
+    // (0,0) and its front 0 deg (IMU zero too), like routes 1/2. From the web (a test,
+    // the series) the frame is kept, so routes keep reaching their points over time.
+    const bool newFrame = compare && local && settings.demoReset;
+    if (newFrame) ctrl_->resetPose();
+    if (compare) {                           // the demo goal from the settings page
+        compareDistM_ = settings.demoDistM;
+        compareRightDeg_ = settings.demoRightDeg;
+    }
     local_ = local;                          // from the button: no web heartbeat
     compare_ = compare;
     testDemo_ = compare;
     returnHome_ = compare;                   // so the next demo can start from the same place
     homing_ = false;
-    homeX_ = s.x;
-    homeY_ = s.y;
+    homeX_ = newFrame ? 0.0f : s.x;
+    homeY_ = newFrame ? 0.0f : s.y;
     if (compare) {                           // goal placed in alignTest(); hold here until then
         borrowPts();
         pts_[0] = {s.x, s.y, 0.0f};
@@ -356,8 +365,8 @@ void WaypointRunner::alignTest(const RobotState& s, uint32_t now) {
     if (now - testStableMs_ < 200) return;
     testActualHeadingDeg_ = s.wheelHeadingDeg;
     if (compare_) {   // demo 3/4: same goal for both, measured from where the wheel really points
-        const float b = angles::deg2rad(s.wheelHeadingDeg - DEMO_COMPARE_RIGHT_DEG);
-        pts_[0] = {s.x + DEMO_COMPARE_DIST_M * cosf(b), s.y + DEMO_COMPARE_DIST_M * sinf(b), 0.0f};
+        const float b = angles::deg2rad(s.wheelHeadingDeg - compareRightDeg_);
+        pts_[0] = {s.x + compareDistM_ * cosf(b), s.y + compareDistM_ * sinf(b), 0.0f};
         count_ = 1;
         runIdx_ = plannerName_ == "detour" ? 1 : 0;
         CompareRun& r = runs_[runIdx_];
@@ -501,12 +510,13 @@ bool WaypointRunner::startButtonRoute(uint8_t slot, String& err) {
     borrowPts();
     for (uint8_t i = 0; i < n; ++i) pts_[i] = routes_[slot - 1][i];
     count_ = n;
-    ctrl_->resetPose();                      // here becomes (0,0), +x = where the robot faces
+    if (s.demoReset) ctrl_->resetPose();     // here becomes (0,0), +x = where the robot faces
     local_ = true;
     compare_ = false;
     returnHome_ = true;                      // end here, so the next demo can start at once
     homing_ = false;
-    homeX_ = homeY_ = 0.0f;
+    homeX_ = s.demoReset ? 0.0f : st.x;      // without the reset: the points are in the kept frame
+    homeY_ = s.demoReset ? 0.0f : st.y;
     prepare(s);
     localLimitMs_ = demoLimitMs();
     loop_ = false;
@@ -720,8 +730,8 @@ uint32_t WaypointRunner::demoLimitMs() const {
 
 void WaypointRunner::compareJson(JsonObject o) {
     lock();
-    o["distM"] = DEMO_COMPARE_DIST_M;
-    o["rightDeg"] = DEMO_COMPARE_RIGHT_DEG;
+    o["distM"] = compareDistM_;
+    o["rightDeg"] = compareRightDeg_;
     static const char* const names[2] = {"direct", "detour"};
     for (uint8_t k = 0; k < 2; ++k) {
         const CompareRun& r = runs_[k];
@@ -747,8 +757,8 @@ bool WaypointRunner::seriesJson(JsonObject o, int run) {
     o["count"] = seriesCount_;
     o["total"] = seriesTotal_;
     o["why"] = seriesWhy_;
-    o["distM"] = DEMO_COMPARE_DIST_M;
-    o["rightDeg"] = DEMO_COMPARE_RIGHT_DEG;
+    o["distM"] = compareDistM_;
+    o["rightDeg"] = compareRightDeg_;
     JsonArray runs = o["runs"].to<JsonArray>();
     for (uint8_t i = 0; i < seriesCount_; ++i) runJson(seriesRuns_[i], runs.add<JsonObject>(), seriesRuns_[i].elapsedMs, PathJson::None);
     unlock();

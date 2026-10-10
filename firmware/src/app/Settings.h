@@ -20,6 +20,14 @@ struct SettingsData {
     bool navLoop = false;
     String planner;       // steering algorithm for web routes: src/algorithm/PlannerFactory.h
     float steerDps = 60.0f;
+    // demo button
+    bool demoReset = true;                // a demo press makes HERE (0,0), the front 0 deg
+    float demoDistM = 0.30f;              // demos 3/4: goal distance  (DEMO_COMPARE_DIST_M)
+    float demoRightDeg = 6.0f;            // ... and angle clockwise of the aligned wheel (DEMO_COMPARE_RIGHT_DEG)
+    // steering (SteerDriveController::setTuning)
+    float steerLandDeg = 2.0f;            // STEER_LAND_DEG
+    bool reaimOn = true;                  // DRIVE_REAIM
+    float reaimRatio = 3.0f;              // DRIVE_REAIM_RATIO
 };
 
 class Settings {

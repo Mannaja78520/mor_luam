@@ -60,7 +60,9 @@ float Odometry::update(bool driving, int64_t ticks, float bodyHeadingDeg, float 
     return dm;
 }
 
-void Odometry::resetPosition() {
-    x_ = 0.0f;
-    y_ = 0.0f;
+void Odometry::resetPosition() { setPosition(0.0f, 0.0f); }
+
+void Odometry::setPosition(float x, float y) {
+    x_ = x;
+    y_ = y;
 }

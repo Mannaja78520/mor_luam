@@ -96,6 +96,8 @@ class Robot:
             "robotName": "mor_luam", "hostname": "mor-luam", "agentHost": "", "agentPort": 8888,
             "navSpeedMps": 0.03, "navTolM": 0.08, "navLoop": False, "planner": "detour",
             "planners": ["detour", "direct"], "steerDps": 60.0,
+            "demoReset": True, "demoDistM": 0.3, "demoRightDeg": 6.0,
+            "steerLandDeg": 2.0, "reaimOn": True, "reaimRatio": 3.0,
             "otaPass": "mock-ota", "apPass": "mock-ap-pass",
         }
         self.pid = {"spin": [40.0, 30.0, 0.0, 85.0, 0.3], "steer": [27.8, 0.26, 7.4, 0.0, 3.5]}
@@ -450,6 +452,14 @@ class Handler(BaseHTTPRequestHandler):
                     return self.fail("ยืนยันความพร้อม เลือกแบบ และระบุมุมเริ่ม 0–360°")
                 R.start_test(b["planner"], heading)
                 return self.send(200, {"ok": True, "nav": R.status()["nav"]})
+            if p == "/api/pose/set":
+                if running or R.mode != "halt":
+                    return self.fail("หยุดหุ่นก่อน แล้วค่อยตั้งตำแหน่ง")
+                R.x, R.y = float(b["x"]), float(b["y"])
+                steer = (R.wheel - R.theta) % 360
+                R.theta = float(b["headingDeg"]) % 360
+                R.wheel = (R.theta + steer) % 360
+                return self.ok()
             if p == "/api/pose/reset":
                 if running or R.mode != "halt":
                     return self.fail("หยุดหุ่นก่อน แล้วค่อยตั้งจุดเริ่มต้นใหม่")

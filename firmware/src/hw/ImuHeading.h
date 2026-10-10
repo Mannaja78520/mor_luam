@@ -11,7 +11,7 @@ public:
     bool begin();
     void update();                 // call every control tick
     void requestReference();       // take the zero at the next reading (if none yet)
-    void resetReference();         // take a new zero now
+    void resetReference(float headingDeg = 0.0f);   // new zero now: the robot's front reads headingDeg
     float yawDeg() const { return yawDeg_; }
     float bodyHeadingDeg() const { return bodyDeg_; }
     bool available() const { return available_; }     // readings AND a zero
@@ -39,6 +39,7 @@ private:
     bool haveLast_ = false;
     bool refReady_ = false;
     bool refPending_ = false;
+    float refOffsetDeg_ = 0.0f;    // what the front reads after the pending zero
     float lastRaw_ = 0.0f;
     float base_ = 0.0f;
     float yawDeg_ = 0.0f;

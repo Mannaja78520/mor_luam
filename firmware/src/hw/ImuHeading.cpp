@@ -99,9 +99,10 @@ void ImuHeading::requestReference() {
     if (!refReady_) refPending_ = true;
 }
 
-void ImuHeading::resetReference() {
+void ImuHeading::resetReference(float headingDeg) {
     refReady_ = false;
     refPending_ = true;
+    refOffsetDeg_ = headingDeg;
 }
 
 void ImuHeading::update() {
@@ -112,7 +113,8 @@ void ImuHeading::update() {
         haveLast_ = true;
     }
     if (refPending_ && haveLast_) {
-        base_ = angles::wrap360(lastRaw_);
+        base_ = angles::wrap360(lastRaw_ - refOffsetDeg_);   // yaw = raw - base = the asked heading now
+        refOffsetDeg_ = 0.0f;
         refReady_ = true;
         refPending_ = false;
     }

@@ -206,8 +206,21 @@ void WebApp::routesNav() {
     });
 
     server_.on("/api/pose/reset", HTTP_POST, [this](AsyncWebServerRequest* r) {
-        if (d_.runner->running() || d_.ctrl->moving()) { fail(r, "หยุดหุ่นก่อน แล้วค่อยตั้งจุดเริ่มต้นใหม่"); return; }
+        if (d_.runner->running() || d_.ctrl->moving() || d_.runner->seriesActive()) {
+            fail(r, "หยุดหุ่นก่อน แล้วค่อยตั้งจุดเริ่มต้นใหม่"); return;
+        }
         d_.ctrl->resetPose();
+        ok(r);
+    });
+    onJson("/api/pose/set", [this](AsyncWebServerRequest* r, JsonDocument& doc) {
+        if (d_.runner->running() || d_.ctrl->moving() || d_.runner->seriesActive()) {
+            fail(r, "หยุดหุ่นก่อน แล้วค่อยตั้งตำแหน่ง"); return;
+        }
+        const float x = doc["x"] | NAN, y = doc["y"] | NAN, h = doc["headingDeg"] | NAN;
+        if (!isfinite(x) || !isfinite(y) || !isfinite(h) || fabsf(x) > 50.0f || fabsf(y) > 50.0f) {
+            fail(r, "ต้องมี x, y (ไม่เกิน ±50 m) และ headingDeg"); return;
+        }
+        d_.ctrl->setPose(x, y, fmodf(fmodf(h, 360.0f) + 360.0f, 360.0f));
         ok(r);
     });
 
@@ -348,6 +361,10 @@ void WebApp::routesConfig() {
         const String oldHost = d_.settings->get().hostname;
         String err;
         if (!d_.settings->update(doc.as<JsonObjectConst>(), err)) { fail(r, err); return; }
+        {
+            const SettingsData s = d_.settings->get();          // steering values apply at once
+            d_.ctrl->setSteerTuning(s.steerLandDeg, s.reaimOn, s.reaimRatio);
+        }
         if (d_.settings->get().hostname != oldHost) d_.net->requestHostnameApply();
         d_.ota->refreshPassword();
         ok(r);

@@ -94,6 +94,16 @@ void ControlLoop::resetPose() {
     ctrl_->resetPose();
 }
 
+void ControlLoop::setPose(float x, float y, float headingDeg) {
+    Lock l(mtx_);
+    ctrl_->setPose(x, y, headingDeg);
+}
+
+void ControlLoop::setSteerTuning(float landDeg, bool reaimOn, float reaimRatio) {
+    Lock l(mtx_);
+    ctrl_->setTuning(landDeg, reaimOn, reaimRatio);
+}
+
 RobotState ControlLoop::snapshot() {
     Lock l(mtx_);
     return ctrl_->state();

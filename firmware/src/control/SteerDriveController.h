@@ -11,6 +11,7 @@
 #include <PIDF.h>
 #include <esp32_Encoder.h>
 #include "algorithm/SteerStopPredictor.h"
+#include "app_config.h"
 #include "algorithm/DriveGainLearner.h"
 #include "algorithm/MotorResponseWatch.h"
 #include "algorithm/SteerPowerRamp.h"
@@ -32,6 +33,11 @@ public:
     bool setPid(bool steerLoop, const float* v, size_t n);
     void getPid(bool steerLoop, float out[5]) const;
     void resetPose();                                   // position (0,0) and a new IMU zero
+    void setPose(float x, float y, float headingDeg);   // the robot is HERE, its front points headingDeg
+    // Settings page, "การเลี้ยว" (defaults STEER_LAND_DEG / DRIVE_REAIM / DRIVE_REAIM_RATIO)
+    void setTuning(float landDeg, bool reaimOn, float reaimRatio) {
+        landDeg_ = landDeg; reaimOn_ = reaimOn; reaimRatio_ = reaimRatio;
+    }
     void setCoastS(float s) { predictor_ = SteerStopPredictor(s); }   // learned value from NVS
     void setDriveGain(float gain) { gainLearner_.setGain(gain); }    // before the control task starts
 
@@ -103,6 +109,9 @@ private:
     uint32_t aimedSinceMs_ = 0;           // when the wheel came inside the tolerance (caps the body wait)
     uint32_t reaims_ = 0;                 // drives stopped early to aim again (algorithm/FinalApproach.h)
     bool approaching_ = false;            // powered toward the angle: goes on inside the band until the cut
+    float landDeg_ = STEER_LAND_DEG;
+    bool reaimOn_ = DRIVE_REAIM;
+    float reaimRatio_ = DRIVE_REAIM_RATIO;
     void learnIfStopped();
 
     // overshoot watch (DriveCommand::stopOnOvershoot)

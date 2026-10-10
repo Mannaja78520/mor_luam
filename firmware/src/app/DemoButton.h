@@ -6,6 +6,8 @@
 //             routes 1/2: here becomes (0,0), +x = where the robot faces
 //   3 clicks  demo 3: Direct (no shortcut) to a fixed goal 0.30 m away, 6 deg right of the wheel, timed
 //   4 clicks  demo 4: Detour Steer (the shortcut) to the same goal, timed
+//   every press of a demo makes HERE (0,0) and the robot's front 0 deg (IMU zero too):
+//   the robot is picked up and put down for a demo
 //   every demo drives back to where it started, so the next one can run at once
 //   any press while the robot moves: STOP (like E-STOP on the web page)
 //

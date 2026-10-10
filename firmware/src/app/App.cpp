@@ -23,6 +23,10 @@ void App::begin() {
     delay(100);
     steer_.begin();
     ctrl_.setCoastS(settings_.coastS(STEER_COAST_INIT_S));
+    {
+        const SettingsData s = settings_.get();
+        ctrl_.setTuning(s.steerLandDeg, s.reaimOn, s.reaimRatio);
+    }
     // Validate saved values before starting the task (including invalid/NaN NVS data).
     DriveGainLearner savedGain(settings_.driveGain(1.0f, Wheel_SPIN_KS, Wheel_SPIN_KF));
     savedDriveGain_ = savedGain.gain();

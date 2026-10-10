@@ -42,6 +42,12 @@ void Settings::load() {
     d_.navLoop = prefs_.getBool("loop", false);
     d_.planner = str("planner", "detour");
     d_.steerDps = flt("sdps", 60.0f);
+    d_.demoReset = prefs_.isKey("dreset") ? prefs_.getBool("dreset", true) : true;
+    d_.demoDistM = flt("ddist", DEMO_COMPARE_DIST_M);
+    d_.demoRightDeg = flt("dright", DEMO_COMPARE_RIGHT_DEG);
+    d_.steerLandDeg = flt("sland", STEER_LAND_DEG);
+    d_.reaimOn = prefs_.isKey("reaim") ? prefs_.getBool("reaim", DRIVE_REAIM) : DRIVE_REAIM;
+    d_.reaimRatio = flt("rratio", DRIVE_REAIM_RATIO);
 }
 
 void Settings::save() {
@@ -56,6 +62,12 @@ void Settings::save() {
     prefs_.putBool("loop", d_.navLoop);
     prefs_.putString("planner", d_.planner);
     prefs_.putFloat("sdps", d_.steerDps);
+    prefs_.putBool("dreset", d_.demoReset);
+    prefs_.putFloat("ddist", d_.demoDistM);
+    prefs_.putFloat("dright", d_.demoRightDeg);
+    prefs_.putFloat("sland", d_.steerLandDeg);
+    prefs_.putBool("reaim", d_.reaimOn);
+    prefs_.putFloat("rratio", d_.reaimRatio);
 }
 
 SettingsData Settings::get() {
@@ -77,6 +89,12 @@ bool Settings::update(JsonObjectConst in, String& err) {
     if (in["navLoop"].is<bool>()) n.navLoop = in["navLoop"].as<bool>();
     if (in["planner"].is<const char*>()) n.planner = in["planner"].as<const char*>();
     if (in["steerDps"].is<float>()) n.steerDps = in["steerDps"].as<float>();
+    if (in["demoReset"].is<bool>()) n.demoReset = in["demoReset"].as<bool>();
+    if (in["demoDistM"].is<float>()) n.demoDistM = in["demoDistM"].as<float>();
+    if (in["demoRightDeg"].is<float>()) n.demoRightDeg = in["demoRightDeg"].as<float>();
+    if (in["steerLandDeg"].is<float>()) n.steerLandDeg = in["steerLandDeg"].as<float>();
+    if (in["reaimOn"].is<bool>()) n.reaimOn = in["reaimOn"].as<bool>();
+    if (in["reaimRatio"].is<float>()) n.reaimRatio = in["reaimRatio"].as<float>();
 
     n.robotName.trim();
     n.hostname.trim();
@@ -93,6 +111,12 @@ bool Settings::update(JsonObjectConst in, String& err) {
     }
     if (n.navTolM < 0.0025f || n.navTolM > 0.5f) { err = "ระยะถึงจุดต้องอยู่ระหว่าง 0.0025-0.5 m (2.5 มม. - 50 ซม.)"; return false; }
     if (n.steerDps < 5.0f || n.steerDps > 720.0f) { err = "ความเร็วเลี้ยวต้องอยู่ระหว่าง 5-720 °/s"; return false; }
+    if (!(n.demoDistM >= 0.10f && n.demoDistM <= 1.0f)) { err = "ระยะเป้าเดโม 3/4 ต้องอยู่ระหว่าง 0.10-1.00 m"; return false; }
+    if (!(n.demoRightDeg >= 5.0f && n.demoRightDeg <= 30.0f)) {
+        err = "มุมเป้าเดโม 3/4 ต้องอยู่ระหว่าง 5-30° (ต่ำกว่า ~5° ล้อถือว่าเล็งตรงอยู่แล้ว สองแบบจะวิ่งเหมือนกัน)"; return false;
+    }
+    if (!(n.steerLandDeg >= 0.5f && n.steerLandDeg <= 3.5f)) { err = "ระยะหยุดก่อนมุมเป้าต้องอยู่ระหว่าง 0.5-3.5°"; return false; }
+    if (!(n.reaimRatio >= 1.5f && n.reaimRatio <= 8.0f)) { err = "หยุดแก้ทางที่ระยะ 1.5-8 เท่าของระยะที่พลาด"; return false; }
     bool known = false;
     for (const char* const* p = PlannerFactory::names(); *p; ++p) known = known || n.planner == *p;
     if (!known) { err = "ไม่รู้จัก algorithm: " + n.planner; return false; }
@@ -139,6 +163,12 @@ void Settings::toJson(JsonObject o, bool withSecrets) {
     JsonArray pl = o["planners"].to<JsonArray>();
     for (const char* const* p = PlannerFactory::names(); *p; ++p) pl.add(*p);
     o["steerDps"] = d_.steerDps;
+    o["demoReset"] = d_.demoReset;
+    o["demoDistM"] = d_.demoDistM;
+    o["demoRightDeg"] = d_.demoRightDeg;
+    o["steerLandDeg"] = d_.steerLandDeg;
+    o["reaimOn"] = d_.reaimOn;
+    o["reaimRatio"] = d_.reaimRatio;
     if (withSecrets) {
         o["otaPass"] = d_.otaPass;
         o["apPass"] = d_.apPass;

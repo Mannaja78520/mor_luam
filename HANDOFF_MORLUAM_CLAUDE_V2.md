@@ -211,6 +211,20 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
     compensates) and drifts ~3 deg while driving (only the re-aim can fix that). Heap ~70 KB at rest, no leak.
   - Possible next step (not done, risk of passing the angle = full turn): STEER_LAND_DEG 1.0 after more data.
 
+- POSE + "DYNAMIC" SETTINGS (2026-10-10, owner):
+  - Routes from the web keep their frame: positions = drive encoder + IMU heading, so body drift is compensated
+    and points are still reached. The frame zero is taken at the first command after boot.
+  - Demo BUTTON = picked up and put down: every demo press (1-4) makes HERE (0,0) and the front 0 deg (IMU
+    zero). Demos 3/4 now do this too (they did not). Setting `demoReset` turns it off (keep the frame;
+    then routes 1/2 points are room coordinates and the demo drives back to where it was pressed).
+  - `POST /api/pose/set {x, y, headingDeg}` + web inputs ("ตั้งให้หุ่นอยู่ที่พิกัดนี้"): the robot is here,
+    its front reads headingDeg (IMU base = raw - heading). Refused while moving or during a series.
+  - Settings page groups "เดโมปุ่มบนหุ่น" (demoReset, demoDistM 0.10-1.00, demoRightDeg 5-30) and "การเลี้ยว"
+    (steerLandDeg 0.5-3.5, reaimOn, reaimRatio 1.5-8); steering values go to the controller at boot and on save.
+  - Checked on the robot (no motion): new settings present, pose set (0.5, 0.2, 90) read back exactly, bad
+    values refused, reset back to 0. PC: route runner 36 scenarios (demoReset off, settings goal). Test stub
+    ControlLoop now keeps a pose reset across the next command, like the robot.
+
 **Still in progress**
 - Nothing running. Robot halted on battery.
 

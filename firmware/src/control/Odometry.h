@@ -9,6 +9,7 @@ public:
     // While steering nothing moves, so the integrator only re-syncs.
     float update(bool driving, int64_t ticks, float bodyHeadingDeg, float steerDeg);
     void resetPosition();          // the current spot becomes (0, 0)
+    void setPosition(float x, float y);   // the current spot becomes (x, y)
 
     float x() const { return x_; }
     float y() const { return y_; }

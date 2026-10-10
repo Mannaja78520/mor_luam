@@ -19,6 +19,8 @@ public:
     void getPid(bool steerLoop, float out[5]);
     uint32_t pidRevision();                  // successful PID writes, including advanced output limits
     void resetPose();
+    void setPose(float x, float y, float headingDeg);
+    void setSteerTuning(float landDeg, bool reaimOn, float reaimRatio);
     RobotState snapshot();
     CommandSource source();
     bool moving();

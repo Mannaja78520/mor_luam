@@ -163,9 +163,11 @@ void SteerDriveController::getPid(bool steerLoop, float out[5]) const {
     for (int i = 0; i < 5; i++) out[i] = src[i];
 }
 
-void SteerDriveController::resetPose() {
-    odom_.resetPosition();
-    imu_.resetReference();
+void SteerDriveController::resetPose() { setPose(0.0f, 0.0f, 0.0f); }
+
+void SteerDriveController::setPose(float x, float y, float headingDeg) {
+    odom_.setPosition(x, y);
+    imu_.resetReference(headingDeg);                 // the body heading reads headingDeg from the next tick
 }
 
 // ---- the 10 ms tick ---------------------------------------------------------
@@ -242,7 +244,7 @@ void SteerDriveController::step() {
             // A powered approach goes on INSIDE the tolerance band, until the cut that lets the
             // wheel coast to STEER_LAND_DEG short of its angle. (Until 2026-10-10 the motor
             // stopped at the band edge, so the wheel always ended 3-5 deg short.)
-            const float land = STEER_LAND_DEG < steerTol_ ? STEER_LAND_DEG : steerTol_;
+            const float land = landDeg_ < steerTol_ ? landDeg_ : steerTol_;
             if (steerapproach::keepPushing(steerAimed_, approaching_, coasting_, eCw, land, rateDps_,
                                            STEER_APPROACH_MIN_DPS)) {
                 steerOkSinceMs_ = millis();
@@ -331,12 +333,12 @@ void SteerDriveController::step() {
             // It cannot steer while it drives (one motor). If the line it drives on
             // passes the goal more than the goal radius to the left, stop while a
             // small left turn still fixes it (algorithm/FinalApproach.h).
-            if (!reached && DRIVE_REAIM && goalActive_) {
+            if (!reached && reaimOn_ && goalActive_) {
                 float ahead = 0.0f, left = 0.0f;
                 finalapproach::goalInWheelFrame(goalX_ - odom_.x(), goalY_ - odom_.y(),
                                                 deg2rad(wrap360(steerDeg_ - STEER_CMD_ZERO_DEG + headingMeasDeg_)),
                                                 ahead, left);
-                if (finalapproach::stopToReaim(ahead, left, targetTolM_, DRIVE_REAIM_RATIO, DRIVE_REAIM_MIN_M)) {
+                if (finalapproach::stopToReaim(ahead, left, targetTolM_, reaimRatio_, DRIVE_REAIM_MIN_M)) {
                     reached = true;                                 // the planner aims again from here
                     ++reaims_;
                 }

@@ -279,6 +279,7 @@ int main() {
             Trial t;
             t.ctrl.state.x = t.ctrl.applied.x = 1; t.ctrl.state.y = t.ctrl.applied.y = 2;
             assert(t.runner.startCompare(planner, t.err));
+            assert(t.ctrl.poseResets == 1);                                // button: here is (0,0) now
             t.align(357);                                                 // wheel stopped 3 deg short
             const DriveCommand& c = t.ctrl.commands.back();
             assert(std::fabs(t.status().children["plan"].children["phiDeg"].number - (360.0 - DEMO_COMPARE_RIGHT_DEG)) < 0.05);
@@ -419,8 +420,10 @@ int main() {
         Trial t;
         assert(!t.runner.startCompare("direct", t.err, false, false));        // not ready
         const int arms = t.ctrl.wdArms;
+        t.ctrl.state.x = t.ctrl.applied.x = 1;                               // the web keeps the frame
         assert(t.runner.startCompare("direct", t.err, false, true));
         assert(t.ctrl.wdArms == arms + 1 && t.status().children["byButton"].number == 0);
+        assert(t.ctrl.poseResets == 0);
         t.align();
         for (int i = 0; i < 70; ++i) t.tick(50, true, false);                // 3.5 s without heartbeat
         assert(t.status().children["status"].text == "stopped");
@@ -491,5 +494,39 @@ int main() {
         assert(o.children["runs"].items[1].children["valid"].number == 0 && !o.children["why"].text.empty());
         assert(t.status().children["status"].text != "running");
     }
-    std::cout << "WaypointRunner comparison tests PASS (33 scenarios)\n";
+    {   // button demo 3: started 1 m away from the old (0,0), it drives home to where it was PRESSED
+        Trial t;
+        t.ctrl.state.x = t.ctrl.applied.x = 1; t.ctrl.state.y = t.ctrl.applied.y = -0.5f;
+        assert(t.runner.startCompare("direct", t.err));
+        t.compareRun();                                                   // ends at (0,0) of the new frame
+        assert(t.status().children["status"].text == "done" && t.ctrl.poseResets == 1);
+        JsonNode o; t.runner.compareJson(JsonObject(&o));
+        assert(std::fabs(o.children["direct"].children["startX"].number) < 1e-6);
+    }
+    {   // a series from the web keeps the frame (no reset between or before its runs)
+        Trial t;
+        assert(t.runner.startSeries(1, t.err, false, true));
+        t.compareRun();
+        for (int i = 0; i < 45; ++i) t.tick();
+        t.compareRun();
+        assert(t.ctrl.poseResets == 0);
+    }
+    {   // settings: demo reset OFF keeps the frame; the demo goal follows the settings page
+        Trial t;
+        t.settings.data.demoReset = false;
+        t.settings.data.demoDistM = 0.5f;
+        t.settings.data.demoRightDeg = 10.0f;
+        t.ctrl.state.x = t.ctrl.applied.x = 1; t.ctrl.state.y = t.ctrl.applied.y = 2;
+        assert(t.runner.startCompare("direct", t.err));
+        assert(t.ctrl.poseResets == 0);
+        t.align();
+        const DriveCommand& c = t.ctrl.commands.back();
+        assert(std::fabs(c.distM - 0.5f) < 1e-4 && std::fabs(c.headingDeg - 350.0f) < 0.05f);
+        JsonNode o; t.runner.compareJson(JsonObject(&o));
+        assert(std::fabs(o.children["distM"].number - 0.5) < 1e-6 && std::fabs(o.children["rightDeg"].number - 10) < 1e-6);
+        t.runner.stop("test");
+        assert(t.runner.startButtonRoute(1, t.err) && t.ctrl.poseResets == 0);   // route 1 in the kept frame
+        t.runner.stop("test");
+    }
+    std::cout << "WaypointRunner comparison tests PASS (36 scenarios)\n";
 }

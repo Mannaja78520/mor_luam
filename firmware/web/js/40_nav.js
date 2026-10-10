@@ -167,6 +167,7 @@ class NavPanel {
     this.startBtn = $('#navStart');
     this.stopBtn = $('#navStop');
     this.resetBtn = $('#poseReset');
+    this.setBtn = $('#poseSet');
     this.running = false;
     this.heartbeat = 0;
     this.ready = $('#realRunReady');
@@ -175,8 +176,17 @@ class NavPanel {
 
     this.startBtn.onclick = () => this.start();
     this.stopBtn.onclick = async () => { this.toast.result(await api.post('/api/nav/stop'), 'หยุดเส้นทางแล้ว'); onCommand(); };
+    this.setBtn.onclick = async () => {
+      const [x, y, h] = ['#poseX', '#poseY', '#poseH'].map((id) => parseFloat($(id).value));
+      if (![x, y, h].every(Number.isFinite) || Math.abs(x) > 50 || Math.abs(y) > 50) {
+        this.toast.show('ใส่ x, y (ไม่เกิน ±50 m) และทิศเป็นตัวเลข', true); return;
+      }
+      if (!confirm(`ให้หุ่นอยู่ที่ (${x}, ${y}) m และหน้าหุ่นหันทิศ ${h}° (นับ IMU ใหม่)?\nจุดที่วางไว้จะไม่ขยับตาม`)) return;
+      if (this.toast.result(await api.post('/api/pose/set', { x, y, headingDeg: h }), 'ตั้งตำแหน่งหุ่นแล้ว')) onPoseReset();
+      onCommand();
+    };
     this.resetBtn.onclick = async () => {
-      if (!confirm('ให้ตำแหน่งตอนนี้เป็น (0,0) และทิศที่หันอยู่เป็น +x?\nจุดที่วางไว้จะไม่ขยับตาม')) return;
+      if (!confirm('ให้ตำแหน่งตอนนี้เป็น (0,0) และทิศที่หน้าหุ่นหันอยู่เป็น 0° (นับ IMU ใหม่)?\nจุดที่วางไว้จะไม่ขยับตาม')) return;
       if (this.toast.result(await api.post('/api/pose/reset'), 'ตั้งจุดเริ่มต้นใหม่แล้ว')) onPoseReset();
       onCommand();
     };
@@ -234,7 +244,7 @@ class NavPanel {
     const n = this.route.points.length, slot = this.route.slot;
     this.startBtn.disabled = offline || running || !n || !this.route.loaded || !this.ready.checked || !!slot;
     this.stopBtn.disabled = offline || !running;
-    this.resetBtn.disabled = offline || running || robot.mode !== 'halt';
+    this.resetBtn.disabled = this.setBtn.disabled = offline || running || robot.mode !== 'halt';
     let hint = '', warn = false;
     if (offline) { hint = 'ติดต่อหุ่นไม่ได้: ปุ่มจะใช้ได้เมื่อต่อกลับ'; warn = true; }
     else if (running && nav.byButton && nav.test && nav.test.demo) hint = 'เดโม 3/4 จากปุ่มบนหุ่น: ดูภาพในกล่อง "เดโม 3 / 4 ครั้ง" · กดปุ่มอีกครั้ง หรือ E-STOP เพื่อหยุด';

@@ -7,7 +7,8 @@
 //   GET  /api/whoami             {type:"morluam", id, name, host, ip, fw}   (how finders recognise a robot)
 //   GET  /api/status             everything the page shows, ~4x a second
 //   POST /api/estop              stop the route and hold the wheel
-//   POST /api/pose/reset         here becomes (0,0), facing +x
+//   POST /api/pose/reset         here becomes (0,0), facing +x (new IMU zero)
+//   POST /api/pose/set           {x, y, headingDeg}: the robot is here, its front points headingDeg
 //   GET/POST /api/waypoints      {points:[{x,y,waitS}]}; ?slot=1|2 / {slot} = the demo button's route 1/2
 //   POST /api/nav/start|stop|heartbeat   (heartbeat, and every GET /api/status, keep a web route/test move alive)
 //   POST /api/nav/test          {planner:"direct"|"detour",startHeadingDeg:0..360,ready:true}; response {ok,nav}

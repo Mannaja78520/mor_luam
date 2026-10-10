@@ -347,6 +347,8 @@ details.more summary { cursor: pointer; color: var(--mut); font-size: var(--fs-1
 .tl-axis span { position: absolute; transform: translateX(-50%); }
 .tl-note { font-size: var(--fs-1); color: var(--txt); margin: var(--sp-2) 0 0; }
 .tl-line { display: block; }
+.pose-set { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); margin: var(--sp-2) 0; }
+.pose-set input { width: 100%; min-width: 0; }
 /* "test 3 rounds" */
 .series-box { border-bottom: 1px solid var(--line); padding-bottom: var(--sp-3); margin-bottom: var(--sp-3); }
 .series-box .progress { margin-top: var(--sp-2); }

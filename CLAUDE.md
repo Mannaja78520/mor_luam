@@ -14,7 +14,8 @@ Read this file first; open only the files the task needs.
 | PIDF gains + steer stop predictor switches | `firmware/config/PIDF_config.h` |
 | Pins / PWM / wheel size | `firmware/config/config.h`, `esp32_hardware.h` |
 | Composition root (who owns what, begin order) | `firmware/src/app/App.cpp` |
-| Saved settings (NVS "morluam") + validation | `firmware/src/app/Settings.cpp` (+ `SETTINGS_SCHEMA` in `web/js/60_settings.js`) |
+| Saved settings (NVS "morluam") + validation | `firmware/src/app/Settings.cpp` (+ `SETTINGS_SCHEMA` in `web/js/60_settings.js`); demo button (demoReset, demoDistM, demoRightDeg) and steering (steerLandDeg, reaimOn, reaimRatio -> `ControlLoop::setSteerTuning`, applied at boot and on save) |
+| Robot pose from the web | `POST /api/pose/reset` (here = (0,0), front = 0 deg, new IMU zero), `POST /api/pose/set {x,y,headingDeg}` (`ImuHeading::resetReference(heading)`, `Odometry::setPosition`) |
 | Steer/drive state machine, overshoot, coast cut | `firmware/src/control/SteerDriveController.cpp` |
 | 100 Hz control task, thread-safe facade | `firmware/src/control/ControlLoop.cpp` |
 | Odometry | `firmware/src/control/Odometry.cpp` |

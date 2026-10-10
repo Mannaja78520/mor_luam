@@ -54,6 +54,7 @@ public:
     bool startButtonRoute(uint8_t slot, String& err);
     // Demos 3 / 4: a timed "direct" / "detour" trial to the DEMO_COMPARE_* goal,
     // placed from the wheel heading after alignment; then back to the start (untimed).
+    // byButton: here becomes (0,0) and the robot's front 0 deg first (it was just put down).
     // byButton false (POST /api/demo/compare/start): needs ready and the web heartbeat.
     bool startCompare(const String& planner, String& err, bool byButton = true, bool ready = true);
     // A series of `rounds` Direct + Detour pairs, run one after another by the robot
@@ -173,5 +174,6 @@ private:
     CompareRun runs_[2];                   // [0] direct (3 clicks), [1] detour (4 clicks)
     uint8_t runIdx_ = 0;
     bool testDemo_ = false;                // the current/last test came from the button (demo 3/4)
+    float compareDistM_ = DEMO_COMPARE_DIST_M, compareRightDeg_ = DEMO_COMPARE_RIGHT_DEG;   // settings, per run
     float trackX_ = 0, trackY_ = 0;        // last position seen while a run is recorded
 };
