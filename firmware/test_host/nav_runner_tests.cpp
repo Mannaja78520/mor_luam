@@ -463,8 +463,11 @@ int main() {
         const char* order[4] = {"direct", "detour", "detour", "direct"};
         for (int i = 0; i < 4; ++i) {
             assert(runs[i].children["planner"].text == order[i] && runs[i].children["valid"].number == 1);
-            assert(runs[i].children["xy"].items.size() >= 4 && !runs[i].children["acts"].items.empty());
+            assert(runs[i].children["xy"].null && !runs[i].children["acts"].items.empty());   // summary: no path
+            JsonNode one; assert(t.runner.seriesJson(JsonObject(&one), i));                    // one run: its path
+            assert(one.children["index"].number == i && one.children["xy"].items.size() >= 4);
         }
+        JsonNode none; assert(!t.runner.seriesJson(JsonObject(&none), 4));
         assert(t.status().children["status"].text == "done" && !t.runner.seriesActive());
     }
     {   // a stop between runs ends the series

@@ -726,13 +726,22 @@ void WaypointRunner::compareJson(JsonObject o) {
     for (uint8_t k = 0; k < 2; ++k) {
         const CompareRun& r = runs_[k];
         if (!r.id) { o[names[k]] = nullptr; continue; }
-        runJson(r, o[names[k]].to<JsonObject>(), r.open ? millis() - testStartMs_ : r.elapsedMs, false);
+        runJson(r, o[names[k]].to<JsonObject>(), r.open ? millis() - testStartMs_ : r.elapsedMs, PathJson::Objects);
     }
     unlock();
 }
 
-void WaypointRunner::seriesJson(JsonObject o) {
+bool WaypointRunner::seriesJson(JsonObject o, int run) {
     lock();
+    if (run >= 0) {                          // one run with its path
+        const bool found = run < seriesCount_;
+        if (found) {
+            o["index"] = run;
+            runJson(seriesRuns_[run], o, seriesRuns_[run].elapsedMs, PathJson::Flat);
+        }
+        unlock();
+        return found;
+    }
     o["id"] = seriesId_;
     o["active"] = seriesActive_;
     o["count"] = seriesCount_;
@@ -741,12 +750,13 @@ void WaypointRunner::seriesJson(JsonObject o) {
     o["distM"] = DEMO_COMPARE_DIST_M;
     o["rightDeg"] = DEMO_COMPARE_RIGHT_DEG;
     JsonArray runs = o["runs"].to<JsonArray>();
-    for (uint8_t i = 0; i < seriesCount_; ++i) runJson(seriesRuns_[i], runs.add<JsonObject>(), seriesRuns_[i].elapsedMs, true);
+    for (uint8_t i = 0; i < seriesCount_; ++i) runJson(seriesRuns_[i], runs.add<JsonObject>(), seriesRuns_[i].elapsedMs, PathJson::None);
     unlock();
+    return true;
 }
 
-// one recorded run; flatPath: "xy": [x0, y0, x1, y1, ...] (smaller, for the series)
-void WaypointRunner::runJson(const CompareRun& r, JsonObject j, uint32_t elapsedMs, bool flatPath) {
+// one recorded run; path Flat: "xy": [x0, y0, x1, y1, ...], Objects: "path": [{x, y}]
+void WaypointRunner::runJson(const CompareRun& r, JsonObject j, uint32_t elapsedMs, PathJson pathJson) {
     static const char* const plannerNames[2] = {"direct", "detour"};
     j["planner"] = plannerNames[r.planner & 1];
     j["id"] = r.id;
@@ -768,7 +778,8 @@ void WaypointRunner::runJson(const CompareRun& r, JsonObject j, uint32_t elapsed
         a["t"] = r.acts.t(i);
         a["a"] = actNames[r.acts.act(i)];
     }
-    if (flatPath) {
+    if (pathJson == PathJson::None) return;
+    if (pathJson == PathJson::Flat) {
         JsonArray xy = j["xy"].to<JsonArray>();
         for (uint8_t i = 0; i < r.path.size(); ++i) {
             xy.add(roundf(r.path.x(i) * 10000.0f) / 10000.0f);

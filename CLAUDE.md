@@ -24,7 +24,7 @@ Read this file first; open only the files the task needs.
 | Final steering power ramp and missing-feedback stop | `firmware/src/algorithm/SteerPowerRamp.h`, `MotorResponseWatch.h`; used by `SteerDriveController` |
 | Steering algorithms (plain C++) | `firmware/src/algorithm/` — see its README.md |
 | Waypoint route, heartbeat, replanning, per-point wait (`waitS`, NVS blobs read old x/y format too) | `firmware/src/nav/WaypointRunner.cpp` |
-| Demo button GPIO19 (1/2 clicks = button routes 1/2 set on the web, 3/4 = Direct/Detour comparison, press = stop) | `firmware/src/app/DemoButton.cpp`, `src/util/ClickCounter.h`, runner `startButtonRoute` / `startCompare`; routes = `/api/waypoints?slot=1|2` (NVS "nav" r1n/r1p, r2n/r2p), web `RouteSlotBar` (40_nav.js); demo 3/4 record `GET /api/demo/compare` (path `nav/RunTrace.h`, time line `nav/ActivityLog.h`: drive vs turn from the controller's `driving` flag - the drive encoder also moves while steering), start from the web `POST /api/demo/compare/start` (heartbeat rule), "test 3 rounds" `POST /api/demo/series/start` + `GET /api/demo/series` (runner `startSeries`, run order D T / T D / D T), picture `web/js/47_demo_compare.js`, PNG `tools/demo_compare_plot.py [--series]` |
+| Demo button GPIO19 (1/2 clicks = button routes 1/2 set on the web, 3/4 = Direct/Detour comparison, press = stop) | `firmware/src/app/DemoButton.cpp`, `src/util/ClickCounter.h`, runner `startButtonRoute` / `startCompare`; routes = `/api/waypoints?slot=1|2` (NVS "nav" r1n/r1p, r2n/r2p), web `RouteSlotBar` (40_nav.js); demo 3/4 record `GET /api/demo/compare` (path `nav/RunTrace.h`, time line `nav/ActivityLog.h`: drive vs turn from the controller's `driving` flag - the drive encoder also moves while steering), start from the web `POST /api/demo/compare/start` (heartbeat rule), "test 3 rounds" `POST /api/demo/series/start` + `GET /api/demo/series` (summary) + `?run=i` (one run's path) (runner `startSeries`, run order D T / T D / D T), picture `web/js/47_demo_compare.js`, PNG `tools/demo_compare_plot.py [--series]` |
 | Wi-Fi list (NVS "wifi"), priority join / move up, hotspot, mDNS | `firmware/src/net/WifiStore.cpp`, `NetworkManager.cpp`, rules in `WifiPolicy.h` |
 | OTA (ArduinoOTA + web upload) | `firmware/src/net/OtaService.cpp` |
 | micro-ROS topics, agent discovery | `firmware/src/ros/MicroRosBridge.cpp` |
@@ -71,3 +71,6 @@ docker\mor_luam.bat wifi | logs | topics | run <prog> | shell | stop     ROS sid
 - The browser simulator sends no motor commands. Its constant-speed model does not measure slip, battery drop, shaking or physical stop distance.
 - OTA and pose reset are refused while the robot moves.
 - Wi-Fi passwords ARE shown on the robot's page (user's choice); keep them out of chat and git.
+- Keep HTTP replies small (a few KB). AsyncResponseStream grows its buffer by each write's bytes
+  (O(n^2) copying: a 12 KB reply reset the ESP32 by watchdog), and a ~6 KB reply never arrived even
+  pre-sized. Split big data into pages (see `/api/demo/series?run=i`); `reply()` reserves the String once.

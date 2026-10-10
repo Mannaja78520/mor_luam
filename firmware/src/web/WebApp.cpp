@@ -15,6 +15,7 @@
 
 void WebApp::reply(AsyncWebServerRequest* r, JsonDocument& doc, int code) {
     String out;
+    out.reserve(measureJson(doc) + 1);       // one allocation, not one per piece
     serializeJson(doc, out);
     r->send(code, "application/json", out);
 }
@@ -241,9 +242,13 @@ void WebApp::routesNav() {
         ok(r);
     });
     server_.on("/api/demo/series", HTTP_GET, [this](AsyncWebServerRequest* r) {
+        const long run = r->hasParam("run") ? r->getParam("run")->value().toInt() : -1;
         JsonDocument doc;
-        d_.runner->seriesJson(doc.to<JsonObject>());
-        AsyncResponseStream* res = r->beginResponseStream("application/json");   // no extra copy in RAM
+        if (!d_.runner->seriesJson(doc.to<JsonObject>(), run)) { fail(r, "ไม่มีรอบนี้", 404); return; }
+        // Size the buffer once: AsyncResponseStream otherwise grows by the bytes of each
+        // write, copying the whole reply every time - with 6 runs (~12 KB) that took
+        // seconds in the async_tcp task and the watchdog reset the robot (2026-10-10).
+        AsyncResponseStream* res = r->beginResponseStream("application/json", measureJson(doc) + 16);
         serializeJson(doc, *res);
         r->send(res);
     });

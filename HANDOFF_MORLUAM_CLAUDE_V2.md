@@ -173,7 +173,20 @@ then `CLAUDE.md` (source map). `HANDOFF_MORLUAM_CLAUDE_V1.md` is history.
   - Checks: fw-test ALL PASS + route runner 33 scenarios (order, refusals, stop between runs, lost page);
     node tests PASS; mock page at 1440 / 360 px. RAM 33.1 %, flash 60.7 %. OTA OK (robot on 10.139.24.49,
     free heap 72.6 KB, GET /api/demo/series answered).
-  - NOT RUN ON THE FLOOR YET: the robot went offline (probably powered off) right before the first series.
+  - 2026-10-10 ON THE FLOOR (robot on the laptop hotspot `manny`, 192.168.137.111):
+    - Try 1: all 6 runs fine, then GET /api/demo/series (6 runs, ~12 KB) RESET THE ROBOT (watchdog): the
+      library's AsyncResponseStream grows by each write's bytes -> O(n^2) copy in the async_tcp task.
+      Results were RAM-only and lost (times kept from the log: D 25.37/25.30/26.60, T 22.20/23.79/20.11).
+    - Fix 1 (pre-sized stream buffer + String reserve in reply()): no reset, but a 5-run reply (~6 KB)
+      never arrived (0 bytes, ~1 KB heap lost per try) and my test script, blocked on it for 15 s, missed
+      the heartbeat -> the robot stopped the series correctly ("หน้าเว็บขาดการเชื่อมต่อ").
+    - Fix 2: GET /api/demo/series = summary without paths (~2 KB); GET /api/demo/series?run=i = one run
+      with its path (~1.2 KB). Web card and PNG tool fetch run by run. Test script downloads in a thread.
+    - Try 3: ALL 6 RUNS + every download OK (0.1-0.9 s), no reset (uptime 354 s, heap 69.7 KB):
+      | round | Direct | Detour |  1: 25.31 / 21.09 · 2: 23.93 / 20.83 · 3: 24.60 / 20.26
+      Mean Direct 24.61 s, Detour 20.73 s -> Detour 3.89 s (15.8 %) faster, won 3/3. All runs ended
+      2.4-2.5 mm from the goal. Time line: Direct turns ~8.7 s then drives ~10 s, then a ~2.7 s correction
+      turn (it drifts ~2 cm right while driving); Detour drives ~10.3 s, turns ~6.8 s, short leg + small turn.
 
 **Still in progress**
 - Nothing running. Robot halted on battery.

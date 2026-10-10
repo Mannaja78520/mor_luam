@@ -59,7 +59,10 @@ public:
     // A series of `rounds` Direct + Detour pairs, run one after another by the robot
     // (GET /api/demo/series for the results). Any stop ends the series.
     bool startSeries(uint8_t rounds, String& err, bool byButton, bool ready);
-    void seriesJson(JsonObject out);
+    // run < 0: progress + every run's time and time line (no paths, ~2 KB);
+    // run = i: run i with its path. Kept small on purpose: one big reply (~6 KB+)
+    // never reached the page on the robot (2026-10-10). false = no such run.
+    bool seriesJson(JsonObject out, int run = -1);
     bool seriesActive();
     void noteButton(const String& text, uint8_t clicks);   // last button event, shown on the web page
     void setButtonPressed(bool p) { buttonPressed_ = p; }   // live state for the web page
@@ -160,7 +163,8 @@ private:
         ActivityLog<32> acts;              // turning / driving / still over time, for the time line
         uint8_t planner = 0;               // 0 direct, 1 detour
     };
-    static void runJson(const CompareRun& r, JsonObject j, uint32_t elapsedMs, bool flatPath);
+    enum class PathJson : uint8_t { None, Flat, Objects };
+    static void runJson(const CompareRun& r, JsonObject j, uint32_t elapsedMs, PathJson path);
     CompareRun seriesRuns_[DEMO_SERIES_MAX_ROUNDS * 2];
     uint8_t seriesTotal_ = 0, seriesCount_ = 0, seriesTries_ = 0;   // runs planned / recorded
     bool seriesActive_ = false, seriesLocal_ = false;

@@ -373,7 +373,16 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/demo/compare":
                 return self.send(200, mock_compare())
             if p == "/api/demo/series":
-                return self.send(200, mock_series())
+                se = mock_series()
+                run = (parse_qs(u.query).get("run") or [None])[0]
+                if run is not None:                    # one run with its path, like the robot
+                    i = int(run)
+                    if not 0 <= i < len(se["runs"]):
+                        return self.fail("ไม่มีรอบนี้")
+                    return self.send(200, {**se["runs"][i], "index": i})
+                for r in se["runs"]:
+                    r.pop("xy")                        # the summary has no paths
+                return self.send(200, se)
             if p == "/api/wifi":
                 return self.send(200, {"saved": R.wifi, "max": 6, "net": R.net()})
             if p == "/api/wifi/scan":

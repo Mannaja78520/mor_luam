@@ -328,6 +328,9 @@ def main():
             data = json.load(f)
     elif a.series:
         data = wait_series(a.host, a.wait_s) if a.wait else fetch(a.host, "/api/demo/series")
+        for i, r in enumerate(data["runs"]):          # each run's path is its own (small) reply
+            if "xy" not in r:
+                r["xy"] = fetch(a.host, f"/api/demo/series?run={i}")["xy"]
     else:
         data = wait_for_new(a.host, a.wait_s) if a.wait else fetch(a.host)
     return 0 if draw(data, a.out) else 1

@@ -17,6 +17,8 @@ class DemoCompareView {
     Object.assign(this, { api, toast, onCommand });
     this.series = null;
     this.seriesKey = '';
+    this.seriesPaths = new Map();              // run id -> flat xy (each run fetched once)
+    this.seriesLoading = false;
     this.seriesReady = $('#seriesReady');
     this.seriesStart = $('#seriesStart');
     this.seriesStop = $('#seriesStop');
@@ -57,10 +59,29 @@ class DemoCompareView {
     return r;
   }
 
+  // the summary first, then each run's path on its own: the robot answers only
+  // small replies reliably (one 6-run reply never arrived, 2026-10-10)
   async loadSeries() {
-    const r = await this.api.get('/api/demo/series', 6000);
-    if (r.ok) { this.series = r.data; this.render(); }
-    return r;
+    if (this.seriesLoading) return { ok: true };
+    this.seriesLoading = true;
+    try {
+      const r = await this.api.get('/api/demo/series', 6000);
+      if (!r.ok) return r;
+      const se = r.data;
+      for (let i = 0; i < (se.runs || []).length; i++) {
+        const run = se.runs[i];
+        if (!this.seriesPaths.has(run.id)) {
+          const one = await this.api.get(`/api/demo/series?run=${i}`, 6000);
+          if (one.ok && one.data.id === run.id) this.seriesPaths.set(run.id, one.data.xy || []);
+        }
+        run.xy = this.seriesPaths.get(run.id) || [];
+      }
+      this.series = se;
+      this.render();
+      return r;
+    } finally {
+      this.seriesLoading = false;
+    }
   }
 
   async startSeries() {
