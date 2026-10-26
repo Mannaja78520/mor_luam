@@ -3,6 +3,19 @@
 Plain C++ (no Arduino headers), so every file here also compiles on a PC and is
 checked by `test_host/tests.cpp` (`docker\mor_luam.bat fw-test`).
 
+Run commands from the repository root, with Docker Desktop running on Windows:
+
+```powershell
+.\docker\mor_luam.bat fw-test
+```
+
+Ubuntu: `./docker/mor_luam.sh fw-test`. The helper runs both the algorithm/PIDF
+suite and the route-runner suite without connecting to a robot. For the browser
+planner also run `node firmware/web/test_simulation.cjs` and
+`node firmware/web/test_simulation_noise.cjs` on the PC.
+Opening the robot or mock web page is described in the
+[main README](../../../README.md) and [Docker guide](../../../docker/README.md).
+
 | File | What |
 |---|---|
 | `LegPlanner.h` | the interface: `plan(phiDeg, d, RobotParams) -> LegPlan` |
@@ -18,7 +31,9 @@ checked by `test_host/tests.cpp` (`docker\mor_luam.bat fw-test`).
 
 ## Mapping to the homework
 
-`E:\271401\271401_pee_aut_homework\aut_HW_04_detour_steering\`
+Original local reference: `E:\271401\271401_pee_aut_homework\aut_HW_04_detour_steering\`.
+This external folder is not part of the repository and is not required to run
+the checked-in regression suites.
 
 | Homework | Here |
 |---|---|
@@ -45,7 +60,20 @@ in the settings, and the settings page lists every name the factory knows.
 
 - `phiDeg` = how far the wheel must still turn to face the goal, 0..360. The
   wheel turns one way only, so 350° means "almost a full turn", not "-10°".
+- Physical steering is counter-clockwise viewed from above; headings increase.
+  The historical helper name `cwErrorDeg` means `(target - current) mod 360`
+  in the physical steering direction. Do not infer clockwise motion from its name.
 - `LegPlan.kind == Detour`: the robot drives `a` metres WITHOUT steering, then
   the runner plans again (T4: the next plan is "steer β*, drive b").
 - `RobotParams.steerDps` (ω) comes from the settings page; set it close to the
   real steering speed or the choice between detour and direct is off.
+- The physical drive is about 0.03 m/s in checked examples (full power about
+  0.039 m/s); the homework's numerical examples use different model parameters.
+  Predicted time is not a measurement of the robot's actual travel time.
+- A single motor cannot drive and steer simultaneously. `FinalApproach` stops
+  and re-aims; it does not steer while driving. Landing angle and re-aim controls
+  can be adjusted in the robot's Settings tab.
+
+Real-motion checks and OTA require a stopped/prepared robot and an operator as
+described in [safety.md](../../../docs/safety.md). This README's host tests do not
+establish physical stopping distance or floor contact.

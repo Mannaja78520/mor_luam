@@ -70,7 +70,7 @@ docker\mor_luam.bat wifi | logs | topics | run <prog> | shell | stop     ROS sid
 - ROS feedback is reliable QoS (PC nodes subscribe reliable); publishers don't wait for ACKs
   (`rmw_uros_set_publisher_session_timeout(..., 0)`), stream history 16 (`firmware/microros.meta`).
   Changing `microros.meta` needs `docker\mor_luam.bat fw-clean-ros` then `fw-build`.
-- A web route is intended to stop after 3 s without heartbeat. Any open robot page can keep it alive; the clean live lost-heartbeat retry is still pending (see `docs/testing.md`).
+- Web routes/tests use a 3 s watchdog in the 10 ms control task, fed by heartbeat and status polling. Any open robot page can keep it alive. Attended checks are recorded in `HANDOFF_MORLUAM_CLAUDE_V2.md`; button demos use their own moving-time limit. `docker\mor_luam.bat stop` stops containers, not the robot.
 - No wired emergency-switch input or ground-contact sensor exists. Status shows `hardwareEstop: not-wired` and `groundContact: unknown`; missing motor feedback cannot identify the cause.
 - The browser simulator sends no motor commands. Its constant-speed model does not measure slip, battery drop, shaking or physical stop distance.
 - OTA and pose reset are refused while the robot moves.

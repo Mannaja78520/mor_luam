@@ -1,6 +1,6 @@
 # mor_luam — start here (any AI agent)
 
-1. Read the NEWEST handoff first: `HANDOFF_MORLUAM_CLAUDE_V2.md`, then `HANDOFF_MORLUAM_CODEX_V1.md` (state, evidence, next steps, safety). The robot IP changes: use `mor-luam.local`.
+1. Read the NEWEST handoff first: `HANDOFF_MORLUAM_CODEX_V2.md` (documentation, 2026-10-26), then `HANDOFF_MORLUAM_CLAUDE_V2.md` (latest firmware history) and `HANDOFF_MORLUAM_CODEX_V1.md` (earlier evidence and safety). The robot IP changes: use `mor-luam.local`.
 2. Read `CLAUDE.md` (source map + commands). Open only the files the task needs.
 3. Never print `firmware/config/network_secrets.h` or the output of `GET /api/wifi` (Wi-Fi passwords).
 4. Do not commit or push unless the user asks. Hardware config (`firmware/config/esp32_hardware.h`) is the user's: ask before changing it.

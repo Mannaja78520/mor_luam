@@ -1,11 +1,26 @@
+# Hardware sketches and host regression tests
 
-This directory is intended for PlatformIO Test Runner and project tests.
+This directory contains individual hardware/bring-up sketches (AS5600, encoder,
+IMU, I2C, motor and Wi-Fi). They are not the host regression suite and may need
+hardware-specific setup. Motor sketches can move the real robot. Read
+../../docs/safety.md and inspect the sketch before flashing or running one.
+Do not assume `pio test` runs the project's complete regression suite.
 
-Unit Testing is a software testing method by which individual units of
-source code, sets of one or more MCU program modules together with associated
-control data, usage procedures, and operating procedures, are tested to
-determine whether they are fit for use. Unit testing finds problems early
-in the development cycle.
+Run the maintained C++ host suites from the repository root:
 
-More information about PlatformIO Unit Testing:
-- https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+    docker\mor_luam.bat fw-test
+
+This compiles ../test_host/tests.cpp and ../test_host/nav_runner_tests.cpp in
+Docker. It does not connect to or move a robot. Ubuntu uses
+./docker/mor_luam.sh fw-test.
+
+Browser/mock checks from the repository root (Node.js / Python on the PC):
+
+    node firmware/web/test_simulation.cjs
+    node firmware/web/test_simulation_noise.cjs
+    node firmware/web/test_route_test.cjs
+    python firmware/web/test_mock_route_test.py
+    python tools/imu_shake.py --self-test
+
+Real-robot acceptance tests are in ../../tools/robot_test.py; steps 2-4 MOVE the
+robot and require the owner beside it. Commands and evidence: ../../docs/testing.md

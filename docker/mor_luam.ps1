@@ -175,7 +175,7 @@ switch ($Command.ToLower()) {
     "topics" { Need-Docker; Dc --profile tools run --rm ros ros2 topic list }
     "run" {
         Need-Docker
-        if ($Rest.Count -eq 0) { Write-Host "Usage: docker\mor_luam.bat run drive_to_xy.py 2 0 --speed 0.25 --unit mps"; exit 1 }
+        if ($Rest.Count -eq 0) { Write-Host "Usage (MOVES the robot; operator beside it): docker\mor_luam.bat run drive_to_xy.py 0.3 0 --speed 0.03 --unit mps"; exit 1 }
         Dc --profile tools run --rm ros ros2 run mor_luam @Rest
     }
     "fw-build" {
@@ -224,10 +224,11 @@ mor_luam on Windows (Docker Desktop)
   docker\mor_luam.bat logs                  watch the agent: the robot connecting, topics created
   docker\mor_luam.bat topics                list ROS 2 topics (the robot's /mor_luam/... ones once connected)
   docker\mor_luam.bat run <program> <args>  run a mor_luam program, e.g.
-        docker\mor_luam.bat run drive_to_xy.py 2 0 --speed 0.25 --unit mps
-        docker\mor_luam.bat run send_heading_speed.py 90 120
+        docker\mor_luam.bat run drive_to_xy.py 0.3 0 --speed 0.03 --unit mps
+        docker\mor_luam.bat run send_heading_speed.py 90 7.5
+        These commands MOVE the robot; an operator must be beside it.
   docker\mor_luam.bat shell                 a ROS 2 terminal (ros2 topic echo, ros2 run ...)
-  docker\mor_luam.bat stop                  stop everything
+  docker\mor_luam.bat stop                  stop Docker containers (NOT robot E-STOP)
 
   docker\mor_luam.bat usb                   list USB devices (find the ESP32 BUSID)
   docker\mor_luam.bat serial -BusId 1-3     agent over USB instead of WiFi (serial firmware only)
@@ -237,10 +238,15 @@ mor_luam on Windows (Docker Desktop)
   docker\mor_luam.bat fw-upload -BusId 1-3  build + flash over USB through WSL (usbipd)
   docker\mor_luam.bat fw-monitor -BusId 1-3 serial monitor (115200)
   docker\mor_luam.bat fw-test               PC tests: Detour Steer vs the homework, PIDF
+  docker\mor_luam.bat fw-clean-ros          rebuild micro-ROS next time (after microros.meta changes)
 
   docker\mor_luam.bat web                   find the robot, show where to connect, open the web app
   docker\mor_luam.bat find                  find robots on this WiFi (then open http://<IP>/)
   docker\mor_luam.bat web-mock              fake robot on http://localhost:8000 for web page work
+  docker\mor_luam.bat robot-test --steps 1  real-robot API tests (steps 2-4 MOVE the robot)
+
+  web / find / web-mock use local Python; opening the robot page needs no Docker.
+  Stop the robot first: web E-STOP, or curl.exe -X POST http://mor-luam.local/api/estop
 "@
     }
 }

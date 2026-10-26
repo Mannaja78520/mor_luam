@@ -140,7 +140,7 @@ mor_luam on Ubuntu / Linux (Docker)          (Windows: docker\\mor_luam.bat, sam
   $0 topics                     list ROS 2 topics
   $0 run <program> <args>       run a mor_luam program, e.g.  $0 run drive_to_xy.py 0.3 0 --speed 0.03 --unit mps
   $0 shell                      a ROS 2 terminal
-  $0 stop                       stop everything
+  $0 stop                       stop Docker containers (NOT robot E-STOP)
 
   $0 usb                        list USB serial ports (the ESP32 is usually /dev/ttyUSB0)
   $0 fw-build                   build the ESP32 firmware -> firmware/firmware_out/
@@ -155,6 +155,9 @@ mor_luam on Ubuntu / Linux (Docker)          (Windows: docker\\mor_luam.bat, sam
   $0 find                       find robots on this network (then open http://<IP>/)
   $0 web-mock                   fake robot on http://localhost:8000
   $0 robot-test --steps 1       real-robot tests (steps 2-4 MOVE the robot: stand next to it)
+
+  web / find / web-mock use local Python; opening the robot page needs no Docker.
+  Stop the robot first: web E-STOP, or curl -X POST http://mor-luam.local/api/estop
 EOF
         ;;
 esac

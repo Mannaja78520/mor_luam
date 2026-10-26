@@ -1,46 +1,22 @@
+# Firmware libraries
 
-This directory is intended for project specific (private) libraries.
-PlatformIO will compile them to static libraries and link into the executable file.
+PlatformIO builds local libraries from this directory. Current control code uses
+PIDF/ for the speed and steering controllers. Other directories include hardware
+helpers and older bring-up code; do not assume every library here is active.
 
-The source code of each library should be placed in a separate directory
-("lib/your_library_name/[Code]").
+Encoder/ is a bundled third-party quadrature encoder library; retain its upstream
+attribution and examples. The active wrapper in esp32_Encoder/ uses ESP32Encoder
+from the dependency list in ../platformio.ini; ../src/app/App.h owns that wrapper.
+The current IMU and steering sensor wrappers live in ../src/hw/.
 
-For example, see the structure of the following example libraries `Foo` and `Bar`:
+Project code: ../src/; configuration: ../config/; source map: ../../CLAUDE.md
+Private network defaults: ../config/network_secrets.h (gitignored).
 
-|--lib
-|  |
-|  |--Bar
-|  |  |--docs
-|  |  |--examples
-|  |  |--src
-|  |     |- Bar.c
-|  |     |- Bar.h
-|  |  |- library.json (optional. for custom build options, etc) https://docs.platformio.org/page/librarymanager/config.html
-|  |
-|  |--Foo
-|  |  |- Foo.c
-|  |  |- Foo.h
-|  |
-|  |- README --> THIS FILE
-|
-|- platformio.ini
-|--src
-   |- main.c
+From the repository root, with Docker running:
 
-Example contents of `src/main.c` using Foo and Bar:
-```
-#include <Foo.h>
-#include <Bar.h>
+    docker\mor_luam.bat fw-test
+    docker\mor_luam.bat fw-build
 
-int main (void)
-{
-  ...
-}
-
-```
-
-The PlatformIO Library Dependency Finder will find automatically dependent
-libraries by scanning project source files.
-
-More information about PlatformIO Library Dependency Finder
-- https://docs.platformio.org/page/librarymanager/ldf.html
+Host tests compile PIDF against Arduino stubs and compare it with the saved old
+implementation in ../test_host/old_pidf/. Builds regenerate the packed web page;
+edit ../web/ rather than ../src/web/WebPage.h.

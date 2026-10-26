@@ -1,160 +1,182 @@
-# mor_luam บน Windows — คู่มือใช้งาน
+# mor_luam — คู่มือคำสั่ง Windows และ Docker
 
-> ติดตั้งและรันบน Ubuntu (Docker หรือไม่ใช้ Docker) และวิธีติดตั้งทุกอย่าง: `docs/install_and_run.md` · บน Ubuntu ใช้ `./docker/mor_luam.sh` แทน `docker\mor_luam.bat` (คำสั่งเหมือนกัน)
+โค้ดจริงในเครื่องนี้อยู่ที่ `E:\GPS_Localize\old\mor_luam` (ตรวจ 26 ตุลาคม 2026)
+เปิด PowerShell ที่โฟลเดอร์นั้น:
 
-คำสั่งทั้งหมดพิมพ์ใน cmd หรือ PowerShell ที่โฟลเดอร์ `E:\GPS_Localize\old\mor_luam`
-คำสั่งที่ใช้ Docker ต้องเปิด **Docker Desktop** ก่อน
-
-## 1. ภาพรวม
-
-```
-คอม (Windows)  ปล่อย WiFi "manny" (Mobile Hotspot)            หุ่น mor_luam (ESP32)
-┌───────────────────────────────────────┐   WiFi           ┌───────────────────────────────┐
-│ เบราว์เซอร์ → http://mor-luam.local     │ ◀── เว็บแอป ───▶ │ เว็บแอป + เส้นทาง 2 มิติ (ในหุ่น) │
-│ docker agent-wifi (UDP 8888)          │ ◀── micro-ROS ─▶ │ ROS 2 topics /mor_luam/...    │
-│ docker\mor_luam.bat fw-ota            │ ─── OTA ───────▶ │ อัปเดตเฟิร์มแวร์ผ่าน WiFi        │
-└───────────────────────────────────────┘                  └───────────────────────────────┘
+```powershell
+Set-Location E:\GPS_Localize\old\mor_luam
+.\docker\mor_luam.bat help
 ```
 
-- หุ่นจำ WiFi ได้ 6 วง ลำดับในรายการคือลำดับความสำคัญ ค่าเริ่มต้นคือ `manny` (hotspot ของคอมเครื่องนี้)
-  - WiFi หลุด: ต่อวงเดิมก่อน ถ้าไม่เจอจะไล่วงที่ 1, 2, 3 … วงไหนต่อไม่ได้ก็ข้ามไปวงถัดไป
-  - ต่อวงที่ 2 หรือ 3 อยู่ แล้ววงที่ 1 กลับมา: หุ่นย้ายไปวงที่ 1 เอง (เช็กทุก 30 วินาที เฉพาะตอนหุ่นหยุดนิ่ง)
-- ต่อ WiFi ไม่ได้เกิน 20 วินาที → หุ่นเปิด hotspot ของตัวเองชื่อ `mor-luam-XXXX` ให้เข้า `http://192.168.4.1`
-- รองรับ WPA3-SAE แบบ H2E ของ hotspot มือถือ: ตั้ง `WPA3_SAE_PWE_BOTH` ก่อนเริ่มต่อแต่ละวง โดยยังใช้ WPA2 ได้ตามเดิม
-  ([Espressif: วิธีแก้ค่า SAE เริ่มต้น](https://documentation.espressif.com/AR2026-003_OTA_Bug_Advisory_for_WPA3-SAE_H2E_Configuration_Issues_in_ESP-IDF_EN.html))
-- หุ่นประกาศตัวผ่าน mDNS: `mor-luam.local` และ `_module._tcp` (แบบเดียวกับโมดูลในโปรเจกต์ mice)
-- วิ่งตามจุดจากเว็บ คำนวณในหุ่นเอง (Detour Steer) ไม่ต้องใช้ ROS
+เครื่องใหม่อ่าน [ติดตั้ง Windows/Ubuntu](../docs/install_and_run.md)
+Ubuntu ใช้ `./docker/mor_luam.sh` แทน `.\docker\mor_luam.bat`
+ตัวเลือก USB บน Ubuntu ใช้ `--port /dev/ttyUSB0`
 
-## 2. ครั้งแรก: แฟลชผ่านสาย USB
+## เปิดเว็บหุ่น
 
-1. build:
-   ```
-   docker\mor_luam.bat fw-build
-   ```
-   ได้ไฟล์ใน `firmware\firmware_out\`
-2. ดูว่า ESP32 อยู่ COM ไหน:
-   ```
-   docker\mor_luam.bat fw-flash
-   ```
-   หาบรรทัด `Silicon Labs CP210x ... (COMx)` (เครื่องนี้คือ COM9)
-3. แฟลช:
-   ```
-   docker\mor_luam.bat fw-flash -Port COM9
-   ```
-   ถ้าค้างที่ `Connecting...` ให้กดปุ่ม BOOT บน ESP32 ค้างไว้จนเริ่มเขียน
+เปิดหุ่น ให้คอมกับหุ่นอยู่ Wi-Fi เดียวกัน แล้วรัน:
 
-ทำครั้งเดียว ครั้งต่อไปใช้ WiFi (ข้อ 5)
+```powershell
+.\docker\mor_luam.bat web
+```
 
-## 3. เปิดเว็บของหุ่น
+ใช้ Python บน Windows หาหุ่น แสดง URL/เครือข่ายสำหรับคอมและมือถือ และเปิดเว็บ
+**ไม่ต้องเปิด Docker หรือ ROS agent** เว็บอยู่บน ESP32
+เครื่องนี้เคยใช้ Mobile Hotspot `manny`; หุ่นเลือก Wi-Fi ตามลำดับที่บันทึกไว้
 
-**ง่ายที่สุด:** `docker\mor_luam.bat web` = หาหุ่น บอกที่อยู่ (คอม/มือถือ/WiFi ที่ต้องต่อ) แล้วเปิดเบราว์เซอร์ให้
+- เปิดตรง: [mor-luam.local](http://mor-luam.local/)
+- หาที่อยู่: `.\docker\mor_luam.bat find` แล้วเปิด IP ที่แสดง
+- ต่อ Wi-Fi ไม่ได้เกินประมาณ 20 s: hotspot `mor-luam-XXXX` → ต่อแล้วเปิด [192.168.4.1](http://192.168.4.1/)
+- IP เปลี่ยนได้ มือถือที่เปิด `.local` ไม่ได้ให้ใช้ IP
 
-> คู่มือเว็บฉบับเต็ม (ทุกแท็บ ทุกปุ่ม วิธีเปิดทุกแบบ): `docs/web_guide_th.md`
+อ่าน [คู่มือเว็บทุกแท็บ/เดโมภาษาไทย](../docs/web_guide_th.md)
+เว็บมีเส้นทาง, Simulation, Wi-Fi, ตั้งค่า, ระบบ และกล่องเดโม Direct/Detour
+แกน +x หน้า, +y ซ้าย, หน่วยเมตร; ล้อเลี้ยวทวนเข็มนาฬิกาอย่างเดียว
 
-- เปิด `http://mor-luam.local` ในเบราว์เซอร์ (คอมหรือมือถือที่อยู่ WiFi เดียวกับหุ่น)
-- ถ้าเปิดไม่ได้ ให้หา IP:
-  ```
-  docker\mor_luam.bat find
-  ```
-  แล้วเปิด `http://<IP>/`
+## ตัวช่วยกับ Docker ทำงานตรงไหน
 
-### แท็บในเว็บ
-
-| แท็บ | ทำอะไร |
-|---|---|
-| เส้นทาง | แตะบนระนาบ 2 มิติเพื่อวางจุด (หน่วยเมตร) ลากจุดเพื่อย้าย โหมด "ลบจุด" แตะเพื่อลบ แก้ตัวเลขในตารางได้ แล้วกด **เริ่มวิ่ง** |
-| WiFi | ดูวงที่ต่ออยู่ เพิ่ม / แก้ / ลบ / เลื่อนลำดับ WiFi ดูชื่อและรหัส WiFi ที่บันทึก สแกนหา WiFi รอบตัว |
-| ตั้งค่า | ชื่อหุ่น ชื่อ mDNS เลือก algorithm (Detour Steer / เลี้ยวตรง) ความเร็ว ระยะถึงจุด ROS agent รหัส OTA / hotspot และค่า PIDF |
-| ระบบ | อัปเดตเฟิร์มแวร์ (OTA) หาหุ่นตัวอื่นในวง สถานะ ROS ข้อมูลระบบ รีบูต เปลี่ยนธีม |
-
-ปุ่ม **หยุด (E-STOP)** อยู่มุมขวาบนทุกแท็บ
-
-**ความปลอดภัยตอนวิ่งตามจุด:** หน้าเว็บส่งสัญญาณ "ยังดูอยู่" ทุก 1 วินาที
-ถ้าปิดหน้าเว็บ มือถือจอดับ หรือ WiFi หลุดเกิน 3 วินาที หุ่นจะหยุดเอง
-
-**คำเตือน:** แท็บ WiFi แสดงรหัส WiFi ทุกวง ทุกคนที่เปิดหน้าเว็บของหุ่นได้จะเห็นรหัสเหล่านี้
-ใช้หุ่นในวง WiFi ที่ไว้ใจเท่านั้น และเปลี่ยนรหัส OTA / hotspot จากค่าเริ่มต้นในแท็บตั้งค่า
-
-## 4. ตำแหน่งและทิศบนระนาบ
-
-- (0,0) คือจุดที่หุ่นอยู่ตอนเปิดเครื่อง หรือตอนกด "ตั้งตรงนี้เป็น (0,0)"
-- แกน +x คือทิศที่หุ่นหันตอนนั้น แกน +y คือทางซ้ายของหุ่น
-- ลูกศรขาว = ตัวหุ่น เส้นเขียว = ทิศล้อ เส้นประส้ม = ขาที่กำลังวิ่ง
-
-## 5. อัปเดตเฟิร์มแวร์ผ่าน WiFi (OTA)
-
-1. build:
-   ```
-   docker\mor_luam.bat fw-build
-   ```
-2. ส่งเข้าหุ่น (ถามรหัส OTA):
-   ```
-   docker\mor_luam.bat fw-ota
-   ```
-   ถ้า `mor-luam.local` ใช้ไม่ได้ ใส่ IP จาก `docker\mor_luam.bat find` เช่น `docker\mor_luam.bat fw-ota -Host 192.168.137.212` (IP เปลี่ยนได้ทุกครั้งที่ต่อใหม่)
-
-หรือใช้หน้าเว็บ แท็บ **ระบบ** → เลือก `firmware\firmware_out\firmware.bin` → ใส่รหัส OTA → อัปโหลด
-
-หุ่นไม่ยอมอัปเดตตอนกำลังวิ่ง ต้องหยุดก่อน
-รหัส OTA ค่าเริ่มต้นอยู่ใน `firmware\config
-etwork_secrets.h` (`MORLUAM_DEFAULT_OTA_PASS`, ไฟล์นี้ไม่ขึ้น git) เปลี่ยนได้ในแท็บตั้งค่า
-
-## 6. ROS 2 (สั่งหุ่นจากโปรแกรมบนคอม)
-
-1. build image ครั้งแรก: `docker\mor_luam.bat build`
-2. เปิด agent: `docker\mor_luam.bat wifi`
-3. ดูหุ่นต่อติด: `docker\mor_luam.bat logs` (เห็น `session established`) หรือดูช่อง ROS ในเว็บ
-4. ดู topic: `docker\mor_luam.bat topics`
-5. สั่งหุ่น:
-   ```
-   docker\mor_luam.bat run drive_to_xy.py 2 0 --speed 0.25 --unit mps
-   ```
-6. เลิกใช้: `docker\mor_luam.bat stop`
-
-- ROS_DOMAIN_ID = 10 ทั้งหุ่นและ Docker
-- หุ่นหา agent เอง: ค่าในแท็บตั้งค่า → เครื่องที่ปล่อย WiFi (gateway) → `AGENT_IP` ใน `conf_network.h`
-- คำสั่งจาก ROS ยกเลิกเส้นทางจากเว็บทันที
-- ถ้าหุ่นต่อ agent ไม่ติด ให้เปิด UDP 8888 ใน Firewall (PowerShell แบบ Administrator ครั้งเดียว):
-  ```
-  New-NetFirewallRule -DisplayName "micro-ROS agent UDP 8888" -Direction Inbound -Protocol UDP -LocalPort 8888 -Action Allow
-  ```
-
-## 7. แก้โค้ด
-
-แผนที่ไฟล์ทั้งหมดอยู่ที่ `CLAUDE.md` (โฟลเดอร์บนสุด)
-
-| อยากแก้ | ไฟล์ | ทดสอบ |
+| ส่วน | ทำงานที่ไหน | ใช้ Docker |
 |---|---|---|
-| algorithm เลี้ยว / วางเส้นทาง | `firmware\src\algorithm\` (อ่าน README.md ในโฟลเดอร์นั้น) | `docker\mor_luam.bat fw-test` |
-| ค่า PID | `firmware\config\PIDF_config.h` หรือแท็บตั้งค่า (ชั่วคราวจนรีบูต) | ลองบนหุ่น |
-| หน้าเว็บ | `firmware\web\` (index.html, app.css, js\) | `docker\mor_luam.bat web-mock` แล้วเปิด `http://localhost:8000` |
-| ค่าตั้งต้น WiFi | `firmware\config\network_secrets.h` (ไม่ขึ้น git) | – |
+| ควบคุมมอเตอร์/odometry/เว็บจริง | ESP32 | ไม่ต้อง |
+| `find`, `web`, `web-mock`, `robot-test` | Python บนคอม | ไม่ต้อง |
+| `fw-ota` | Windows curl ส่งไฟล์ที่ build แล้ว | ไม่ต้อง |
+| `fw-flash` | Windows PlatformIO/esptool ส่งไฟล์ที่ build แล้ว | ไม่ต้อง |
+| `fw-build`, `fw-test`, `fw-clean-ros` | container `firmware` | ต้อง |
+| `wifi`, `serial`, `logs` | micro-ROS agent container | ต้อง |
+| `topics`, `run`, `shell` | ROS 2 Jazzy container `ros` | ต้อง |
 
-หลังแก้: `fw-build` แล้ว `fw-ota`
+คำสั่งที่ใช้ Docker ต้องเปิด **Docker Desktop** และรอ engine พร้อมก่อน
+`stop` ใช้ Docker Compose ปิด containers
 
-## 8. คำสั่งทั้งหมด
+## สร้าง images และเฟิร์มแวร์
 
-| คำสั่ง | ทำอะไร |
+เครื่องใหม่คัดลอก `firmware/config/network_secrets.example.h`
+เป็น `firmware/config/network_secrets.h` แล้วใส่ Wi-Fi/รหัสส่วนตัวในเครื่อง
+อย่าคัดลอกทับไฟล์ที่ตั้งค่าแล้ว ไฟล์จริงถูก Git ignore
+
+```powershell
+.\docker\mor_luam.bat build
+.\docker\mor_luam.bat fw-test
+.\docker\mor_luam.bat fw-build
+```
+
+`build` สร้าง images ฝั่ง ROS/firmware และดึง agent image
+`fw-test` รัน C++ บนคอม รวม algorithm, PIDF, Wi-Fi rules และ route runner
+`fw-build` รวมเว็บจาก `firmware/web/` ได้ไฟล์ใน `firmware\firmware_out\`
+PlatformIO cache อยู่ใน Docker volumes `pio-core` / `pio-build`
+แก้ ROS source ต้อง `build` ใหม่ เพราะ source ถูกคัดลอกเข้า image
+firmware source ถูก mount จึงใช้ `fw-build` หลังแก้ได้เลย
+
+## แฟลช USB ครั้งแรก
+
+ติดตั้ง PlatformIO/esptool บน Windows ใช้สาย USB ที่ส่งข้อมูลได้
+ถ้าไม่พบพอร์ต ตรวจไดรเวอร์ CP210x/CH340 ใน Device Manager
+
+```powershell
+.\docker\mor_luam.bat fw-flash
+.\docker\mor_luam.bat fw-flash -Port COM9
+```
+
+คำสั่งแรกแสดงพอร์ตและวิธีใช้ คำสั่งสองเขียนไฟล์ที่ build แล้ว
+`COM9` เป็นพอร์ตที่เคยใช้ ตรวจของจริงก่อน ถ้าค้าง `Connecting...` ให้กด BOOT ค้างจนเริ่มเขียน
+อีกทางผ่าน WSL + usbipd (ต้องเปิด Docker):
+
+```powershell
+.\docker\mor_luam.bat usb
+# ครั้งแรก ใน PowerShell แบบ Administrator: usbipd bind --busid <BUSID>
+.\docker\mor_luam.bat fw-upload -BusId 1-3
+.\docker\mor_luam.bat fw-monitor -BusId 1-3
+```
+
+แทน `1-3` ด้วย BUSID จริง `fw-upload` build และ upload; monitor 115200 baud
+
+## อัปเดต Wi-Fi (OTA)
+
+หยุดหุ่นก่อน แล้ว:
+
+```powershell
+.\docker\mor_luam.bat fw-build
+.\docker\mor_luam.bat fw-ota
+```
+
+ค่าเริ่ม host `mor-luam.local` ระบบถามรหัสแบบไม่แสดงข้อความ
+หากชื่อใช้ไม่ได้ ใช้ IP จาก `find`: `.\docker\mor_luam.bat fw-ota -Host <IP>`
+หรือแท็บ **ระบบ** → เลือก `firmware\firmware_out\firmware.bin` → ใส่รหัส → อัปโหลด
+รองรับ `MORLUAM_OTA_PASS` ที่ตั้งแบบส่วนตัวใน process environment
+อย่าแสดงรหัสหรือ `network_secrets.h` ใน log/แชต
+
+## หุ่นจำลองบนคอม
+
+```powershell
+.\docker\mor_luam.bat web-mock
+```
+
+Python เปิด mock ที่ [localhost:8000](http://localhost:8000/) และเปิดเบราว์เซอร์
+Ctrl+C ปิด mock; เพิ่ม `--no-browser` เพื่อไม่เปิดเบราว์เซอร์อัตโนมัติ
+mock/Simulation ไม่ยืนยันการทำงานของมอเตอร์ พื้น หรือการตัดไฟจริง
+
+## ROS 2 ผ่าน Docker
+
+ใช้เมื่อต้องการสั่งจากโปรแกรม ROS:
+
+```powershell
+.\docker\mor_luam.bat build
+.\docker\mor_luam.bat wifi
+.\docker\mor_luam.bat logs
+```
+
+Ctrl+C เลิกดู log; `topics` ดู topics; `shell` เปิด terminal ROS
+ROS_DOMAIN_ID = **10**, agent UDP **8888**
+หุ่นลองหา agent จากค่าที่บันทึกและ gateway ถ้า PC ไม่ใช่ gateway
+ให้ใส่ IP ของ PC ใน micro-ROS agent บนเว็บ
+ถ้า Windows Firewall ปิดพอร์ต เปิดครั้งเดียวใน PowerShell แบบ Administrator:
+
+```powershell
+New-NetFirewallRule -DisplayName "micro-ROS agent UDP 8888" -Direction Inbound -Protocol UDP -LocalPort 8888 -Action Allow
+```
+
+ตัวอย่างนี้ **ขยับหุ่นจริง** ต้องมีคนข้างหุ่น พื้นที่พร้อม และพร้อมตัดไฟมอเตอร์:
+
+```powershell
+.\docker\mor_luam.bat run drive_to_xy.py 0.3 0 --speed 0.03 --unit mps
+```
+
+ความเร็วทดสอบ 0.03 m/s เต็มกำลังประมาณ 0.039 m/s (9.7 RPM)
+`/mor_luam/cmd_vel/move`: `linear.x` = RPM, `angular.z` = มุมเป้าองศา
+ROS เข้าควบคุมแทนเส้นทางเว็บ
+
+## หยุดหุ่นและปิด Docker
+
+หยุดจากเว็บ **E-STOP** หรือ:
+
+```powershell
+curl.exe -X POST http://mor-luam.local/api/estop
+```
+
+เมื่อหยุดหุ่นแล้วจึงปิด containers:
+
+```powershell
+.\docker\mor_luam.bat stop
+```
+
+`stop` คือ Docker Compose down ไม่ใช่ E-STOP
+เว็บ route/test ใช้ watchdog 3 s เมื่อไม่มี heartbeat/status; หน้าอื่นยังเลี้ยงสัญญาณได้
+เดโมจากปุ่มไม่ใช้ web heartbeat และมีขีดจำกัดเวลาเคลื่อนที่แยก
+ไม่มี hardware E-STOP input หรือ sensor ยืนยันแตะพื้น อ่าน [safety.md](../docs/safety.md)
+
+## คำสั่งอื่นและแก้ปัญหา
+
+| คำสั่ง / อาการ | ใช้ทำอะไร / วิธีแก้ |
 |---|---|
-| `fw-build` | build เฟิร์มแวร์ → `firmware\firmware_out\` |
-| `fw-flash -Port COM9` | แฟลชผ่าน USB จาก Windows ตรง ๆ |
-| `fw-ota [-Host IP]` | อัปเดตผ่าน WiFi |
-| `fw-test` | ทดสอบ algorithm กับ PIDF บนคอม |
-| `fw-clean-ros` | ลบ micro-ROS library ให้ build ใหม่ (หลังแก้ `firmware\microros.meta`) |
-| `fw-upload -BusId 1-3` / `fw-monitor -BusId 1-3` | แฟลช / ดู serial ผ่าน WSL (usbipd) |
-| `find` | หาหุ่นในวง WiFi |
-| `web-mock` | หุ่นจำลองสำหรับแก้หน้าเว็บ |
-| `build` / `wifi` / `logs` / `topics` / `run` / `shell` / `stop` | ฝั่ง ROS 2 |
+| `fw-clean-ros` | ล้าง micro-ROS library หลังแก้ `firmware/microros.meta` แล้ว `fw-build` |
+| `robot-test --steps 1` | ตรวจ API จริง รวมตั้งค่า/pose ต้องมีหุ่น แม้ขั้นนี้ไม่ขยับ |
+| `robot-test --steps 2` / `3` / `4` | ขยับจริง ต้องมีคนข้างหุ่น อ่าน [testing.md](../docs/testing.md) |
+| `serial -BusId <BUSID>` | USB agent สำหรับเฟิร์มแวร์ serial transport เท่านั้น |
+| Docker is not running | เปิด Docker Desktop รอ engine พร้อม |
+| Python not found | ติดตั้ง Python ให้ PATH ถูก ปิด Store app aliases หากชี้ผิด |
+| เปิดชื่อหุ่นไม่ได้ | `find` แล้วเปิด IP ตรวจ Wi-Fi วงเดียวกัน |
+| ไม่พบหุ่น | ตรวจไฟ/Wi-Fi หรือ hotspot `mor-luam-XXXX` |
+| OTA 403 | รหัสผิด; ถ้าหุ่นเคลื่อนที่ให้หยุดก่อน |
+| ROS ไม่เชื่อม | ตรวจ agent, IP ของ PC, UDP 8888 และ domain 10 |
 
-## 9. ปัญหาที่เจอบ่อย
-
-| อาการ | แก้ |
-|---|---|
-| `fw-flash` เห็นแต่ COM ของ Bluetooth | สาย USB อาจชาร์จได้อย่างเดียว หรือยังไม่มีไดรเวอร์ CP210x |
-| เปิด `mor-luam.local` ไม่ได้ | ใช้ `find` แล้วเปิดด้วย IP |
-| `find` ไม่เจอหุ่น | หุ่นอาจเปิด hotspot `mor-luam-XXXX` อยู่: ต่อวงนั้นแล้วเปิด `http://192.168.4.1` |
-| `fw-ota` ขึ้น 403 | รหัส OTA ผิด |
-| `fw-ota` ขึ้นว่าหุ่นกำลังเคลื่อนที่ | กดหยุดในเว็บก่อน |
-| เว็บขึ้นแถบแดง "ติดต่อหุ่นไม่ได้" | หุ่นดับ / รีบูต / หลุด WiFi: รอ หน้าเว็บต่อใหม่เอง |
-| ช่อง ROS ขึ้น "รอ agent" | ยังไม่ได้ `docker\mor_luam.bat wifi` หรือ Firewall ปิด UDP 8888 |
-| `Docker is not running` | เปิด Docker Desktop รอจนขึ้น Engine running |
+แผนที่โค้ด [CLAUDE.md](../CLAUDE.md), รวมเอกสาร [docs/README.md](../docs/README.md)

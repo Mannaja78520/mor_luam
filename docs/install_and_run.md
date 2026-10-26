@@ -11,6 +11,14 @@ Pick ONE way:
 The commands of A and B are the same words (`fw-build`, `fw-ota`, `wifi`, ...).
 Thai web guide: [web_guide_th.md](web_guide_th.md). Safety before any motion test: [safety.md](safety.md).
 
+On the owner's Windows PC the existing checkout is `E:\GPS_Localize\old\mor_luam`
+(located 26 October 2026). Use it rather than cloning a second copy for normal
+operation. `web`, `find`, `web-mock` and `robot-test` use local Python; opening
+the real ESP32 web app does not require Docker or ROS. On Windows `fw-ota` uses
+curl and `fw-flash` uses local PlatformIO/esptool; both use already-built files.
+Firmware builds/host tests and ROS services require Docker. Full command guide:
+[docker/README.md](../docker/README.md).
+
 ---
 
 ## 1. Install
@@ -118,7 +126,7 @@ Optional: `sudo apt install -y nodejs` for the web page tests.
 | Run a ROS program | `docker\mor_luam.bat run drive_to_xy.py 0.3 0 --speed 0.03 --unit mps` | `./docker/mor_luam.sh run drive_to_xy.py 0.3 0 --speed 0.03 --unit mps` | `ros2 run mor_luam drive_to_xy.py 0.3 0 --speed 0.03 --unit mps` |
 | ROS terminal | `docker\mor_luam.bat shell` | `./docker/mor_luam.sh shell` | any terminal (sourced) |
 | Real-robot tests | `docker\mor_luam.bat robot-test --steps 1` | `./docker/mor_luam.sh robot-test --steps 1` | `python3 tools/robot_test.py --host mor-luam.local --steps 1` |
-| Stop Docker parts | `docker\mor_luam.bat stop` | `./docker/mor_luam.sh stop` | Ctrl+C in each terminal |
+| Stop Docker parts (not robot E-STOP; halt robot first) | `docker\mor_luam.bat stop` | `./docker/mor_luam.sh stop` | Ctrl+C in each terminal |
 | E-STOP from the PC | `curl.exe -X POST http://mor-luam.local/api/estop` | `curl -X POST http://mor-luam.local/api/estop` | same |
 
 **Speed:** this robot's drive wheel tops out at ~0.039 m/s (9.7 rpm). Use `--speed 0.03` (or less) in ROS programs.
