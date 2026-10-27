@@ -68,6 +68,7 @@ class RobotLink:
         self.sequence = itertools.count()
         self.pending_status = None
         self.last_response = 0
+        self.identity_misses = 0
         threading.Thread(target=self.worker, daemon=True).start()
         if discover:
             threading.Thread(target=self.discovery, daemon=True).start()
@@ -78,6 +79,23 @@ class RobotLink:
             with urllib.request.urlopen('http://' + host + '/api/whoami', timeout=.7) as r:
                 return json.load(r).get('type') == 'morluam'
         except (OSError, ValueError, http.client.HTTPException):
+            return False
+
+    def contact(self, target):
+        with self.lock:
+            if self.target == target:
+                self.last_response = time.monotonic()
+                self.identity_misses = 0
+
+    def unreachable(self, target):
+        """Keep the verified address through short loss; never fabricate status."""
+        with self.lock:
+            if self.target != target:
+                return True
+            self.identity_misses += 1
+            if self.identity_misses >= 3 and time.monotonic() - self.last_response >= 5:
+                self.target = None
+                return True
             return False
 
     @staticmethod
@@ -115,6 +133,10 @@ class RobotLink:
             except OSError:
                 pass
             found = next((h for h in dict.fromkeys(candidates) if h and self.identify(h)), None)
+            previous = self.target
+            if not found and previous and not self.unreachable(previous):
+                time.sleep(2)
+                continue
             if not found and time.monotonic() - last_scan > 12:
                 last_scan = time.monotonic()
                 subnets = [ipaddress.ip_network(self.subnet, strict=False)] if self.subnet else local_networks()
@@ -122,7 +144,12 @@ class RobotLink:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=64) as pool:
                     found = next((h for h, valid in zip(hosts, pool.map(self.identify, hosts)) if valid), None)
             with self.lock:
-                self.target = found
+                # Do not erase contact restored by the API worker during a scan.
+                if found or time.monotonic() - self.last_response >= 5:
+                    self.target = found
+                    if found:
+                        self.last_response = time.monotonic()
+                        self.identity_misses = 0
             time.sleep(2)
 
     def worker(self):
@@ -135,7 +162,7 @@ class RobotLink:
                 continue
             try:
                 status, data = self.request(target, path, body, headers)
-                self.last_response = time.monotonic()
+                self.contact(target)
                 if path == '/api/status':
                     obj = json.loads(data)
                     obj['pc'] = {'robotHost': target, 'mode': 'live'}
@@ -149,9 +176,9 @@ class RobotLink:
                 # One missing reply does not prove Wi-Fi disconnected. Keep
                 # discovery's verified target if its small identity reply works.
                 if not self.identify(target):
-                    with self.lock:
-                        if self.target == target:
-                            self.target = None
+                    self.unreachable(target)
+                else:
+                    self.contact(target)
                 if not future.cancelled():
                     future.set_result((503, b'{"ok":false,"error":"Robot offline; simulator is still available"}'))
 

@@ -20,6 +20,10 @@ class Api {
       try { data = await res.json(); } catch {
         return { ok: false, error: 'หุ่นส่งข้อมูลไม่ครบ · กำลังรอข้อมูลครั้งถัดไป' };
       }
+      if (res.ok && path === '/api/status' && (!data ||
+          ['robot', 'nav', 'net', 'ros', 'sys'].some(k => !data[k] || typeof data[k] !== 'object' || Array.isArray(data[k])))) {
+        return { ok: false, error: 'ข้อมูลสถานะหุ่นไม่ครบ · กำลังรอข้อมูลครั้งถัดไป' };
+      }
       if (!res.ok || data.ok === false) return { ok: false, error: data.error || `หุ่นตอบ HTTP ${res.status}`, data };
       return { ok: true, data };
     } catch (e) {
@@ -73,12 +77,18 @@ class Poller {
   async tick() {
     if (this.busy) return;
     this.busy = true;
-    const r = await this.api.get(this.path, 3000);
-    this.busy = false;
-    if (r.ok) { this.lastOkMs = Date.now(); this.onData(r.data); }
-    this.updateConn();
-    const slow = document.hidden ? 1000 : this.periodMs;   // background tab: go easy on the robot (still under staleMs)
-    this.timer = setTimeout(() => this.tick(), slow);
+    try {
+      const r = await this.api.get(this.path, 3000);
+      if (r.ok) { this.onData(r.data); this.lastOkMs = Date.now(); }
+    } catch {
+      // A bad response or view must not permanently stop future status polls.
+      // Failed processing never advances the freshness clock.
+    } finally {
+      this.busy = false;
+      const slow = document.hidden ? 1000 : this.periodMs;
+      this.timer = setTimeout(() => this.tick(), slow);
+      this.updateConn();
+    }
   }
 
   updateConn() {

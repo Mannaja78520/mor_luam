@@ -124,5 +124,32 @@ class CompanionContract(unittest.TestCase):
             self.assertFalse(net.is_loopback)
             self.assertFalse(net.is_link_local)
 
+    def test_target_survives_one_lost_probe_but_expires_after_repeated_loss(self):
+        link = self.pc.link
+        link.target = '192.168.137.123'
+        with patch('pc_web.time.monotonic', return_value=100):
+            link.contact(link.target)
+        for now in (101, 102):
+            with patch('pc_web.time.monotonic', return_value=now):
+                self.assertFalse(link.unreachable('192.168.137.123'))
+                self.assertEqual(link.target, '192.168.137.123')
+        with patch('pc_web.time.monotonic', return_value=106):
+            self.assertTrue(link.unreachable('192.168.137.123'))
+        self.assertIsNone(link.target)
+        link.target = '192.168.137.124'
+        self.assertTrue(link.unreachable('192.168.137.123'))
+        self.assertEqual(link.target, '192.168.137.124', 'an old request cannot evict a new robot address')
+
+    def test_good_reply_resets_consecutive_probe_failures(self):
+        link = self.pc.link
+        link.target = '192.168.137.123'
+        with patch('pc_web.time.monotonic', return_value=100):
+            link.unreachable(link.target)
+            link.contact(link.target)
+        self.assertEqual(link.identity_misses, 0)
+        with patch('pc_web.time.monotonic', return_value=106):
+            self.assertFalse(link.unreachable(link.target))
+        self.assertIsNotNone(link.target)
+
 
 if __name__ == '__main__': unittest.main()

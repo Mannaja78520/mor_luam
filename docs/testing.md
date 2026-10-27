@@ -177,6 +177,10 @@ Uses the robot's route test (same start angle, robot clock, alignment not timed)
 Set the goal radius first (Settings, e.g. 0.0025 m): with 5 cm the detour can "arrive" before its final turn.
 Result 2026-10-08 (2.5 mm radius, 3 runs each): Direct mean 25.84 s, Detour mean 19.99 s (-22.6 %).
 
+## Polling recovery follow-up (27 October 2026)
+
+PC web tests now9/9 PASS, including transient target loss and old-target isolation. The browser API test rejects incomplete status and verifies polling continues after a callback error. Route-test UI checks and firmware build PASS. No freshness threshold or motor watchdog was relaxed. The new binary is1213664 bytes; it was not uploaded in this follow-up. The actual robot was absent from hotspot clients and a1270-address local-network scan, so sustained physical reliability remains unverified. See [Codex V9](../HANDOFF_MORLUAM_CODEX_V9.md) and [PC web guide](pc_web_th.md).
+
 ## PC web and two-metre model (27 October 2026)
 
 `docker\mor_luam.bat web` serves the real UI on localhost:8000 without a robot. The Simulation tab has isolated local waypoints: add/drag/delete, numerical entry, copy and two examples. Reconnection never starts a route or replays commands rejected while offline. `mor-luam.local` remains the ESP32 hostname. See [PC web guide](pc_web_th.md).
