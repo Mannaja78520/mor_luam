@@ -30,6 +30,8 @@ class RobotLink:
         self.lock = threading.Lock()
         self.jobs = queue.PriorityQueue()
         self.sequence = itertools.count()
+        self.pending_status = None
+        self.last_response = 0
         threading.Thread(target=self.worker, daemon=True).start()
         if discover:
             threading.Thread(target=self.discovery, daemon=True).start()
@@ -42,9 +44,29 @@ class RobotLink:
         except (OSError, ValueError):
             return False
 
+    @staticmethod
+    def request(target, path, body, headers):
+        # A lost read is safe to repeat. Never repeat a motor/settings POST:
+        # its reply may be lost after the robot has already applied it.
+        attempts = 2 if body is None else 1
+        for attempt in range(attempts):
+            request = urllib.request.Request('http://' + target + path, data=body, headers=headers,
+                                             method='POST' if body is not None else 'GET')
+            try:
+                with urllib.request.urlopen(request, timeout=1 if body is None else 2) as response:
+                    return response.status, response.read()
+            except urllib.error.HTTPError:
+                raise
+            except OSError:
+                if attempt + 1 == attempts:
+                    raise
+
     def discovery(self):
         last_scan = 0
         while True:
+            if self.target and time.monotonic() - self.last_response < 5:
+                time.sleep(2)
+                continue  # Real API replies already confirm this robot is here.
             candidates = [self.target]
             try:
                 candidates.append(socket.gethostbyname(self.hostname))
@@ -69,10 +91,8 @@ class RobotLink:
                 future.set_result((503, b'{"ok":false,"error":"Robot connection changed; retry when ready"}'))
                 continue
             try:
-                request = urllib.request.Request('http://' + target + path, data=body, headers=headers,
-                                                 method='POST' if body is not None else 'GET')
-                with urllib.request.urlopen(request, timeout=2) as response:
-                    data, status = response.read(), response.status
+                status, data = self.request(target, path, body, headers)
+                self.last_response = time.monotonic()
                 if path == '/api/status':
                     obj = json.loads(data)
                     obj['pc'] = {'robotHost': target, 'mode': 'live'}
@@ -83,26 +103,37 @@ class RobotLink:
                 if not future.cancelled():
                     future.set_result((error.code, error.read()))
             except (OSError, ValueError):
-                with self.lock:
-                    if self.target == target:
-                        self.target = None
+                # One missing reply does not prove Wi-Fi disconnected. Keep
+                # discovery's verified target if its small identity reply works.
+                if not self.identify(target):
+                    with self.lock:
+                        if self.target == target:
+                            self.target = None
                 if not future.cancelled():
                     future.set_result((503, b'{"ok":false,"error":"Robot offline; simulator is still available"}'))
 
     def forward(self, path, body=None, headers=None):
+        shared_status = path == '/api/status' and body is None
         with self.lock:
             target = self.target
-        if not target:
-            return 503, b'{"ok":false,"error":"Robot offline; simulator is still available"}'
-        future = concurrent.futures.Future()
-        urgent = path.startswith(('/api/estop', '/api/nav/stop'))
-        realtime = body is not None or path == '/api/status'
-        self.jobs.put((-1 if urgent else 0 if realtime else 5, next(self.sequence), time.monotonic(),
-                       target, path, body, headers or {}, future))
+            if not target:
+                return 503, b'{"ok":false,"error":"Robot offline; simulator is still available"}'
+            pending = self.pending_status
+            if shared_status and pending and pending[0] == target and not pending[1].done():
+                future = pending[1]  # Open tabs share one in-flight real status read.
+            else:
+                future = concurrent.futures.Future()
+                if shared_status:
+                    self.pending_status = (target, future)
+                urgent = path.startswith(('/api/estop', '/api/nav/stop'))
+                realtime = body is not None or shared_status
+                self.jobs.put((-1 if urgent else 0 if realtime else 5, next(self.sequence), time.monotonic(),
+                               target, path, body, headers or {}, future))
         try:
             return future.result(timeout=8)
         except concurrent.futures.TimeoutError:
-            future.cancel()
+            if not shared_status:
+                future.cancel()
             return 504, b'{"ok":false,"error":"Robot did not answer; command not retried"}'
 
 
@@ -115,7 +146,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         try:
             self.wfile.write(data)
-        except (BrokenPipeError, ConnectionResetError):
+        except ConnectionError:
             pass
 
     def do_GET(self):

@@ -1,9 +1,11 @@
 """Companion contract: real HTTP with a fake backend, never a physical robot."""
 import json
+import concurrent.futures
 import threading
 import unittest
 import urllib.error
 import urllib.request
+from unittest.mock import patch
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pc_web import Handler, RobotLink
 
@@ -55,6 +57,44 @@ class CompanionContract(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as e: urllib.request.urlopen(request)
         self.assertEqual(e.exception.code, 403)
         self.assertEqual(Backend.calls, [])
+
+    def test_transient_read_retries_but_post_is_never_repeated(self):
+        self.pc.link.target = f'127.0.0.1:{self.backend.server_port}'
+        real_open = urllib.request.urlopen
+        def flaky(request, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1: raise TimeoutError('lost reply')
+            return real_open(request, **kwargs)
+        calls = 0
+        with patch('pc_web.urllib.request.urlopen', side_effect=flaky):
+            status, body = RobotLink.request(self.pc.link.target, '/api/status', None, {})
+        self.assertEqual((status, calls), (200, 2))
+        self.assertEqual(json.loads(body)['robot']['mode'], 'halt')
+        calls = 0
+        with patch('pc_web.urllib.request.urlopen', side_effect=flaky):
+            with self.assertRaises(TimeoutError):
+                RobotLink.request(self.pc.link.target, '/api/nav/start', b'{}', {})
+        self.assertEqual(calls, 1)
+        self.assertEqual(Backend.calls, [('GET', '/api/status')])
+
+    def test_open_tabs_share_one_inflight_status_read(self):
+        self.pc.link.target = f'127.0.0.1:{self.backend.server_port}'
+        entered, release = threading.Event(), threading.Event()
+        def delayed(*args):
+            entered.set()
+            self.assertTrue(release.wait(2))
+            return 200, b'{"robot":{"mode":"halt"}}'
+        with patch.object(self.pc.link, 'request', side_effect=delayed) as request:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                first = pool.submit(self.pc.link.forward, '/api/status')
+                self.assertTrue(entered.wait(1))
+                rest = [pool.submit(self.pc.link.forward, '/api/status') for _ in range(3)]
+                # All callers have entered forward before the real reply completes.
+                for future in rest: self.assertFalse(future.done())
+                release.set()
+                for future in [first, *rest]: self.assertEqual(future.result()[0], 200)
+            self.assertEqual(request.call_count, 1)
 
 
 if __name__ == '__main__': unittest.main()

@@ -189,7 +189,7 @@ ROS domain **10**, agent UDP **8888** หากคอมไม่ใช่ gatew
 | รวมเอกสาร เทคนิค หลักฐานทดสอบ | [Documentation map](docs/README.md) |
 | Direct/Detour และการเพิ่ม planner | [Algorithm README](firmware/src/algorithm/README.md) |
 | แผนที่ source | [CLAUDE.md](CLAUDE.md) |
-| สถานะล่าสุด 27 ต.ค. 2026: เว็บบนคอม วางจุดจำลอง และเปรียบเทียบหลายช่วง | [Codex V4](HANDOFF_MORLUAM_CODEX_V4.md) |
+| สถานะล่าสุด 27 ต.ค. 2026: เชื่อม Wi-Fi กลับได้ และปรับการอ่านสถานะบนคอม | [Codex V5](HANDOFF_MORLUAM_CODEX_V5.md) |
 | งานเอกสาร 26 ต.ค. 2026 | [Codex V2](HANDOFF_MORLUAM_CODEX_V2.md) |
 | ประวัติเฟิร์มแวร์/ทดสอบจริง 8–10 ต.ค. | [Claude V2](HANDOFF_MORLUAM_CLAUDE_V2.md) |
 

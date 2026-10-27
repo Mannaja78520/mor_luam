@@ -32,7 +32,8 @@ Start with [Safety](safety.md) before powering the motors. Use [Testing](testing
 | เดินรวม 2 m แบ่ง 7 ช่วง: เปรียบเทียบ Direct / Detour, ตั้งค่า, ระยะกลับ และผลจำลอง | [compare_2m_th.md](compare_2m_th.md) |
 | Steering power ramp, trace checks and missing-response diagnosis | [Tuning](tuning.md) |
 | Windows setup, Docker, Wi-Fi, browser tabs and ROS tools | [Windows guide](../docker/README.md) |
-| Latest state, 27 October 2026: PC web, editable simulation and multi-leg comparison | [Codex V4](../HANDOFF_MORLUAM_CODEX_V4.md) |
+| Latest state, 27 October 2026: Wi-Fi reachability recovered; PC read resilience | [Codex V5](../HANDOFF_MORLUAM_CODEX_V5.md) |
+| PC web, editable simulation and multi-leg comparison implementation | [Codex V4](../HANDOFF_MORLUAM_CODEX_V4.md) |
 | Previous documentation verification, 26 October 2026 | [Codex V2](../HANDOFF_MORLUAM_CODEX_V2.md) |
 | Latest firmware history and attended tests, 8–10 October 2026 | [Claude V2](../HANDOFF_MORLUAM_CLAUDE_V2.md) |
 | Earlier IMU, steering and drive evidence | [Codex V1](../HANDOFF_MORLUAM_CODEX_V1.md), [Claude V1](../HANDOFF_MORLUAM_CLAUDE_V1.md) |
