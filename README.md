@@ -124,6 +124,12 @@ Copy-Item firmware\config\network_secrets.example.h firmware\config\network_secr
 ปรับระยะ/มุมและการ reset ได้ในตั้งค่า อ่าน [คู่มือเว็บภาษาไทย](docs/web_guide_th.md)
 ก่อนใช้ปุ่มวิ่งจริง
 
+**ฟีเจอร์ในเครื่องที่รอ push โค้ด — เปรียบเทียบระยะรวม 2 เมตร:** ตั้งขาไป `2.00 m`, จำนวนช่วง `7`,
+มุมเยื้อง `6°` ในกลุ่มเดโมปุ่มบนหุ่น ทั้งสองแบบผ่านจุดเดียวกัน 7 ช่วง (ช่วงละประมาณ 28.6 ซม.)
+แล้วกลับจุดเริ่ม ขากลับไม่นับเวลาเปรียบเทียบ ระยะขับจริงของ Detour อาจมากกว่า 2 เมตรเพราะการอ้อม
+หน้าเว็บแสดงระยะ พื้นที่ และเวลาประมาณตามค่าที่บันทึก อ่าน [คู่มือเปรียบเทียบ 2 เมตร](docs/compare_2m_th.md)
+ซึ่งแยกผลจำลองออกจากผลวิ่งจริง
+
 ลองเว็บโดยไม่มีหุ่น:
 
 ```powershell
@@ -176,10 +182,12 @@ ROS domain **10**, agent UDP **8888** หากคอมไม่ใช่ gatew
 | คำสั่ง Windows / Docker ทั้งหมด | [Docker README](docker/README.md) |
 | ติดตั้ง Windows / Ubuntu / แบบไม่ใช้ Docker | [ติดตั้งและรัน](docs/install_and_run.md) |
 | เว็บทุกแท็บและเดโม | [คู่มือเว็บภาษาไทย](docs/web_guide_th.md) |
+| Direct / Detour ขาไปรวม 2 m แบ่ง 7 ช่วง | [คู่มือเปรียบเทียบ 2 เมตร](docs/compare_2m_th.md) |
 | รวมเอกสาร เทคนิค หลักฐานทดสอบ | [Documentation map](docs/README.md) |
 | Direct/Detour และการเพิ่ม planner | [Algorithm README](firmware/src/algorithm/README.md) |
 | แผนที่ source | [CLAUDE.md](CLAUDE.md) |
-| งานเอกสารล่าสุด 26 ต.ค. 2026 | [Codex V2](HANDOFF_MORLUAM_CODEX_V2.md) |
+| สถานะล่าสุด 27 ต.ค. 2026: เอกสารเผยแพร่ก่อน โค้ดใหม่อยู่ในเครื่อง | [Codex V3](HANDOFF_MORLUAM_CODEX_V3.md) |
+| งานเอกสาร 26 ต.ค. 2026 | [Codex V2](HANDOFF_MORLUAM_CODEX_V2.md) |
 | ประวัติเฟิร์มแวร์/ทดสอบจริง 8–10 ต.ค. | [Claude V2](HANDOFF_MORLUAM_CLAUDE_V2.md) |
 
 แก้เว็บที่ `firmware/web/`; `firmware/src/web/WebPage.h` สร้างอัตโนมัติตอน build

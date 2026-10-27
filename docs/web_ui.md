@@ -2,6 +2,12 @@
 
 [Documentation map](README.md) · [Safety](safety.md) · [Testing](testing.md)
 
+For the current three-round comparison, including the optional 2 m / seven-leg
+route, follow [the Thai comparison guide](compare_2m_th.md). The distance is the
+sum of outbound waypoint legs; the untimed return is additional travel. The
+old short single-goal examples below remain model examples, not measurements
+of the new route.
+
 Open `http://mor-luam.local/` or `http://<IP>/` (IP from `docker\mor_luam.bat find`; the hotspot can give a new one) while connected to the robot's network. The page is served by the ESP32; no ROS agent is needed for a web route.
 
 ## Place a route

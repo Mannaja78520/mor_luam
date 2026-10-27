@@ -1,5 +1,12 @@
 # Build, test and verification record
 
+Current multi-leg comparison setup: [2 m / seven-leg guide](compare_2m_th.md).
+Use `demoDistM=2.0`, `demoSegments=7`, `demoRightDeg=6`; keep the measured speed
+settings (0.03 m/s, steering model 35 degrees/s). The host suite checks the full
+six-run series and recorded waypoint lengths. Historical real-robot results in
+this file refer to their dated short routes, not the new 2 m route. No physical
+result for the new route is implied by a firmware build or model prediction.
+
 [Documentation map](README.md) · [Safety](safety.md)
 
 Run the Windows commands below from the repository root with Docker Desktop running. Read [Safety](safety.md) before testing the real robot.

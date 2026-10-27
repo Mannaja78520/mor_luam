@@ -14,7 +14,7 @@ Read this file first; open only the files the task needs.
 | PIDF gains + steer stop predictor switches | `firmware/config/PIDF_config.h` |
 | Pins / PWM / wheel size | `firmware/config/config.h`, `esp32_hardware.h` |
 | Composition root (who owns what, begin order) | `firmware/src/app/App.cpp` |
-| Saved settings (NVS "morluam") + validation | `firmware/src/app/Settings.cpp` (+ `SETTINGS_SCHEMA` in `web/js/60_settings.js`); demo button (demoReset, demoDistM, demoRightDeg) and steering (steerLandDeg, reaimOn, reaimRatio -> `ControlLoop::setSteerTuning`, applied at boot and on save) |
+| Saved settings (NVS "morluam") + validation | `firmware/src/app/Settings.cpp` (+ `SETTINGS_SCHEMA` in `web/js/60_settings.js`); demo button (demoReset, demoDistM, demoSegments, demoRightDeg) and steering (steerLandDeg, reaimOn, reaimRatio -> `ControlLoop::setSteerTuning`, applied at boot and on save) |
 | Robot pose from the web | `POST /api/pose/reset` (here = (0,0), front = 0 deg, new IMU zero), `POST /api/pose/set {x,y,headingDeg}` (`ImuHeading::resetReference(heading)`, `Odometry::setPosition`) |
 | Steer/drive state machine, overshoot, coast cut | `firmware/src/control/SteerDriveController.cpp` |
 | 100 Hz control task, thread-safe facade | `firmware/src/control/ControlLoop.cpp` |
@@ -78,3 +78,7 @@ docker\mor_luam.bat wifi | logs | topics | run <prog> | shell | stop     ROS sid
 - Keep HTTP replies small (a few KB). AsyncResponseStream grows its buffer by each write's bytes
   (O(n^2) copying: a 12 KB reply reset the ESP32 by watchdog), and a ~6 KB reply never arrived even
   pre-sized. Split big data into pages (see `/api/demo/series?run=i`); `reply()` reserves the String once.
+
+## Multi-leg comparison (2026-10-27)
+
+See `docs/compare_2m_th.md`: demoDistM is the TOTAL outbound waypoint length (max 2 m), demoSegments 1..7, each leg >=0.10 m. The 2 m / 7 / 6-degree profile uses short right-bending legs for both planners; the return is untimed. Each run records its actual waypoint list. Compare and series summaries omit paths/activities; request compare?run=0|1 or series?run=i for xy, route and acts. Never draw a single-goal plan for a multi-leg run. ActivityLog holds 64 changes per run.
