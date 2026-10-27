@@ -64,4 +64,4 @@ python tools/pc_web.py --host mor-luam.local --subnet 192.168.137.0/24 --port 80
 - OTA ใช้ `docker\mor_luam.bat fw-ota` หรือหน้าเว็บตรงบนหุ่นขณะหยุด ไม่ส่ง firmware ผ่านคิวควบคุมของ server บนคอม
 - อ่าน [ความปลอดภัย](safety.md) ก่อนขยับจริง และ [เปรียบเทียบ 2 เมตร](compare_2m_th.md) สำหรับชุด 7 ช่วง
 
-ทดสอบแบบไม่ใช้ฮาร์ดแวร์: `python tools/test_pc_web.py` (5 กรณี รวม GET retry, POST ไม่ซ้ำ และหลายแท็บใช้คำขอสถานะร่วมกัน) และ `node firmware/web/test_simulation_route.cjs`
+ทดสอบแบบไม่ใช้ฮาร์ดแวร์: `python tools/test_pc_web.py` (6 กรณี รวม GET retry, จัดการ HTTP 200 ว่างเปล่า, POST ไม่ซ้ำ และหลายแท็บใช้คำขอสถานะร่วมกัน), `node firmware/web/test_api.cjs` (ตรวจการปฏิเสธ JSON ว่าง/ไม่สมบูรณ์) และ `node firmware/web/test_simulation_route.cjs`

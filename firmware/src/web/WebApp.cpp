@@ -14,9 +14,20 @@
 // ---- helpers ------------------------------------------------------------------
 
 void WebApp::reply(AsyncWebServerRequest* r, JsonDocument& doc, int code) {
+    if (doc.overflowed()) {
+        r->send(503, "application/json", "{\"ok\":false,\"error\":\"Not enough memory for reply\"}");
+        return;
+    }
+    const size_t length = measureJson(doc);
     String out;
-    out.reserve(measureJson(doc) + 1);       // one allocation, not one per piece
-    serializeJson(doc, out);
+    if (!out.reserve(length + 1)) {
+        r->send(503, "application/json", "{\"ok\":false,\"error\":\"Not enough memory for reply\"}");
+        return;
+    }
+    if (serializeJson(doc, out) != length || out.length() != length) {
+        r->send(503, "application/json", "{\"ok\":false,\"error\":\"Incomplete reply\"}");
+        return;
+    }
     r->send(code, "application/json", out);
 }
 
@@ -161,6 +172,8 @@ void WebApp::statusJson(JsonObject o) {
     sys["build"] = __DATE__ " " __TIME__;
     sys["uptimeS"] = millis() / 1000;
     sys["heap"] = ESP.getFreeHeap();
+    sys["maxAlloc"] = ESP.getMaxAllocHeap();
+    sys["minHeap"] = ESP.getMinFreeHeap();
     sys["tickUs"] = d_.ctrl->tickUs();
     sys["otaPct"] = d_.ota->updating() ? d_.ota->progressPct() : -1;
     sys["name"] = d_.settings->get().robotName;

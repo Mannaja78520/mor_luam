@@ -33,7 +33,9 @@ The drive-learning test uses a synthetic weaker motor that needs 1.18 times the 
 For Python changes, check syntax as well:
 
 ```powershell
-python -m py_compile tools\robot_test.py firmware\web\mock_robot.py
+python -m py_compile tools\robot_test.py tools\pc_web.py firmware\web\mock_robot.py
+python tools\test_pc_web.py
+node firmware\web\test_api.cjs
 node firmware\web\test_simulation.cjs
 git diff --check
 ```

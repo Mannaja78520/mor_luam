@@ -13,9 +13,13 @@ from pc_web import Handler, RobotLink
 
 class Backend(BaseHTTPRequestHandler):
     calls = []
+    empty_status_remaining = 0
     def do_GET(self):
         self.calls.append(('GET', self.path))
-        data = json.dumps({'robot': {'mode': 'halt'}}).encode()
+        data = json.dumps({'robot': {'mode': 'halt'}, 'nav': {}, 'net': {}, 'ros': {}, 'sys': {}}).encode()
+        if self.path == '/api/status' and Backend.empty_status_remaining:
+            Backend.empty_status_remaining -= 1
+            data = b''
         self.send_response(200); self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)
     def do_POST(self):
         self.calls.append(('POST', self.path))
@@ -26,6 +30,7 @@ class Backend(BaseHTTPRequestHandler):
 class CompanionContract(unittest.TestCase):
     def setUp(self):
         Backend.calls = []
+        Backend.empty_status_remaining = 0
         self.backend = ThreadingHTTPServer(('127.0.0.1', 0), Backend)
         self.pc = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
         self.pc.link = RobotLink(discover=False)
@@ -103,6 +108,13 @@ class CompanionContract(unittest.TestCase):
                 release.set()
                 for future in [first, *rest]: self.assertEqual(future.result()[0], 200)
             self.assertEqual(request.call_count, 1)
+
+    def test_empty_success_reply_is_retried_not_forwarded_as_live_status(self):
+        self.pc.link.target = f'127.0.0.1:{self.backend.server_port}'
+        Backend.empty_status_remaining = 1
+        data = json.loads(self.get('/api/status'))
+        self.assertEqual(data['robot']['mode'], 'halt')
+        self.assertEqual(Backend.calls, [('GET', '/api/status'), ('GET', '/api/status')])
 
 
 if __name__ == '__main__': unittest.main()

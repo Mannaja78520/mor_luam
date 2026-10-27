@@ -195,7 +195,9 @@ class App {
     $('#realRunReady').disabled = c !== 'live';
     if (document.documentElement.dataset.hostMode === 'pc') {
       $('#pcConnection').classList.remove('hidden');
-      if (c !== 'live') $('#pcConnection').textContent = 'เว็บบนคอม · ยังไม่เชื่อมหุ่น · วางจุดและดูจำลองได้ · เปิดหุ่นแล้วจะเชื่อมให้อัตโนมัติ';
+      if (c === 'stale') $('#pcConnection').textContent = 'เว็บบนคอม · ข้อมูลจากหุ่นช้า · กำลังรอสถานะล่าสุด · จำลองได้ตามปกติ';
+      else if (c === 'loading') $('#pcConnection').textContent = 'เว็บบนคอม · กำลังเชื่อมหุ่น · วางจุดและจำลองได้';
+      else if (c === 'offline') $('#pcConnection').textContent = 'เว็บบนคอม · ติดต่อหุ่นไม่ได้ · กำลังเชื่อมใหม่ · จำลองได้ตามปกติ';
     }
     if (this.last) this.render(this.last);
     if (wasOffline && c === 'live' && this.loads.length) this.loadAll();

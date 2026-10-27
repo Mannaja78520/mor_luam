@@ -55,10 +55,16 @@ class RobotLink:
                                              method='POST' if body is not None else 'GET')
             try:
                 with urllib.request.urlopen(request, timeout=1 if body is None else 2) as response:
-                    return response.status, response.read()
+                    data = response.read()
+                    if body is None and path == '/api/status':
+                        obj = json.loads(data)
+                        if not isinstance(obj, dict) or any(not isinstance(obj.get(key), dict)
+                                                           for key in ('robot', 'nav', 'net', 'ros', 'sys')):
+                            raise ValueError('Incomplete robot status')
+                    return response.status, data
             except urllib.error.HTTPError:
                 raise
-            except (OSError, http.client.HTTPException):
+            except (OSError, ValueError, http.client.HTTPException):
                 if attempt + 1 == attempts:
                     raise
 

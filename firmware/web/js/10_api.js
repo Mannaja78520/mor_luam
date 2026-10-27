@@ -17,7 +17,9 @@ class Api {
         signal: ctl.signal,
       });
       let data = {};
-      try { data = await res.json(); } catch { /* empty body */ }
+      try { data = await res.json(); } catch {
+        return { ok: false, error: 'หุ่นส่งข้อมูลไม่ครบ · กำลังรอข้อมูลครั้งถัดไป' };
+      }
       if (!res.ok || data.ok === false) return { ok: false, error: data.error || `หุ่นตอบ HTTP ${res.status}`, data };
       return { ok: true, data };
     } catch (e) {
