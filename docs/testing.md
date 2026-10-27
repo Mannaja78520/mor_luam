@@ -12,7 +12,8 @@ result for the new route is implied by a firmware build or model prediction.
 Run the Windows commands below from the repository root with Docker Desktop running. Read [Safety](safety.md) before testing the real robot.
 
 ```powershell
-Set-Location E:\GPS_Localize\old\mor_luam
+# Run from your cloned repository root:
+cd mor_luam
 ```
 
 ## PC tests and firmware build

@@ -116,5 +116,13 @@ class CompanionContract(unittest.TestCase):
         self.assertEqual(data['robot']['mode'], 'halt')
         self.assertEqual(Backend.calls, [('GET', '/api/status'), ('GET', '/api/status')])
 
+    def test_local_networks_returns_valid_subnets_without_loopback(self):
+        from pc_web import local_networks
+        nets = local_networks()
+        self.assertIsInstance(nets, list)
+        for net in nets:
+            self.assertFalse(net.is_loopback)
+            self.assertFalse(net.is_link_local)
+
 
 if __name__ == '__main__': unittest.main()

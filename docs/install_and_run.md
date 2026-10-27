@@ -4,16 +4,15 @@ Pick ONE way:
 
 | Way | Best for | Helper |
 |---|---|---|
-| **A. Windows + Docker Desktop** | this PC (the one with the `manny` hotspot) | `docker\mor_luam.bat <command>` |
+| **A. Windows + Docker Desktop** | any Windows 10/11 PC | `docker\mor_luam.bat <command>` |
 | **B. Ubuntu + Docker** (recommended on Linux) | any Ubuntu PC, nothing else to install | `./docker/mor_luam.sh <command>` |
 | **C. Ubuntu native** (no Docker) | if you already use ROS 2 Jazzy on Ubuntu 24.04 | plain `ros2` / `pio` commands |
 
 The commands of A and B are the same words (`fw-build`, `fw-ota`, `wifi`, ...).
-Thai web guide: [web_guide_th.md](web_guide_th.md). Safety before any motion test: [safety.md](safety.md).
+Detailed Thai installation guide: [INSTALL_TH.md](INSTALL_TH.md). Thai web guide: [web_guide_th.md](web_guide_th.md). Safety before any motion test: [safety.md](safety.md).
 
-On the owner's Windows PC the existing checkout is `E:\GPS_Localize\old\mor_luam`
-(located 26 October 2026). Use it rather than cloning a second copy for normal
-operation. `web`, `find`, `web-mock` and `robot-test` use local Python; opening
+On any computer, clone the repository into any directory you prefer.
+`web`, `find`, `web-mock` and `robot-test` use local Python; opening
 the real ESP32 web app does not require Docker or ROS. On Windows `fw-ota` uses
 curl and `fw-flash` uses local PlatformIO/esptool; both use already-built files.
 Firmware builds/host tests and ROS services require Docker. Full command guide:
@@ -100,7 +99,7 @@ Optional: `sudo apt install -y nodejs` for the web page tests.
 ## 2. Run
 
 ### Network first (all ways)
-- The robot joins the saved Wi-Fi with the highest priority. Default here: the Windows hotspot `manny`.
+- The robot joins the saved Wi-Fi with the highest priority, configured in `network_secrets.h`.
 - On Ubuntu you can make the PC the hotspot too: `nmcli device wifi hotspot ssid manny password '<password>'`.
 - The robot finds the ROS agent by itself **only when the PC is its gateway** (PC hotspot). On any other network,
   open the robot's web page → Settings → "micro-ROS agent" and enter the PC's IP or `<pc-name>.local`.

@@ -3,7 +3,7 @@
 Copy everything between the lines.
 
 ---
-You are continuing work on my robot project `mor_luam` at `E:\GPS_Localize\old\mor_luam`
+You are continuing work on my robot project `mor_luam`
 (GitHub: https://github.com/Mannaja78520/mor_luam.git). Another AI (Claude) worked on it until its
 context ran out.
 

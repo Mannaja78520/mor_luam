@@ -1,12 +1,12 @@
 # Documentation map
 
-## Start on this Windows PC
+## Quick Start on Windows / Any PC
 
-The working checkout is `E:\GPS_Localize\old\mor_luam` (located 26 October 2026).
-From PowerShell:
+Clone the repository to any directory on your computer:
 
 ```powershell
-Set-Location E:\GPS_Localize\old\mor_luam
+git clone https://github.com/Mannaja78520/mor_luam.git
+cd mor_luam
 .\docker\mor_luam.bat web
 ```
 
@@ -22,6 +22,7 @@ Start with [Safety](safety.md) before powering the motors. Use [Testing](testing
 
 | Need | Guide |
 |---|---|
+| **คู่มือติดตั้งและใช้งานสำหรับทุกเครื่อง (ภาษาไทย)** | [**INSTALL_TH.md**](INSTALL_TH.md) |
 | Stop the robot, prepare a safe test, understand sensor limits | [Safety](safety.md) |
 | Measure body shaking with the BNO085 | [IMU measurements](imu.md) |
 | Build, update firmware, run PC tests and attended robot tests | [Testing](testing.md) |

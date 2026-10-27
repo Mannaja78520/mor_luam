@@ -13,6 +13,8 @@ import json
 from pathlib import Path
 import queue
 import socket
+import subprocess
+import sys
 import threading
 import time
 import urllib.error
@@ -24,8 +26,41 @@ from urllib.parse import urlsplit
 WEB = Path(__file__).resolve().parents[1] / 'firmware' / 'web'
 
 
+def local_networks():
+    """IPv4 /24 networks of this PC's interfaces (Windows: from ipconfig; cross-platform: socket)."""
+    ips = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ips.add(info[4][0])
+    except OSError:
+        pass
+    if sys.platform == "win32":
+        try:
+            out = subprocess.run(["ipconfig"], capture_output=True, text=True, errors="ignore").stdout
+            for line in out.splitlines():
+                if "IPv4" in line and ":" in line:
+                    ips.add(line.split(":")[-1].strip())
+        except OSError:
+            pass
+    nets = set()
+    for ip in ips:
+        try:
+            a = ipaddress.ip_address(ip)
+        except ValueError:
+            continue
+        if a.is_loopback or a.is_link_local:
+            continue
+        nets.add(ipaddress.ip_network(f"{ip}/24", strict=False))
+
+    def sort_key(n):
+        s = str(n)
+        return (0 if s.startswith("192.168.") else 1 if s.startswith("172.") else 2, s)
+
+    return sorted(nets, key=sort_key)
+
+
 class RobotLink:
-    def __init__(self, hostname='mor-luam.local', subnet='192.168.137.0/24', discover=True):
+    def __init__(self, hostname='mor-luam.local', subnet=None, discover=True):
         self.hostname, self.subnet = hostname, subnet
         self.target = None
         self.lock = threading.Lock()
@@ -82,8 +117,9 @@ class RobotLink:
             found = next((h for h in dict.fromkeys(candidates) if h and self.identify(h)), None)
             if not found and time.monotonic() - last_scan > 12:
                 last_scan = time.monotonic()
-                hosts = [str(h) for h in ipaddress.ip_network(self.subnet).hosts()]
-                with concurrent.futures.ThreadPoolExecutor(max_workers=32) as pool:
+                subnets = [ipaddress.ip_network(self.subnet, strict=False)] if self.subnet else local_networks()
+                hosts = list(dict.fromkeys(str(h) for net in subnets for h in net.hosts()))
+                with concurrent.futures.ThreadPoolExecutor(max_workers=64) as pool:
                     found = next((h for h, valid in zip(hosts, pool.map(self.identify, hosts)) if valid), None)
             with self.lock:
                 self.target = found
@@ -199,7 +235,8 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--host', default='mor-luam.local')
-    parser.add_argument('--subnet', default='192.168.137.0/24')
+    parser.add_argument('--subnet', default=None,
+                        help='Subnet to scan (e.g. 192.168.137.0/24). If omitted, automatically scans all local network interfaces.')
     parser.add_argument('--port', type=int, default=8000)
     parser.add_argument('--no-browser', action='store_true')
     args = parser.parse_args()

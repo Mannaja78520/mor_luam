@@ -1,14 +1,14 @@
 # mor_luam — คู่มือคำสั่ง Windows และ Docker
 
-โค้ดจริงในเครื่องนี้อยู่ที่ `E:\GPS_Localize\old\mor_luam` (ตรวจ 26 ตุลาคม 2026)
-เปิด PowerShell ที่โฟลเดอร์นั้น:
+สามารถ clone และรันได้จากทุกเครื่อง ทุกโฟลเดอร์:
 
 ```powershell
-Set-Location E:\GPS_Localize\old\mor_luam
+git clone https://github.com/Mannaja78520/mor_luam.git
+cd mor_luam
 .\docker\mor_luam.bat help
 ```
 
-เครื่องใหม่อ่าน [ติดตั้ง Windows/Ubuntu](../docs/install_and_run.md)
+เครื่องใหม่อ่าน [คู่มือติดตั้งสำหรับทุกเครื่อง (ภาษาไทย)](../docs/INSTALL_TH.md) หรือ [ติดตั้ง Windows/Ubuntu](../docs/install_and_run.md)
 Ubuntu ใช้ `./docker/mor_luam.sh` แทน `.\docker\mor_luam.bat`
 ตัวเลือก USB บน Ubuntu ใช้ `--port /dev/ttyUSB0`
 
@@ -23,7 +23,7 @@ Ubuntu ใช้ `./docker/mor_luam.sh` แทน `.\docker\mor_luam.bat`
 ใช้ Python เปิดเว็บที่ [localhost:8000](http://localhost:8000/) จำลองได้ offline และเชื่อม API ของหุ่นอัตโนมัติ
 **ไม่ต้องเปิด Docker หรือ ROS agent** เก็บ terminal ไว้ระหว่างใช้เว็บ อ่าน [คู่มือเว็บบนคอม](../docs/pc_web_th.md)
 ถ้าต้องการหน้าเว็บบน ESP32 โดยตรง ใช้ `web-robot` หรือ URL mor-luam.local ด้านล่าง
-เครื่องนี้เคยใช้ Mobile Hotspot `manny`; หุ่นเลือก Wi-Fi ตามลำดับที่บันทึกไว้
+ให้หุ่นกับคอมพิวเตอร์อยู่ใน Wi-Fi วงเดียวกัน; หุ่นจะเลือก Wi-Fi ตามลำดับที่บันทึกไว้ใน network_secrets.h
 
 - เปิดตรง: [mor-luam.local](http://mor-luam.local/)
 - หาที่อยู่: `.\docker\mor_luam.bat find` แล้วเปิด IP ที่แสดง

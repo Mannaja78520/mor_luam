@@ -1,6 +1,6 @@
 # เว็บบนคอม: ไม่มีหุ่นก็วางจุดและจำลองได้
 
-รันจาก `E:\GPS_Localize\old\mor_luam` บน Windows:
+รันจากโฟลเดอร์โปรเจกต์บน Windows:
 
 ```powershell
 docker\mor_luam.bat web
@@ -26,8 +26,8 @@ Ubuntu ใช้ `./docker/mor_luam.sh web`; เรียกตรงด้ว�
 
 ## เมื่อเปิดหุ่น
 
-ให้หุ่นกับคอมอยู่ Wi-Fi วงเดียวกัน (`manny` บนเครื่องนี้) server จะค้นหา `mor-luam.local`
-และตรวจอุปกรณ์ใน subnet ของ hotspot แล้วเชื่อมต่ออัตโนมัติ
+ให้หุ่นกับคอมอยู่ Wi-Fi วงเดียวกัน (เช่น Wi-Fi บ้าน, Hotspot มือถือ, หรือ Hotspot คอมพิวเตอร์) server จะค้นหา `mor-luam.local`
+และสแกนค้นหาทุก subnet ของคอมพิวเตอร์ให้อัตโนมัติ แล้วเชื่อมต่อให้ทันทีโดยไม่ต้องระบุ subnet
 เมื่อหุ่นตอบ เว็บแสดง **เชื่อมหุ่นจริง + IP** และโหลดสถานะ/จุด/การตั้งค่าใหม่
 การเชื่อมต่อหรือเปิดหน้าเว็บ **ไม่เริ่มมอเตอร์เอง** ต้องเริ่มจากปุ่มจริงหรือคำสั่งของผู้ควบคุม
 
@@ -55,7 +55,7 @@ heartbeat/status ที่คงการวิ่งมาจากหน้า
 
 ```powershell
 docker\mor_luam.bat web --port 8001
-python tools/pc_web.py --host mor-luam.local --subnet 192.168.137.0/24 --port 8000
+python tools/pc_web.py --host mor-luam.local --port 8000
 ```
 
 - พอร์ต 8000 ถูก `web-mock` หรือโปรแกรมอื่นใช้: ปิดโปรแกรมนั้น หรือใช้พอร์ต 8001
@@ -64,4 +64,4 @@ python tools/pc_web.py --host mor-luam.local --subnet 192.168.137.0/24 --port 80
 - OTA ใช้ `docker\mor_luam.bat fw-ota` หรือหน้าเว็บตรงบนหุ่นขณะหยุด ไม่ส่ง firmware ผ่านคิวควบคุมของ server บนคอม
 - อ่าน [ความปลอดภัย](safety.md) ก่อนขยับจริง และ [เปรียบเทียบ 2 เมตร](compare_2m_th.md) สำหรับชุด 7 ช่วง
 
-ทดสอบแบบไม่ใช้ฮาร์ดแวร์: `python tools/test_pc_web.py` (6 กรณี รวม GET retry, จัดการ HTTP 200 ว่างเปล่า, POST ไม่ซ้ำ และหลายแท็บใช้คำขอสถานะร่วมกัน), `node firmware/web/test_api.cjs` (ตรวจการปฏิเสธ JSON ว่าง/ไม่สมบูรณ์) และ `node firmware/web/test_simulation_route.cjs`
+ทดสอบแบบไม่ใช้ฮาร์ดแวร์: `python tools/test_pc_web.py` (7 กรณี รวมตรวจ subnet ท้องถิ่น, GET retry, จัดการ HTTP 200 ว่างเปล่า, POST ไม่ซ้ำ และหลายแท็บใช้คำขอสถานะร่วมกัน), `node firmware/web/test_api.cjs` (ตรวจการปฏิเสธ JSON ว่าง/ไม่สมบูรณ์) และ `node firmware/web/test_simulation_route.cjs`

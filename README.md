@@ -5,32 +5,32 @@ ESP32 ควบคุมทุก 10 ms และคำนวณตำแหน�
 เปิดเว็บเพื่อวางเส้นทาง จำลอง Direct/Detour ตั้งค่า PID/Wi-Fi และอัปเดตเฟิร์มแวร์ได้
 ROS 2 Jazzy เป็นทางเลือกสำหรับสั่งจากโปรแกรมบนคอม
 
-## อยู่ที่ไหนในเครื่องนี้
+## ใช้งานบนคอมพิวเตอร์หลายเครื่อง (Multi-Machine)
 
-โฟลเดอร์โค้ดจริงที่ตรวจพบวันที่ **26 ตุลาคม 2026**:
+โปรเจกต์นี้ออกแบบมาให้โคลนและรันบนคอมพิวเตอร์เครื่องใดก็ได้ (Windows 10/11, Ubuntu Linux):
 
-```text
-E:\GPS_Localize\old\mor_luam
+```powershell
+git clone https://github.com/Mannaja78520/mor_luam.git
+cd mor_luam
 ```
 
-เชื่อมกับ [GitHub นี้](https://github.com/Mannaja78520/mor_luam)
-ส่วนโฟลเดอร์แชต Codex เป็นพื้นที่ของแชต เครื่องอื่นจะ clone ไว้ที่ใดก็ได้
-คำสั่งทั้งหมดด้านล่างให้รันจากโฟลเดอร์โปรเจกต์
+> [!TIP]
+> สำหรับผู้ใช้งานใหม่หรือต้องการนำไปลงเครื่องอื่น ดูขั้นตอนแบบละเอียดทีละขั้นตอนได้ที่ [**คู่มือติดตั้งและใช้งานสำหรับทุกเครื่อง (docs/INSTALL_TH.md)**](docs/INSTALL_TH.md)
 
 ## เปิดใช้งานบน Windows
 
-เปิดเว็บบนคอมและจำลองได้ทันทีแม้ไม่มีหุ่น โดยเปิด PowerShell:
+เปิดเว็บบนคอมและจำลองเส้นทางได้ทันทีแม้ไม่มีหุ่น (ใช้เพียง Python ไม่ต้องเปิด Docker) โดยเปิด PowerShell ในโฟลเดอร์โปรเจกต์:
 
 ```powershell
-Set-Location E:\GPS_Localize\old\mor_luam
 .\docker\mor_luam.bat web
 ```
+*(หรือรันคำสั่งตรง: `python tools/pc_web.py`)*
 
 `web` เปิด server บนคอมที่ [localhost:8000](http://localhost:8000/) วางจุดและจำลองได้โดยไม่มีหุ่น
-เมื่อเปิดหุ่นและอยู่ Wi-Fi วงเดียวกัน จะเชื่อม API จริงอัตโนมัติ โดยไม่เริ่มมอเตอร์เอง
+เมื่อเปิดหุ่นและอยู่ Wi-Fi วงเดียวกัน ตัวโปรแกรมจะสแกนหาหุ่นบนทุก Subnet อัตโนมัติ และเชื่อม API จริงโดยไม่เริ่มมอเตอร์เอง
 เก็บ terminal ไว้ระหว่างใช้เว็บ; Ctrl+C ปิด server
 ถ้าต้องการเว็บที่ ESP32 เสิร์ฟโดยตรง ใช้ `web-robot` หรือ [mor-luam.local](http://mor-luam.local/)
-เครื่องนี้เคยใช้ Mobile Hotspot ชื่อ `manny` หากชื่อเปิดไม่ได้ให้หา IP ปัจจุบัน:
+หากต้องการตรวจสอบ IP ปัจจุบันของหุ่นในเครือข่าย:
 
 ```powershell
 .\docker\mor_luam.bat find
@@ -181,8 +181,9 @@ ROS domain **10**, agent UDP **8888** หากคอมไม่ใช่ gatew
 
 | ต้องการ | อ่าน |
 |---|---|
+| **คู่มือติดตั้งและใช้งานสำหรับทุกเครื่อง (ภาษาไทย)** | [**INSTALL_TH.md**](docs/INSTALL_TH.md) |
 | คำสั่ง Windows / Docker ทั้งหมด | [Docker README](docker/README.md) |
-| ติดตั้ง Windows / Ubuntu / แบบไม่ใช้ Docker | [ติดตั้งและรัน](docs/install_and_run.md) |
+| ติดตั้ง Windows / Ubuntu / แบบไม่ใช้ Docker (ภาษาอังกฤษ) | [ติดตั้งและรัน](docs/install_and_run.md) |
 | เว็บทุกแท็บและเดโม | [คู่มือเว็บภาษาไทย](docs/web_guide_th.md) |
 | เปิดเว็บบนคอมโดยไม่มีหุ่น และเชื่อมจริงอัตโนมัติ | [คู่มือเว็บบนคอม](docs/pc_web_th.md) |
 | Direct / Detour ขาไปรวม 2 m แบ่ง 7 ช่วง | [คู่มือเปรียบเทียบ 2 เมตร](docs/compare_2m_th.md) |
