@@ -19,6 +19,7 @@ Owner confirmed the earlier power cycle cut both ESP32 and motor power. USB is i
 - Concurrent status callers share a single in-flight real request; no stale cache or fake heartbeat. Recent successful API replies avoid redundant background identity probes. A failed read only clears the target when its small identity probe also fails.
 - Catch ConnectionAbortedError along with other ConnectionError variants when browser polling aborts a reply on Windows.
 - Five HTTP contract tests PASS: offline simulator, recovery without replay, cross-origin refusal, GET retry versus single POST, shared status reads.
+- Follow-up: handle malformed/truncated HTTP responses (http.client.HTTPException, including BadStatusLine) in discovery, retry and worker paths so one bad response cannot terminate the API worker. The read retry contract also exercises BadStatusLine. POST remains single-attempt.
 - Restarted the user-facing PC service on localhost:8000 using current code. It automatically discovered .123. Existing browser page visibly showed real .123 and live status. Four additional proxy reads had one failed read followed by three successful halt/PWM0 responses; intermittent loss remains observable.
 - Keep the PC service running. Simulation stays usable offline. Do not start a physical route merely because the connection is back.
 

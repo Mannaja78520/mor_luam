@@ -5,6 +5,7 @@ telemetry, background heartbeat or automatic movement commands are generated.
 Run: python tools/pc_web.py [--port 8000] [--host mor-luam.local] [--no-browser]
 """
 import argparse
+import http.client
 import concurrent.futures
 import ipaddress
 import itertools
@@ -41,7 +42,7 @@ class RobotLink:
         try:
             with urllib.request.urlopen('http://' + host + '/api/whoami', timeout=.7) as r:
                 return json.load(r).get('type') == 'morluam'
-        except (OSError, ValueError):
+        except (OSError, ValueError, http.client.HTTPException):
             return False
 
     @staticmethod
@@ -57,7 +58,7 @@ class RobotLink:
                     return response.status, response.read()
             except urllib.error.HTTPError:
                 raise
-            except OSError:
+            except (OSError, http.client.HTTPException):
                 if attempt + 1 == attempts:
                     raise
 
@@ -102,7 +103,7 @@ class RobotLink:
             except urllib.error.HTTPError as error:
                 if not future.cancelled():
                     future.set_result((error.code, error.read()))
-            except (OSError, ValueError):
+            except (OSError, ValueError, http.client.HTTPException):
                 # One missing reply does not prove Wi-Fi disconnected. Keep
                 # discovery's verified target if its small identity reply works.
                 if not self.identify(target):

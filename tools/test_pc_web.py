@@ -1,5 +1,6 @@
 """Companion contract: real HTTP with a fake backend, never a physical robot."""
 import json
+import http.client
 import concurrent.futures
 import threading
 import unittest
@@ -64,19 +65,26 @@ class CompanionContract(unittest.TestCase):
         def flaky(request, **kwargs):
             nonlocal calls
             calls += 1
-            if calls == 1: raise TimeoutError('lost reply')
+            if calls == 1: raise failure('lost reply')
             return real_open(request, **kwargs)
         calls = 0
+        failure = TimeoutError
         with patch('pc_web.urllib.request.urlopen', side_effect=flaky):
             status, body = RobotLink.request(self.pc.link.target, '/api/status', None, {})
         self.assertEqual((status, calls), (200, 2))
         self.assertEqual(json.loads(body)['robot']['mode'], 'halt')
         calls = 0
+        failure = http.client.BadStatusLine
+        with patch('pc_web.urllib.request.urlopen', side_effect=flaky):
+            status, body = RobotLink.request(self.pc.link.target, '/api/status', None, {})
+        self.assertEqual((status, calls), (200, 2))
+        calls = 0
+        failure = TimeoutError
         with patch('pc_web.urllib.request.urlopen', side_effect=flaky):
             with self.assertRaises(TimeoutError):
                 RobotLink.request(self.pc.link.target, '/api/nav/start', b'{}', {})
         self.assertEqual(calls, 1)
-        self.assertEqual(Backend.calls, [('GET', '/api/status')])
+        self.assertEqual(Backend.calls, [('GET', '/api/status'), ('GET', '/api/status')])
 
     def test_open_tabs_share_one_inflight_status_read(self):
         self.pc.link.target = f'127.0.0.1:{self.backend.server_port}'
