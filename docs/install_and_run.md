@@ -116,10 +116,12 @@ Optional: `sudo apt install -y nodejs` for the web page tests.
 | Update over Wi-Fi (OTA) | `docker\mor_luam.bat fw-ota` | `./docker/mor_luam.sh fw-ota` | see "OTA native" below |
 | Serial monitor | `fw-monitor -BusId 1-3` | `./docker/mor_luam.sh fw-monitor` | `pio device monitor -b 115200` |
 | PC tests | `docker\mor_luam.bat fw-test` | `./docker/mor_luam.sh fw-test` | see "Tests native" below |
-| **Open the web app** (finds the robot, prints where to connect, opens the browser) | `docker\mor_luam.bat web` | `./docker/mor_luam.sh web` | `python3 tools/find_robots.py --open` |
+| **Open the PC web app** (offline simulator; auto-connects to the robot) | `docker\mor_luam.bat web` | `./docker/mor_luam.sh web` | `python3 tools/pc_web.py` |
+| Open the web app hosted on the robot | `docker\mor_luam.bat web-robot` | `./docker/mor_luam.sh web-robot` | `python3 tools/find_robots.py --open` |
 | Find the robot | `docker\mor_luam.bat find` | `./docker/mor_luam.sh find` | `python3 tools/find_robots.py` |
-| Web page | open `http://mor-luam.local` | same | same |
-| Web page without robot (opens the browser) | `docker\mor_luam.bat web-mock` | `./docker/mor_luam.sh web-mock` | `python3 firmware/web/mock_robot.py` → `http://localhost:8000` |
+| PC page without a robot | open `http://localhost:8000` after starting `web` | same | same |
+| Robot page (requires the robot) | open `http://mor-luam.local` | same | same |
+| Fake robot for UI development | `docker\mor_luam.bat web-mock` | `./docker/mor_luam.sh web-mock` | `python3 firmware/web/mock_robot.py` → `http://localhost:8000` |
 | Start ROS agent | `docker\mor_luam.bat wifi` | `./docker/mor_luam.sh wifi` | `docker run -it --rm --net=host -e ROS_DOMAIN_ID=10 microros/micro-ros-agent:jazzy udp4 --port 8888 -v4` |
 | Agent log | `docker\mor_luam.bat logs` | `./docker/mor_luam.sh logs` | (in the agent terminal) |
 | ROS topics | `docker\mor_luam.bat topics` | `./docker/mor_luam.sh topics` | `ros2 topic list` |

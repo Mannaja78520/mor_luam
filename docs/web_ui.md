@@ -20,8 +20,8 @@ Open `http://mor-luam.local/` or `http://<IP>/` (IP from `docker\mor_luam.bat fi
 
 ## Try the simulator
 
-1. Open Simulation. Set drive speed and steering speed. Defaults are 0.03 m/s and 60 degrees/s. These are model settings only; they do not change the real robot's settings.
-2. Press Simulate placed points. The simulator copies the current edited route and the latest robot position/wheel heading at that moment.
+1. Open Simulation. Place/drag/delete points on its own local editor, or copy the selected route. Speed defaults are 0.03 m/s and 35 degrees/s; model settings do not change the real robot.
+2. Press Simulate placed points. The simulator uses local points and starts at (0,0), heading +x. These points never save or start a robot route. The PC web server at localhost:8000 works without any robot.
 3. Green shows Detour Steer. Orange shows Direct, the original steer-at-goal method. The display compares time, path length and motion phases.
 4. Pause/resume, reset or choose playback at 1x, 4x or 10x. The 0.3 m / 6-degree example changes only the local simulation. It does not save or start a real route.
 5. If you edit the route, the old simulation stops. Simulate again for the new points.

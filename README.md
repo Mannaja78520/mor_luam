@@ -19,15 +19,17 @@ E:\GPS_Localize\old\mor_luam
 
 ## เปิดใช้งานบน Windows
 
-ถ้าหุ่นมีเฟิร์มแวร์แล้ว เปิดหุ่น ให้คอมอยู่ Wi-Fi เดียวกัน แล้วเปิด PowerShell:
+เปิดเว็บบนคอมและจำลองได้ทันทีแม้ไม่มีหุ่น โดยเปิด PowerShell:
 
 ```powershell
 Set-Location E:\GPS_Localize\old\mor_luam
 .\docker\mor_luam.bat web
 ```
 
-`web` หาหุ่น แสดงที่อยู่สำหรับคอม/มือถือ แล้วเปิดเบราว์เซอร์
-หรือเปิด [mor-luam.local](http://mor-luam.local/) โดยตรง
+`web` เปิด server บนคอมที่ [localhost:8000](http://localhost:8000/) วางจุดและจำลองได้โดยไม่มีหุ่น
+เมื่อเปิดหุ่นและอยู่ Wi-Fi วงเดียวกัน จะเชื่อม API จริงอัตโนมัติ โดยไม่เริ่มมอเตอร์เอง
+เก็บ terminal ไว้ระหว่างใช้เว็บ; Ctrl+C ปิด server
+ถ้าต้องการเว็บที่ ESP32 เสิร์ฟโดยตรง ใช้ `web-robot` หรือ [mor-luam.local](http://mor-luam.local/)
 เครื่องนี้เคยใช้ Mobile Hotspot ชื่อ `manny` หากชื่อเปิดไม่ได้ให้หา IP ปัจจุบัน:
 
 ```powershell
@@ -41,7 +43,7 @@ IP เปลี่ยนได้ ไม่ควรยึด IP จากบั
 ### คำสั่งไหนต้องเปิด Docker
 
 `mor_luam.bat` เป็นตัวรวมคำสั่ง บางคำสั่งใช้ Python บน Windows โดยตรง
-เว็บจริงอยู่บน ESP32 จึงเปิดได้โดยไม่ต้องเปิด ROS agent
+เว็บบนคอมทำงาน offline ได้ และเชื่อม API ของ ESP32 เมื่อหุ่นพร้อม โดยไม่ต้องเปิด ROS agent
 
 | งาน | คำสั่งหลัง `.\docker\mor_luam.bat` | ต้องเปิด Docker Desktop |
 |---|---|---|
@@ -100,7 +102,7 @@ Copy-Item firmware\config\network_secrets.example.h firmware\config\network_secr
 | ส่วน | ใช้ทำอะไร |
 |---|---|
 | เส้นทาง | วาง/ลาก/ลบจุด แก้ x/y และเวลารอ `waitS` 0–60 s บันทึกเส้นทางหน้าเว็บหรือปุ่ม 1/2 |
-| จำลอง | เทียบ Direct กับ Detour พร้อมความคลาดเคลื่อนจำลอง; ไม่ส่งคำสั่งมอเตอร์ |
+| จำลอง | วาง/ลาก/ลบจุดในแท็บนี้ได้ มีตัวอย่าง 2 m / 7 ช่วง; ไม่ส่งคำสั่งมอเตอร์ |
 | เดโม 3/4 | ภาพเส้นทาง เส้นเวลาหมุน/ขับ และปุ่มทดสอบจริง 3 รอบ (6 runs) |
 | Wi-Fi | จัดลำดับเครือข่าย สแกน และเชื่อมต่อ |
 | ตั้งค่า | ความเร็ว/ระยะถึงจุด, algorithm, PIDF, ตัวเลือกเดโมและการเลี้ยว |
@@ -124,7 +126,7 @@ Copy-Item firmware\config\network_secrets.example.h firmware\config\network_secr
 ปรับระยะ/มุมและการ reset ได้ในตั้งค่า อ่าน [คู่มือเว็บภาษาไทย](docs/web_guide_th.md)
 ก่อนใช้ปุ่มวิ่งจริง
 
-**ฟีเจอร์ในเครื่องที่รอ push โค้ด — เปรียบเทียบระยะรวม 2 เมตร:** ตั้งขาไป `2.00 m`, จำนวนช่วง `7`,
+**เปรียบเทียบระยะรวม 2 เมตร:** ตั้งขาไป `2.00 m`, จำนวนช่วง `7`,
 มุมเยื้อง `6°` ในกลุ่มเดโมปุ่มบนหุ่น ทั้งสองแบบผ่านจุดเดียวกัน 7 ช่วง (ช่วงละประมาณ 28.6 ซม.)
 แล้วกลับจุดเริ่ม ขากลับไม่นับเวลาเปรียบเทียบ ระยะขับจริงของ Detour อาจมากกว่า 2 เมตรเพราะการอ้อม
 หน้าเว็บแสดงระยะ พื้นที่ และเวลาประมาณตามค่าที่บันทึก อ่าน [คู่มือเปรียบเทียบ 2 เมตร](docs/compare_2m_th.md)
@@ -182,11 +184,12 @@ ROS domain **10**, agent UDP **8888** หากคอมไม่ใช่ gatew
 | คำสั่ง Windows / Docker ทั้งหมด | [Docker README](docker/README.md) |
 | ติดตั้ง Windows / Ubuntu / แบบไม่ใช้ Docker | [ติดตั้งและรัน](docs/install_and_run.md) |
 | เว็บทุกแท็บและเดโม | [คู่มือเว็บภาษาไทย](docs/web_guide_th.md) |
+| เปิดเว็บบนคอมโดยไม่มีหุ่น และเชื่อมจริงอัตโนมัติ | [คู่มือเว็บบนคอม](docs/pc_web_th.md) |
 | Direct / Detour ขาไปรวม 2 m แบ่ง 7 ช่วง | [คู่มือเปรียบเทียบ 2 เมตร](docs/compare_2m_th.md) |
 | รวมเอกสาร เทคนิค หลักฐานทดสอบ | [Documentation map](docs/README.md) |
 | Direct/Detour และการเพิ่ม planner | [Algorithm README](firmware/src/algorithm/README.md) |
 | แผนที่ source | [CLAUDE.md](CLAUDE.md) |
-| สถานะล่าสุด 27 ต.ค. 2026: เอกสารเผยแพร่ก่อน โค้ดใหม่อยู่ในเครื่อง | [Codex V3](HANDOFF_MORLUAM_CODEX_V3.md) |
+| สถานะล่าสุด 27 ต.ค. 2026: เว็บบนคอม วางจุดจำลอง และเปรียบเทียบหลายช่วง | [Codex V4](HANDOFF_MORLUAM_CODEX_V4.md) |
 | งานเอกสาร 26 ต.ค. 2026 | [Codex V2](HANDOFF_MORLUAM_CODEX_V2.md) |
 | ประวัติเฟิร์มแวร์/ทดสอบจริง 8–10 ต.ค. | [Claude V2](HANDOFF_MORLUAM_CLAUDE_V2.md) |
 

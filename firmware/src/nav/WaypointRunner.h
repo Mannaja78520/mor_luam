@@ -73,7 +73,7 @@ public:
     void statusJson(JsonObject out);
     // GET /api/demo/compare: the last demo 3 (Direct) and demo 4 (Detour) runs with
     // their start, goal, time and recorded path, so the web page can draw both.
-    void compareJson(JsonObject out);
+    void compareJson(JsonObject out, int run = -1); // summary, or one run's path/route/activity
     bool running();
 
 private:
@@ -160,8 +160,10 @@ private:
         uint32_t elapsedMs = 0;
         float startX = 0, startY = 0, headingDeg = 0, goalX = 0, goalY = 0;
         float speedMps = 0, steerDps = 0, tolM = 0;
+        uint8_t routeCount = 0;
+        Waypoint route[DEMO_COMPARE_MAX_SEGMENTS];  // goals used by THIS run (not later settings)
         RunTrace<100> path;
-        ActivityLog<32> acts;              // turning / driving / still over time, for the time line
+        ActivityLog<64> acts;              // seven short legs plus corrections; paged per run
         uint8_t planner = 0;               // 0 direct, 1 detour
     };
     enum class PathJson : uint8_t { None, Flat, Objects };
@@ -175,5 +177,6 @@ private:
     uint8_t runIdx_ = 0;
     bool testDemo_ = false;                // the current/last test came from the button (demo 3/4)
     float compareDistM_ = DEMO_COMPARE_DIST_M, compareRightDeg_ = DEMO_COMPARE_RIGHT_DEG;   // settings, per run
+    uint8_t compareSegments_ = 1;
     float trackX_ = 0, trackY_ = 0;        // last position seen while a run is recorded
 };

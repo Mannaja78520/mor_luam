@@ -147,6 +147,13 @@ void WebApp::statusJson(JsonObject o) {
     r["watchdogTrips"] = d_.ctrl->watchdogTrips();
     if (s.motionFault) r["haltWhy"] = "สั่งมอเตอร์แล้วไม่มีสัญญาณการหมุน: ตรวจไฟ สวิตช์ฉุกเฉิน มอเตอร์ และเซนเซอร์";
     d_.runner->statusJson(o["nav"].to<JsonObject>());
+    const SettingsData settings = d_.settings->get();
+    JsonObject demo = o["nav"]["demo"].to<JsonObject>();
+    demo["distM"] = settings.demoDistM;
+    demo["segments"] = settings.demoSegments;
+    demo["rightDeg"] = settings.demoRightDeg;
+    demo["speedMps"] = settings.navSpeedMps;
+    demo["steerDps"] = settings.steerDps;
     d_.net->statusJson(o["net"].to<JsonObject>());
     d_.ros->statusJson(o["ros"].to<JsonObject>());
     JsonObject sys = o["sys"].to<JsonObject>();
@@ -274,8 +281,10 @@ void WebApp::routesNav() {
         ok(r);
     });
     server_.on("/api/demo/compare", HTTP_GET, [this](AsyncWebServerRequest* r) {
+        const int run = r->hasParam("run") ? r->getParam("run")->value().toInt() : -1;
+        if (run < -1 || run > 1) { fail(r, "ไม่มีผลรอบนี้"); return; }
         JsonDocument doc;
-        d_.runner->compareJson(doc.to<JsonObject>());
+        d_.runner->compareJson(doc.to<JsonObject>(), run);
         reply(r, doc);
     });
 
@@ -358,6 +367,10 @@ void WebApp::routesConfig() {
         reply(r, doc);
     });
     onJson("/api/settings", [this](AsyncWebServerRequest* r, JsonDocument& doc) {
+        if (d_.runner->seriesActive() && (!doc["demoDistM"].isNull() || !doc["demoSegments"].isNull() ||
+            !doc["demoRightDeg"].isNull() || !doc["navSpeedMps"].isNull() || !doc["steerDps"].isNull())) {
+            fail(r, "หยุดชุดทดสอบก่อนเปลี่ยนระยะ เส้นทาง หรือความเร็ว"); return;
+        }
         const String oldHost = d_.settings->get().hostname;
         String err;
         if (!d_.settings->update(doc.as<JsonObjectConst>(), err)) { fail(r, err); return; }

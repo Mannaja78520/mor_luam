@@ -123,7 +123,13 @@ case "$CMD" in
         dc --profile tools run --rm firmware bash -c "rm -rf .pio/libdeps/morluam/micro_ros_platformio/libmicroros && echo 'micro-ROS library removed: the next fw-build rebuilds it (several minutes)'" ;;
 
     find)       "$PY" "$REPO/tools/find_robots.py" "${ARGS[@]}" ;;
-    web)        "$PY" "$REPO/tools/find_robots.py" --open "${ARGS[@]}" ;;   # show where to connect + open the browser
+    web)
+        if [[ "$PORT" =~ ^[0-9]+$ ]]; then
+            "$PY" "$REPO/tools/pc_web.py" --host "$HOST" --port "$PORT" "${ARGS[@]}"
+        else
+            "$PY" "$REPO/tools/pc_web.py" --host "$HOST" "${ARGS[@]}"
+        fi ;;
+    web-robot)  "$PY" "$REPO/tools/find_robots.py" --open "${ARGS[@]}" ;;
     robot-test) "$PY" "$REPO/tools/robot_test.py" --host "$HOST" "${ARGS[@]}" ;;   # steps 2-4 MOVE the robot
     web-mock)
         echo "Fake robot for web page work: open http://localhost:8000  (Ctrl+C to stop)"
@@ -151,12 +157,13 @@ mor_luam on Ubuntu / Linux (Docker)          (Windows: docker\\mor_luam.bat, sam
   $0 fw-clean-ros               rebuild micro-ROS next time (after editing firmware/microros.meta)
   $0 serial [--port ...]        agent over USB (serial-transport firmware only)
 
-  $0 web                        find the robot, show where to connect, open the web app
+  $0 web [--port 8000]          PC web: offline simulator, auto-connect real robot
+  $0 web-robot                  find the robot and open its ESP32 web page
   $0 find                       find robots on this network (then open http://<IP>/)
   $0 web-mock                   fake robot on http://localhost:8000
   $0 robot-test --steps 1       real-robot tests (steps 2-4 MOVE the robot: stand next to it)
 
-  web / find / web-mock use local Python; opening the robot page needs no Docker.
+  web / web-robot / find / web-mock use local Python; no Docker needed.
   Stop the robot first: web E-STOP, or curl -X POST http://mor-luam.local/api/estop
 EOF
         ;;

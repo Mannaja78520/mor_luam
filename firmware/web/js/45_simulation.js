@@ -171,27 +171,61 @@ class SimulationNoise {
 
 class RouteSimulation {
   constructor(route, robot) {
-    Object.assign(this, { route, robot });
+    Object.assign(this, { sourceRoute: route, robot });
+    this.route = new SimulationWaypoints(Prefs.get('sim.points', []));
     this.canvas = $('#simCanvas'); this.ctx = this.canvas.getContext('2d');
     this.t = 0; this.playing = false; this.runs = null;
     $('#simPlay').onclick = () => this.start();
     $('#simPause').onclick = () => { this.playing = !this.playing && !!this.runs; this.lastFrame = performance.now(); this.animate(); };
     $('#simReset').onclick = () => { this.playing = false; this.t = 0; this.draw(); };
-    $('#simExample').onclick = () => this.start(true);
+    $('#simExample').onclick = () => this.example(0.3, 1);
+    $('#simExample2m').onclick = () => this.example(2, 7);
+    this.editor = new Plane2D($('#simEditorCanvas'), this.route, {
+      onCursor: p => { $('#simCursor').textContent = p ? `x ${p[0].toFixed(2)}, y ${p[1].toFixed(2)} m` : 'x –, y –'; },
+      onRefuse: message => { $('#simSummary').textContent = message; }, onFollowOff: () => {},
+    });
+    this.editor.snap = false;
+    for (const mode of ['add', 'delete']) $('#' + (mode === 'add' ? 'simAddMode' : 'simDeleteMode')).onclick = () => {
+      this.editor.mode = mode;
+      $('#simAddMode').setAttribute('aria-pressed', String(mode === 'add'));
+      $('#simDeleteMode').setAttribute('aria-pressed', String(mode === 'delete'));
+    };
+    $('#simClearPoints').onclick = () => this.route.clear();
+    $('#simFitPoints').onclick = () => this.editor.fit();
+    $('#simCopyPoints').onclick = () => {
+      const error = this.route.replace(this.sourceRoute.points);
+      this.editor.fit();
+      $('#simSummary').textContent = error || 'คัดลอกไว้จำลองแล้ว · จุดในหุ่นไม่เปลี่ยน';
+    };
+    $('#simAddPoint').onclick = () => {
+      const error = this.route.add(Number($('#simPointX').value), Number($('#simPointY').value));
+      if (error) $('#simSummary').textContent = error;
+    };
     for (const id of ['simNoiseEnabled', 'simNoiseLevel', 'simNoiseSeed', 'simShakeScale']) {
       const input = $('#' + id);
       if (input) input.onchange = () => { this.playing = false; this.runs = null; this.draw(); $('#simSummary').textContent = 'ค่าจำลองเปลี่ยนแล้ว · กดจำลองอีกครั้ง'; };
     }
-    route.onChange(() => { this.playing = false; this.runs = null; this.draw(); $('#simSummary').textContent = 'จุดเปลี่ยนแล้ว · กดจำลองอีกครั้ง'; });
+    this.route.onChange(() => {
+      Prefs.set('sim.points', this.route.points);
+      this.playing = false; this.runs = null; this.draw();
+      $('#simPointCount').textContent = `${this.route.points.length} / 32 จุด`;
+      $('#simSummary').textContent = 'จุดจำลองเปลี่ยนแล้ว · กดจำลองอีกครั้ง · ไม่ได้บันทึกลงหุ่น';
+    });
+    $('#simPointCount').textContent = `${this.route.points.length} / 32 จุด`;
+    this.editor.fit();
     this.draw();
+  }
+  example(distance, segments) {
+    this.route.replace(SimulationWaypoints.comparison(distance, segments));
+    this.editor.fit(); this.start();
   }
   start(example = false) {
     const v = Number($('#simSpeed').value), w = Number($('#simSteer').value);
     if (!(v >= 0.005 && v <= 0.035 && w >= 5 && w <= 720)) {
       $('#simSummary').textContent = 'ความเร็วขับ 0.005–0.035 m/s · เลี้ยว 5–720 °/s'; return;
     }
-    const rb = this.robot() || {}, initial = { x: rb.x || 0, y: rb.y || 0, h: rb.wheelHeadingDeg || 0, bodyH: rb.thetaDeg || 0 };
-    const r = (initial.h + 6) * Math.PI / 180;
+    const initial = { x: 0, y: 0, h: 0, bodyH: 0 };
+    const r = (initial.h - 6) * Math.PI / 180;
     const points = example ? [{ x: initial.x + 0.3 * Math.cos(r), y: initial.y + 0.3 * Math.sin(r) }] : this.route.points.map(p => ({ ...p }));
     if (!points.length) { $('#simSummary').textContent = 'วางจุดก่อน หรือใช้ตัวอย่างจำลอง'; return; }
     const p = { v, w, settle: 0.05, stop: 0.20 };

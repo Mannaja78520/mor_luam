@@ -185,6 +185,7 @@ body {
   visibility: hidden;   /* reserved line: appearing must not move the page */
 }
 [data-conn="stale"] .grid.tiles::before, [data-conn="offline"] .grid.tiles::before { visibility: visible; }
+body[data-tab="simulation"] .grid.tiles::before { visibility: hidden; }
 
 .empty {
   border: 1px dashed var(--line); border-radius: var(--r-md);
@@ -283,7 +284,7 @@ details.more summary { cursor: pointer; color: var(--mut); font-size: var(--fs-1
   position: relative; width: 100%; aspect-ratio: 1 / 1; max-height: 70vh;
   border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--sunk);
 }
-#plane { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+#plane, #simEditorCanvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 .plane-lock {
   position: absolute; left: var(--sp-2); right: var(--sp-2); top: var(--sp-2);
   background: var(--card); border: 1px solid var(--warn); color: var(--warn);

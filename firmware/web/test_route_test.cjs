@@ -120,6 +120,62 @@ const status = (test = done('direct', { id: 1, phase: 'idle', valid: false })) =
   assert.ok(Math.abs(dPlan.turnDeg - 354) < 1e-6, 'Direct turns 354 deg at the start');
   assert.equal(tPlan.kind, 'detour');
   assert.ok(Math.abs(tPlan.a - 0.3106) < 0.001 && Math.abs(tPlan.turnDeg - 248.8) < 0.2, 'Detour: 31 cm, then 249 deg');
+  const shortSetup = DemoCompareView.setup({ distM: 0.3, rightDeg: 6, speedMps: 0.03, steerDps: 35 });
+  const longSetup = DemoCompareView.setup({ distM: 2, rightDeg: 6, speedMps: 0.03, steerDps: 35 });
+  assert.equal(shortSetup.samePath, false, 'checked short goal separates the planners');
+  assert.equal(longSetup.samePath, true, 'a 2 m goal correctly falls back to Direct; never force a fake detour');
+  const segmented = DemoCompareView.setup({ distM: 2, segments: 7, rightDeg: 6, speedMps: 0.03, steerDps: 35 });
+  assert.equal(segmented.samePath, false, 'the 2 m route with seven short legs actually uses Detour');
+  const points = DemoCompareView.routePoints(2, 7, 6);
+  let previous = { x: 0, y: 0 }, length = 0;
+  for (const point of points) {
+    const leg = Math.hypot(point.x - previous.x, point.y - previous.y);
+    assert.ok(Math.abs(leg - 2 / 7) < 1e-9); length += leg; previous = point;
+  }
+  assert.ok(Math.abs(length - 2) < 1e-9, '2 m means the sum of the seven legs, not seven 2 m legs');
+  const multiRun = { startX: 0, startY: 0, headingDeg: 0, goalX: points.at(-1).x, goalY: points.at(-1).y,
+    route: points, speedMps: 0.03, steerDps: 35 };
+  const multiDirect = DemoCompareView.plan(points.at(-1), multiRun, false);
+  const multiDetour = DemoCompareView.plan(points.at(-1), multiRun, true);
+  assert.equal(multiDirect.kind, 'multi');
+  assert.equal(multiDirect.route.length, 7);
+  assert.ok(multiDetour.turnDeg < multiDirect.turnDeg, 'recorded multi-leg plan shows fewer steering degrees with Detour');
+  assert.equal(DemoCompareView.comparable(multiRun, { ...multiRun }), true);
+  assert.equal(DemoCompareView.comparable(multiRun, { ...multiRun, route: [points.at(-1)] }), false,
+    'one distant goal and seven short legs must never be compared as the same route');
+  const savedRun = { ...multiRun, id: 10, planner: 'direct', segments: 7, acts: [{ t: 0, a: 'turn' }],
+    xy: [0, 0, points.at(-1).x, points.at(-1).y] };
+  const summaryRun = { ...savedRun }; delete summaryRun.xy; delete summaryRun.route; delete summaryRun.acts;
+  const paged = { loading: false, data: null, render() {}, api: { async get(path) {
+    return { ok: true, data: path.includes('?') ? savedRun : { direct: summaryRun, detour: null } };
+  } } };
+  await DemoCompareView.prototype.load.call(paged);
+  assert.equal(paged.data.direct.path.length, 2, 'compare detail supplies the flat recorded path');
+  assert.equal(paged.data.direct.route.length, 7);
+  const seriesView = { seriesLoading: false, seriesPaths: new Map(), render() {}, api: { async get(path) {
+    return { ok: true, data: path.includes('?') ? savedRun : { runs: [{ ...summaryRun }] } };
+  } } };
+  await DemoCompareView.prototype.loadSeries.call(seriesView);
+  assert.equal(seriesView.series.runs[0].route.length, 7);
+  assert.equal(seriesView.series.runs[0].acts.length, 1, 'paged activity is retained for the time line');
+  assert.equal(longSetup.clearanceM, 2.5, 'clearance follows the actual distance, not the old 0.5 m label');
+  assert.ok(longSetup.minutes > shortSetup.minutes && longSetup.minutes >= 14, 'six long runs include the returns');
+  assert.equal(DemoCompareView.setup({ distM: 2.01, rightDeg: 6, speedMps: 0.03, steerDps: 35 }), null);
+  assert.equal(DemoCompareView.setup({ distM: 2, rightDeg: 6, speedMps: 0, steerDps: 35 }), null);
+  assert.equal(DemoCompareView.setup({ distM: 0.3, segments: 7, rightDeg: 6, speedMps: 0.03, steerDps: 35 }), null);
+  const controls = { lastStatus: { robot: { mode: 'halt' }, nav: { status: 'idle', demo: {
+    distM: 0.3, rightDeg: 6, speedMps: 0.03, steerDps: 35 } } }, conn: 'live', setupKey: '',
+    seriesReady: { checked: false }, seriesStart: {}, seriesStop: {}, seriesProg: { style: {} },
+    seriesSetup: {}, seriesReadyText: {}, seriesMsg: { classList: { toggle() {} } } };
+  DemoCompareView.prototype.renderSeriesControls.call(controls);
+  controls.seriesReady.checked = true;
+  DemoCompareView.prototype.renderSeriesControls.call(controls);
+  assert.equal(controls.seriesStart.disabled, false);
+  controls.lastStatus.nav.demo.distM = 2;
+  DemoCompareView.prototype.renderSeriesControls.call(controls);
+  assert.equal(controls.seriesReady.checked, false, 'a changed distance requires a fresh placement check');
+  assert.equal(controls.seriesStart.disabled, true);
+  assert.ok(controls.seriesSetup.textContent.includes('2.00 m') && controls.seriesReadyText.textContent.includes('2.5'));
   panel.render(status(), 'live');
   assert.equal(panel.canStart(), false, 'readiness required');
   panel.ready.checked = true;

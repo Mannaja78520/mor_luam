@@ -1,0 +1,195 @@
+"""Serve the mor_luam UI on this PC, including an offline simulator.
+
+Robot APIs are available only while a real mor_luam answers discovery. No fake
+telemetry, background heartbeat or automatic movement commands are generated.
+Run: python tools/pc_web.py [--port 8000] [--host mor-luam.local] [--no-browser]
+"""
+import argparse
+import concurrent.futures
+import ipaddress
+import itertools
+import json
+from pathlib import Path
+import queue
+import socket
+import threading
+import time
+import urllib.error
+import urllib.request
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit
+
+WEB = Path(__file__).resolve().parents[1] / 'firmware' / 'web'
+
+
+class RobotLink:
+    def __init__(self, hostname='mor-luam.local', subnet='192.168.137.0/24', discover=True):
+        self.hostname, self.subnet = hostname, subnet
+        self.target = None
+        self.lock = threading.Lock()
+        self.jobs = queue.PriorityQueue()
+        self.sequence = itertools.count()
+        threading.Thread(target=self.worker, daemon=True).start()
+        if discover:
+            threading.Thread(target=self.discovery, daemon=True).start()
+
+    @staticmethod
+    def identify(host):
+        try:
+            with urllib.request.urlopen('http://' + host + '/api/whoami', timeout=.7) as r:
+                return json.load(r).get('type') == 'morluam'
+        except (OSError, ValueError):
+            return False
+
+    def discovery(self):
+        last_scan = 0
+        while True:
+            candidates = [self.target]
+            try:
+                candidates.append(socket.gethostbyname(self.hostname))
+            except OSError:
+                pass
+            found = next((h for h in dict.fromkeys(candidates) if h and self.identify(h)), None)
+            if not found and time.monotonic() - last_scan > 12:
+                last_scan = time.monotonic()
+                hosts = [str(h) for h in ipaddress.ip_network(self.subnet).hosts()]
+                with concurrent.futures.ThreadPoolExecutor(max_workers=32) as pool:
+                    found = next((h for h, valid in zip(hosts, pool.map(self.identify, hosts)) if valid), None)
+            with self.lock:
+                self.target = found
+            time.sleep(2)
+
+    def worker(self):
+        while True:
+            _, _, created, target, path, body, headers, future = self.jobs.get()
+            if not future.set_running_or_notify_cancel():
+                continue
+            if self.target != target or (body is not None and time.monotonic() - created > 3):
+                future.set_result((503, b'{"ok":false,"error":"Robot connection changed; retry when ready"}'))
+                continue
+            try:
+                request = urllib.request.Request('http://' + target + path, data=body, headers=headers,
+                                                 method='POST' if body is not None else 'GET')
+                with urllib.request.urlopen(request, timeout=2) as response:
+                    data, status = response.read(), response.status
+                if path == '/api/status':
+                    obj = json.loads(data)
+                    obj['pc'] = {'robotHost': target, 'mode': 'live'}
+                    data = json.dumps(obj, ensure_ascii=False).encode('utf-8')
+                if not future.cancelled():
+                    future.set_result((status, data))
+            except urllib.error.HTTPError as error:
+                if not future.cancelled():
+                    future.set_result((error.code, error.read()))
+            except (OSError, ValueError):
+                with self.lock:
+                    if self.target == target:
+                        self.target = None
+                if not future.cancelled():
+                    future.set_result((503, b'{"ok":false,"error":"Robot offline; simulator is still available"}'))
+
+    def forward(self, path, body=None, headers=None):
+        with self.lock:
+            target = self.target
+        if not target:
+            return 503, b'{"ok":false,"error":"Robot offline; simulator is still available"}'
+        future = concurrent.futures.Future()
+        urgent = path.startswith(('/api/estop', '/api/nav/stop'))
+        realtime = body is not None or path == '/api/status'
+        self.jobs.put((-1 if urgent else 0 if realtime else 5, next(self.sequence), time.monotonic(),
+                       target, path, body, headers or {}, future))
+        try:
+            return future.result(timeout=8)
+        except concurrent.futures.TimeoutError:
+            future.cancel()
+            return 504, b'{"ok":false,"error":"Robot did not answer; command not retried"}'
+
+
+class Handler(BaseHTTPRequestHandler):
+    def send_bytes(self, data, content_type='application/json; charset=utf-8', status=200):
+        self.send_response(status)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Cache-Control', 'no-store')
+        self.end_headers()
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def do_GET(self):
+        path = urlsplit(self.path).path
+        if path == '/pc/status':
+            return self.send_bytes(json.dumps({'type': 'morluam-pc', 'robotHost': self.server.link.target}).encode())
+        if path.startswith('/api/'):
+            status, data = self.server.link.forward(self.path)
+            return self.send_bytes(data, status=status)
+        if path == '/':
+            data = (WEB / 'index.html').read_text(encoding='utf-8').replace('<html lang="th">', '<html lang="th" data-host-mode="pc">')
+            return self.send_bytes(data.encode('utf-8'), 'text/html; charset=utf-8')
+        if path == '/app.css':
+            return self.send_bytes((WEB / 'app.css').read_bytes(), 'text/css; charset=utf-8')
+        if path == '/app.js':
+            data = b'\n'.join(p.read_bytes() for p in sorted((WEB / 'js').glob('*.js')))
+            return self.send_bytes(data, 'application/javascript; charset=utf-8')
+        self.send_error(404)
+
+    def do_POST(self):
+        if not urlsplit(self.path).path.startswith('/api/'):
+            return self.send_error(404)
+        # Browser requests must come from this local UI, not a third-party form.
+        origin = self.headers.get('Origin')
+        if origin and urlsplit(origin).netloc != self.headers.get('Host'):
+            return self.send_error(403)
+        length = int(self.headers.get('Content-Length', '0'))
+        if length > 2 * 1024 * 1024:
+            return self.send_error(413)
+        body = self.rfile.read(length)
+        headers = {'Content-Type': self.headers.get('Content-Type', 'application/json')}
+        # OTA must be performed on the robot page/helper while halted; never
+        # hold the normal control/heartbeat queue behind a long firmware upload.
+        if urlsplit(self.path).path == '/api/ota':
+            return self.send_bytes(b'{"ok":false,"error":"Use fw-ota or the direct robot page for firmware updates"}', status=409)
+        status, data = self.server.link.forward(self.path, body, headers)
+        self.send_bytes(data, status=status)
+
+    def log_message(self, *_):
+        pass  # API responses/settings/credentials never enter console logs.
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--host', default='mor-luam.local')
+    parser.add_argument('--subnet', default='192.168.137.0/24')
+    parser.add_argument('--port', type=int, default=8000)
+    parser.add_argument('--no-browser', action='store_true')
+    args = parser.parse_args()
+    url = f'http://localhost:{args.port}/'
+    try:
+        with urllib.request.urlopen(f'http://127.0.0.1:{args.port}/pc/status', timeout=.3) as response:
+            existing = json.load(response)
+        if existing.get('type') == 'morluam-pc':
+            print('mor_luam PC web is already running: ' + url, flush=True)
+            if not args.no_browser:
+                webbrowser.open(url)
+            return
+    except (OSError, ValueError):
+        pass
+    link = RobotLink(args.host, args.subnet)
+    server = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
+    server.link = link
+    print('mor_luam web on this PC: ' + url, flush=True)
+    print('Simulation works offline. A real robot connects automatically; no movement starts automatically.', flush=True)
+    if not args.no_browser:
+        threading.Timer(.2, lambda: webbrowser.open(url)).start()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+
+
+if __name__ == '__main__':
+    main()

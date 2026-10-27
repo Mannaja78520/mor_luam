@@ -25,7 +25,7 @@ class Tabs {
       const b = e.target.closest('[data-tab]');
       if (b) this.show(b.dataset.tab);
     });
-    this.show(Prefs.get('tab', 'drive'));
+    this.show(Prefs.get('tab', document.documentElement.dataset.hostMode === 'pc' ? 'simulation' : 'drive'));
   }
   show(name) {
     if (!document.getElementById('tab-' + name)) name = 'drive';
@@ -36,6 +36,7 @@ class Tabs {
     });
     document.querySelectorAll('.tabpage').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + name));
     Prefs.set('tab', name);
+    document.body.dataset.tab = name;
     this.onShow(name);
   }
 }
@@ -70,7 +71,12 @@ class TopBar {
 
   renderBanner() {
     let text = '', cls = '';
-    if (this.offline) text = 'ติดต่อหุ่นไม่ได้: กำลังลองใหม่ ค่าที่เห็นเป็นค่าเก่า';
+    if (this.offline) {
+      text = document.documentElement.dataset.hostMode === 'pc'
+        ? 'หุ่นยังไม่เชื่อม · จำลองบนคอมได้ตามปกติ'
+        : 'ติดต่อหุ่นไม่ได้: กำลังลองใหม่ ค่าที่เห็นเป็นค่าเก่า';
+      if (document.documentElement.dataset.hostMode === 'pc') cls = 'warn';
+    }
     else if (this.otaPct >= 0) { text = `กำลังอัปเดตเฟิร์มแวร์ ${this.otaPct}%: อย่าปิดหุ่น`; cls = 'warn'; }
     this.banner.textContent = text;
     this.banner.className = `banner ${cls}${text ? '' : ' hidden'}`;
@@ -156,7 +162,10 @@ class App {
     $('#rebootBtn').onclick = async () => {
       if (confirm('รีบูตหุ่นตอนนี้? หน้านี้จะหลุดประมาณ 10 วินาที')) this.toast.result(await this.api.post('/api/reboot'), 'กำลังรีบูต…');
     };
-    new Tabs($('#tabs'), (name) => { if (name === 'drive') requestAnimationFrame(() => this.plane.resize()); });
+    new Tabs($('#tabs'), (name) => {
+      if (name === 'drive') requestAnimationFrame(() => this.plane.resize());
+      if (name === 'simulation') requestAnimationFrame(() => this.simulation.editor.resize());
+    });
 
     this.poller = new Poller(this.api, '/api/status', 250, {
       onData: (s) => this.onStatus(s),
@@ -182,11 +191,18 @@ class App {
     this.conn = c;
     document.body.dataset.conn = c;
     this.top.renderConn(c);
+    if (c !== 'live') for (const id of ['navStart', 'navStop']) $('#' + id).disabled = true;
+    $('#realRunReady').disabled = c !== 'live';
+    if (document.documentElement.dataset.hostMode === 'pc') {
+      $('#pcConnection').classList.remove('hidden');
+      if (c !== 'live') $('#pcConnection').textContent = 'เว็บบนคอม · ยังไม่เชื่อมหุ่น · วางจุดและดูจำลองได้ · เปิดหุ่นแล้วจะเชื่อมให้อัตโนมัติ';
+    }
     if (this.last) this.render(this.last);
     if (wasOffline && c === 'live' && this.loads.length) this.loadAll();
   }
 
   onStatus(s) {
+    if (s.pc) $('#pcConnection').textContent = `เว็บบนคอม · เชื่อมหุ่นจริง ${s.pc.robotHost} · ไม่มีการเริ่มมอเตอร์อัตโนมัติ`;
     this.last = s;
     this.render(s);
     if (!this.fittedRobot && this.route.loaded) { this.fittedRobot = true; this.plane.fit(); }   // once: points + robot in view

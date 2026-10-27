@@ -27,7 +27,14 @@ NAMES = {"direct": "Direct (กด 3 ครั้ง)", "detour": "Detour (ก�
 
 def fetch(host, path="/api/demo/compare"):
     with urllib.request.urlopen(f"http://{host}{path}", timeout=6) as r:
-        return json.loads(r.read().decode())
+        data = json.loads(r.read().decode())
+    if path == "/api/demo/compare":
+        for i, key in enumerate(("direct", "detour")):
+            if data.get(key) and "path" not in data[key]:
+                detail = fetch(host, f"/api/demo/compare?run={i}")
+                if detail.get("id") == data[key]["id"]:
+                    data[key] = unflat(detail)
+    return data
 
 
 def wait_series(host, limit_s):
@@ -63,6 +70,26 @@ def local(run):
 
 def plan(goal, run, detour):
     """Plan from the start, as nav/WaypointRunner + algorithm/DetourSteer do it."""
+    if len(run.get("route", [])) > 1:
+        h0 = math.radians(run["headingDeg"])
+        c, s = math.cos(h0), math.sin(h0)
+        points = []
+        for p in run["route"]:
+            dx, dy = p["x"] - run["startX"], p["y"] - run["startY"]
+            points.append((dx * c + dy * s, -dx * s + dy * c))
+        x, y, heading, duration, degrees = 0, 0, 0, 0, 0
+        path, turns = [(0, 0)], []
+        for gx, gy in points:
+            c, s = math.cos(heading), math.sin(heading)
+            dx, dy = gx - x, gy - y
+            leg = plan((dx * c + dy * s, -dx * s + dy * c), {**run, "route": []}, detour)
+            def world(p): return x + p[0] * c - p[1] * s, y + p[0] * s + p[1] * c
+            path.extend(world(p) for p in leg["pts"][1:])
+            turns.append(world(leg["at"]))
+            duration += leg["time"]; degrees += leg["turn"]
+            heading += math.radians(leg["turn"]); x, y = gx, gy
+        return {"kind": "multi", "turn": degrees, "at": turns[0], "turns": turns,
+                "pts": path, "time": duration, "route": points}
     d = math.hypot(*goal)
     phi = math.degrees(math.atan2(goal[1], goal[0])) % 360
     if min(phi, 360 - phi) <= 3.5:
@@ -271,8 +298,10 @@ def draw(data, out):
         else:
             t = f"{r['elapsedMs'] / 1000:.2f} s" if r["valid"] else "ไม่ครบ"
         ax.plot([], [], color=COLORS[k], lw=2.6, label=f"{NAMES[k]}  {t}")
-        ax.add_patch(plt.Circle(p["at"], 0.009, fill=False, color=COLORS[k], lw=2, zorder=4))
-        txt = f"{k.capitalize()}: หมุนล้อ {p['turn']:.0f}° " + ("ตรงนี้" if p["kind"] == "detour" else "ก่อนออกวิ่ง")
+        for at in p.get("turns", [p["at"]]):
+            ax.add_patch(plt.Circle(at, 0.009, fill=False, color=COLORS[k], lw=2, zorder=4))
+        txt = (f"{k.capitalize()}: {len(p['route'])} ช่วง หมุนรวม {p['turn']:.0f}°" if p["kind"] == "multi" else
+               f"{k.capitalize()}: หมุนล้อ {p['turn']:.0f}° " + ("ตรงนี้" if p["kind"] == "detour" else "ก่อนออกวิ่ง"))
         if k == "direct":
             ax.annotate(txt, p["at"], xytext=(0, -26), textcoords="offset points", ha="left", va="top", color=ink, fontsize=10)
         else:
@@ -330,7 +359,8 @@ def main():
         data = wait_series(a.host, a.wait_s) if a.wait else fetch(a.host, "/api/demo/series")
         for i, r in enumerate(data["runs"]):          # each run's path is its own (small) reply
             if "xy" not in r:
-                r["xy"] = fetch(a.host, f"/api/demo/series?run={i}")["xy"]
+                detail = fetch(a.host, f"/api/demo/series?run={i}")
+                if detail.get("id") == r["id"]: r.update(detail)
     else:
         data = wait_for_new(a.host, a.wait_s) if a.wait else fetch(a.host)
     return 0 if draw(data, a.out) else 1

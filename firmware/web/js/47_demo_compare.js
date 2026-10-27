@@ -24,6 +24,9 @@ class DemoCompareView {
     this.seriesStop = $('#seriesStop');
     this.seriesProg = $('#seriesProg');
     this.seriesMsg = $('#seriesMsg');
+    this.seriesSetup = $('#seriesSetup');
+    this.seriesReadyText = $('#seriesReadyText');
+    this.setupKey = '';
     this.lastStatus = null;
     this.seriesReady.onchange = () => this.renderSeriesControls();
     this.seriesStart.onclick = () => this.startSeries();
@@ -53,8 +56,17 @@ class DemoCompareView {
     if (this.loading) return { ok: true };
     this.loading = true;
     const r = await this.api.get('/api/demo/compare');
+    if (r.ok) {
+      for (let i = 0; i < DEMO_RUNS.length; i++) {
+        const key = DEMO_RUNS[i].key, summary = r.data[key];
+        if (!summary) continue;
+        const detail = await this.api.get(`/api/demo/compare?run=${i}`);
+        if (detail.ok && detail.data.id === summary.id) r.data[key] = DemoCompareView.unflat(detail.data);
+        else r.data[key] = this.data?.[key]?.id === summary.id ? this.data[key] : null;
+      }
+      this.data = r.data; this.error = '';
+    } else this.error = r.error || 'หุ่นไม่ตอบ';
     this.loading = false;
-    if (r.ok) { this.data = r.data; this.error = ''; } else this.error = r.error || 'หุ่นไม่ตอบ';
     this.render();
     return r;
   }
@@ -72,9 +84,13 @@ class DemoCompareView {
         const run = se.runs[i];
         if (!this.seriesPaths.has(run.id)) {
           const one = await this.api.get(`/api/demo/series?run=${i}`, 6000);
-          if (one.ok && one.data.id === run.id) this.seriesPaths.set(run.id, one.data.xy || []);
+          if (one.ok && one.data.id === run.id) this.seriesPaths.set(run.id, {
+            xy: one.data.xy || [], route: one.data.route || [], acts: one.data.acts || [] });
         }
-        run.xy = this.seriesPaths.get(run.id) || [];
+        const detail = this.seriesPaths.get(run.id) || {};
+        run.xy = detail.xy || [];
+        run.route = detail.route || [];
+        run.acts = detail.acts || [];
       }
       this.series = se;
       this.render();
@@ -122,11 +138,21 @@ class DemoCompareView {
   static local(run) {
     const h = (run.headingDeg * Math.PI) / 180, c = Math.cos(h), s = Math.sin(h);
     const f = (x, y) => { const dx = x - run.startX, dy = y - run.startY; return { x: dx * c + dy * s, y: -dx * s + dy * c }; };
-    return { goal: f(run.goalX, run.goalY), path: (run.path || []).map((p) => f(p.x, p.y)) };
+    return { goal: f(run.goalX, run.goalY), path: (run.path || []).map((p) => f(p.x, p.y)),
+      route: (run.route || []).map((p) => f(p.x, p.y)) };
   }
 
   // the plan from the start, with the robot's maths (SimulationPlanner.leg = DetourSteer)
   static plan(goal, run, detour) {
+    const route = DemoCompareView.local(run).route;
+    if (route.length > 1) {
+      const model = SimulationPlanner.route(route, { x: 0, y: 0, h: 0 },
+        { v: run.speedMps, w: run.steerDps, settle: 0.05, stop: 0.2 }, detour);
+      const turns = model.phases.filter((p) => p.mode === 'steer')
+        .map((p) => ({ at: p.start, deg: p.end.h - p.start.h }));
+      return { kind: 'multi', pts: model.path, turns, route, turnAt: turns[0]?.at || { x: 0, y: 0 },
+        turnDeg: turns.reduce((sum, t) => sum + t.deg, 0) };
+    }
     const d = Math.hypot(goal.x, goal.y);
     const phi = SimulationPlanner.wrap((Math.atan2(goal.y, goal.x) * 180) / Math.PI);
     const leg = SimulationPlanner.leg(phi, d, { v: run.speedMps, w: run.steerDps, settle: 0.05, stop: 0.2 }, detour);
@@ -142,6 +168,15 @@ class DemoCompareView {
     const end = loc.path[loc.path.length - 1];
     const missMm = end ? 1000 * Math.hypot(end.x - loc.goal.x, end.y - loc.goal.y) : NaN;
     return { ...meta, run, ...loc, plan, missMm };
+  }
+
+  static comparable(a, b) {
+    const key = (run) => {
+      const loc = DemoCompareView.local(run);
+      return JSON.stringify([run.speedMps, run.steerDps, run.tolM,
+        (loc.route.length ? loc.route : [loc.goal]).map((p) => [p.x.toFixed(3), p.y.toFixed(3)])]);
+    };
+    return key(a) === key(b);
   }
 
   // a series run keeps its path as flat [x0, y0, x1, y1, ...]
@@ -165,9 +200,10 @@ class DemoCompareView {
   runs() {
     if (this.showSeries()) {
       const out = this.series.runs.map((run, i) => {
+        if (run.segments > 1 && !run.route?.length) return null; // never invent a straight plan for missing details
         const meta = DEMO_RUNS.find((m) => m.key === run.planner) || DEMO_RUNS[0];
         return DemoCompareView.prepared({ ...meta, label: `${Math.floor(i / 2) + 1}·${meta.name}` }, DemoCompareView.unflat(run));
-      });
+      }).filter(Boolean);
       const live = DEMO_RUNS.map((m) => (this.data || {})[m.key] && this.data[m.key].open ? m : null).find(Boolean);
       if (this.series.active && live) {        // the run being timed now, from the live record
         out.push(DemoCompareView.prepared({ ...live, label: `${Math.floor(out.length / 2) + 1}·${live.name}` }, this.data[live.key]));
@@ -181,15 +217,51 @@ class DemoCompareView {
 
   // ---- "test 3 rounds" controls ------------------------------------------------
 
+  static routePoints(d, n, a) {
+    let x = 0, y = 0;
+    return Array.from({ length: n }, (_, i) => {
+      const b = -(i + 1) * a * Math.PI / 180;
+      x += d / n * Math.cos(b); y += d / n * Math.sin(b);
+      return { x, y };
+    });
+  }
+
+  static setup(params) {
+    if (!params) return null;
+    const { distM: d, rightDeg: a, speedMps: v, steerDps: w } = params;
+    const n = params.segments ?? 1;
+    if (![d, a, v, w].every(Number.isFinite) || d < 0.1 || d > 2 || a < 5 || a > 30 || v <= 0 || w <= 0) return null;
+    if (!Number.isInteger(n) || n < 1 || n > 7 || d / n < 0.0999) return null;
+    const p = { v, w, settle: 0.05, stop: 0.2 };
+    const route = DemoCompareView.routePoints(d, n, a);
+    const direct = SimulationPlanner.route(route, { x: 0, y: 0, h: 0 }, p, false);
+    const detour = SimulationPlanner.route(route, { x: 0, y: 0, h: 0 }, p, true);
+    // Model estimate includes six returns, alignment, goal holds and series gaps.
+    // Each alignment/return turn is budgeted as a full wheel rotation.
+    const homeM = Math.hypot(route[n - 1].x, route[n - 1].y);
+    const seconds = 3 * (direct.time + detour.time + 2 * (homeM / v + 720 / w + 5 + 2));
+    return { distM: d, segments: n, homeM, clearanceM: Math.ceil((d + 0.5) * 10) / 10,
+      minutes: Math.ceil(seconds / 60), samePath: detour.detours === 0, key: JSON.stringify([d, n, a, v, w]) };
+  }
+
   renderSeriesControls() {
     const s = this.lastStatus;
     const se = (s && s.nav.series) || {};
     const offline = this.conn !== 'live';
     const running = s && s.nav.status === 'running';
-    const busy = !!se.active || running;
-    this.seriesStart.disabled = offline || busy || !this.seriesReady.checked;
+    const busy = !!se.active || running || !!(s && s.robot && (s.robot.mode !== 'halt' || s.robot.coasting));
+    const setup = DemoCompareView.setup(s && s.nav.demo);
+    const key = setup ? setup.key : '';
+    if (key !== this.setupKey) { this.setupKey = key; this.seriesReady.checked = false; }
+    this.seriesSetup.textContent = setup
+      ? `ขาไปรวม ${setup.distM.toFixed(2)} m · ${setup.segments} ช่วง${setup.segments > 1 ? ` ช่วงละ ${(setup.distM / setup.segments).toFixed(3)} m` : ''} · กลับจุดเริ่มอีกประมาณ ${setup.homeM.toFixed(2)} m (ไม่นับเวลาทดสอบ) · 6 ครั้งใช้เวลาประมาณ ${setup.minutes} นาที (อาจนานขึ้นเมื่อแก้ทาง) · ปรับในตั้งค่า → เดโมปุ่มบนหุ่น${setup.samePath ? ' · ระยะ/มุมนี้ Detour เลือกทางเดียวกับ Direct ตามแบบจำลอง' : ''}`
+      : 'กำลังอ่านระยะเป้าจากหุ่น…';
+    this.seriesReadyText.textContent = setup
+      ? `หุ่นอยู่บนพื้น ฉันอยู่ข้างหุ่น พื้นที่ตามแนวไป–กลับอย่างน้อย ${setup.clearanceM.toFixed(1)} ม. และด้านข้างโล่ง`
+      : 'หุ่นอยู่บนพื้น ฉันอยู่ข้างหุ่น และพื้นที่ตลอดทางไป–กลับโล่ง';
+    this.seriesStart.disabled = offline || busy || !setup || !this.seriesReady.checked;
     this.seriesStop.disabled = offline || !busy;
-    this.seriesReady.disabled = busy;
+    this.seriesReady.disabled = busy || !setup;
     const total = se.total || 6;
     this.seriesProg.style.width = se.active || se.count ? `${(100 * (se.count || 0)) / total}%` : '0';
     let msg, warn = false;
@@ -230,7 +302,8 @@ class DemoCompareView {
     const word = { turn: 'หมุนล้อ', drive: 'วิ่ง', still: 'นิ่ง' };
     const series = this.showSeries();
     const done = runs.filter((r) => r.run.valid && !r.run.open);
-    const fast = !series && done.length === 2 ? done.reduce((a, b) => (a.run.elapsedMs <= b.run.elapsedMs ? a : b)) : null;
+    const fast = !series && done.length === 2 && DemoCompareView.comparable(done[0].run, done[1].run)
+      ? done.reduce((a, b) => (a.run.elapsedMs <= b.run.elapsedMs ? a : b)) : null;
     const slowS = fast ? Math.max(...done.map((r) => r.run.elapsedMs / 1000)) : 0;
     const rows = runs.map((r) => {
       const segs = DemoCompareView.segments(r.run);
@@ -292,7 +365,7 @@ class DemoCompareView {
       for (const run of [se.runs[i], se.runs[i + 1]]) pair[run.planner] = run;
       rounds.push(pair);
     }
-    const ok = rounds.filter((p) => p.direct && p.detour && p.direct.valid && p.detour.valid);
+    const ok = rounds.filter((p) => p.direct && p.detour && p.direct.valid && p.detour.valid && DemoCompareView.comparable(p.direct, p.detour));
     const mean = (k) => ok.reduce((s, p) => s + p[k].elapsedMs / 1000, 0) / ok.length;
     if (!ok.length) return { pairs: 0, rounds };
     const d = mean('direct'), t = mean('detour'), diff = d - t;
@@ -334,7 +407,7 @@ class DemoCompareView {
       el('table', { class: 'series-table' }, el('thead', {}, head), el('tbody', {}, ...rows)),
       el('p', { class: 'demo-sum', text: st.pairs ? st.head : 'รอให้ครบอย่างน้อย 1 รอบ (Direct + Detour)' }),
       left && el('p', { class: 'hint', text: left }),
-      el('p', { class: 'hint', text: 'ค่าลบ = Detour ใช้เวลาน้อยกว่า · เวลาจับบนหุ่น ตั้งแต่ล้อหันเสร็จจนถึงเป้า' }),
+      el('p', { class: 'hint', text: `ผลชุดนี้: ขาไปรวม ${(se.runs[0].distanceM ?? Math.hypot(se.runs[0].goalX - se.runs[0].startX, se.runs[0].goalY - se.runs[0].startY)).toFixed(2)} m / ${se.runs[0].segments || 1} ช่วง · ขากลับไม่นับเวลา · ค่าลบ = Detour ใช้เวลาน้อยกว่า` }),
     ].filter(Boolean));
   }
 
@@ -356,7 +429,7 @@ class DemoCompareView {
     const rows = runs.map((r) => {
       const s = (r.run.elapsedMs / 1000).toFixed(2);
       const time = r.run.open ? `กำลังวิ่ง ${s} s` : r.run.valid ? `${s} s` : 'หยุดก่อนถึงเป้า (ไม่นับเวลา)';
-      const how = r.plan.kind === 'detour'
+      const how = r.plan.kind === 'multi' ? `${r.route.length} ช่วง · หมุนรวมตามแบบจำลอง ${fmt.deg(r.plan.turnDeg)}` : r.plan.kind === 'detour'
         ? `วิ่งตรงไป ${(r.plan.a * 100).toFixed(0)} ซม. ก่อน แล้วหมุน ${fmt.deg(r.plan.turnDeg)}`
         : `หมุนล้อ ${fmt.deg(r.plan.turnDeg)} ก่อนออกวิ่ง`;
       const miss = !r.run.open && Number.isFinite(r.missMm) ? ` · จบห่างเป้า ${r.missMm.toFixed(1)} mm` : '';
@@ -368,7 +441,9 @@ class DemoCompareView {
     });
     const [a, b] = DEMO_RUNS.map((x) => this.data[x.key]);
     let sum = '';
-    if (a && b && a.valid && b.valid) {
+    if (a && b && a.valid && b.valid && !DemoCompareView.comparable(a, b)) {
+      sum = 'ผลคนละระยะ เส้นทาง หรือค่าควบคุม จึงยังเทียบเวลาไม่ได้: วิ่งทั้งสองแบบด้วยค่าเดียวกันก่อน';
+    } else if (a && b && a.valid && b.valid) {
       const diff = (a.elapsedMs - b.elapsedMs) / 1000, pct = (100 * Math.abs(diff)) / (a.elapsedMs / 1000);
       sum = diff > 0 ? `Detour เร็วกว่า ${diff.toFixed(2)} s (${pct.toFixed(1)}%)`
         : diff < 0 ? `รอบนี้ Direct เร็วกว่า ${(-diff).toFixed(2)} s` : 'เวลาเท่ากัน';
@@ -384,7 +459,7 @@ class DemoCompareView {
     const stale = this.data && this.conn !== 'live' && this.conn !== 'loading';
     this.hint.textContent = stale
       ? 'ไม่ได้ต่อกับหุ่นตอนนี้: แสดงผลล่าสุดที่โหลดไว้'
-      : 'เส้นประ = ทางตามแผน · เส้นทึบ = ทางที่หุ่นวัดได้เอง (odometry) · วาดจากจุดเริ่มของแต่ละรอบ ให้ซ้อนกันได้';
+      : 'เส้นประ = ทางตามแผน · เส้นทึบ = ทางที่หุ่นวัดได้เอง (odometry) · จุดมีเลข = จุดที่ต้องผ่าน · ผลเดิมยังเป็นระยะของรอบเดิม การเปลี่ยนตั้งค่าไม่แก้ผลที่บันทึกแล้ว';
     this.hint.classList.toggle('warn-text', !!stale);
   }
 
@@ -452,7 +527,14 @@ class DemoCompareView {
       ctx.lineWidth = 4; ctx.strokeStyle = C.card; ctx.strokeText(text, x, y);   // halo over the grid
       ctx.fillStyle = C.txt; ctx.fillText(text, x, y);
     };
-    for (const r of firstOf) turn(r.plan.turnAt, C[`s-${r.key}`]);
+    for (const r of firstOf) {
+      for (const t of r.plan.turns || [{ at: r.plan.turnAt }]) turn(t.at, C[`s-${r.key}`]);
+    }
+    for (const [i, p] of (runs[0].route || []).entries()) {
+      const [x, y] = S(p);
+      ctx.fillStyle = C.txt; ctx.beginPath(); ctx.arc(x, y, 3, 0, 2 * Math.PI); ctx.fill();
+      label(`${i + 1}`, x, y - 10, 'center', 'bottom');
+    }
 
     // start: arrow along the start heading (+x)
     const [sx, sy] = S({ x: 0, y: 0 });
@@ -477,7 +559,9 @@ class DemoCompareView {
     // turn labels: Direct under the start, Detour above its turn point
     for (const r of firstOf) {
       const [tx, ty] = S(r.plan.turnAt);
-      const text = `${r.name}: หมุน ${fmt.deg(r.plan.turnDeg)}${r.plan.kind === 'detour' ? ' ตรงนี้' : ' ก่อนออก'}`;
+      const text = r.plan.kind === 'multi'
+        ? `${r.name}: หมุนรวม ${fmt.deg(r.plan.turnDeg)} / ${r.route.length} ช่วง`
+        : `${r.name}: หมุน ${fmt.deg(r.plan.turnDeg)}${r.plan.kind === 'detour' ? ' ตรงนี้' : ' ก่อนออก'}`;
       if (r.key === 'direct') label(text, Math.max(8, tx - 16), ty + 20, 'left', 'top');
       else label(text, Math.min(w - 8, tx + 16), ty - 20, 'right', 'bottom');
     }

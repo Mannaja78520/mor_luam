@@ -10,11 +10,11 @@ Set-Location E:\GPS_Localize\old\mor_luam
 .\docker\mor_luam.bat web
 ```
 
-`web` and `find` use local Python; the real web app runs on the ESP32. Docker is
+`web` serves the UI locally, including an offline waypoint editor/simulator, and auto-connects to real robot APIs. `web-robot` opens the UI hosted on the ESP32. Docker is
 needed for firmware builds/host tests and ROS containers, not for opening the robot
 page. See the [main README](../README.md) for the quick start and the
 [Docker command guide](../docker/README.md) for the full command list.
-For offline page work use `.\docker\mor_luam.bat web-mock` (localhost:8000).
+Use `web` for offline simulation. `web-mock` is a separate fake robot for UI development and uses the same default port.
 
 ## Guides
 
@@ -28,10 +28,11 @@ Start with [Safety](safety.md) before powering the motors. Use [Testing](testing
 | Compare Direct and Detour Steer in the browser, then run a real route | [Web UI](web_ui.md) |
 | Install and run everything: Windows, Ubuntu + Docker, Ubuntu native | [install_and_run.md](install_and_run.md) |
 | คู่มือเว็บภาษาไทย: วิธีเปิดเว็บ และทุกแท็บ | [web_guide_th.md](web_guide_th.md) |
+| เปิดเว็บบนคอมโดยไม่มีหุ่น และเชื่อมจริงอัตโนมัติ | [pc_web_th.md](pc_web_th.md) |
 | เดินรวม 2 m แบ่ง 7 ช่วง: เปรียบเทียบ Direct / Detour, ตั้งค่า, ระยะกลับ และผลจำลอง | [compare_2m_th.md](compare_2m_th.md) |
 | Steering power ramp, trace checks and missing-response diagnosis | [Tuning](tuning.md) |
 | Windows setup, Docker, Wi-Fi, browser tabs and ROS tools | [Windows guide](../docker/README.md) |
-| Latest state, 27 October 2026: docs published first; new code remains local | [Codex V3](../HANDOFF_MORLUAM_CODEX_V3.md) |
+| Latest state, 27 October 2026: PC web, editable simulation and multi-leg comparison | [Codex V4](../HANDOFF_MORLUAM_CODEX_V4.md) |
 | Previous documentation verification, 26 October 2026 | [Codex V2](../HANDOFF_MORLUAM_CODEX_V2.md) |
 | Latest firmware history and attended tests, 8–10 October 2026 | [Claude V2](../HANDOFF_MORLUAM_CLAUDE_V2.md) |
 | Earlier IMU, steering and drive evidence | [Codex V1](../HANDOFF_MORLUAM_CODEX_V1.md), [Claude V1](../HANDOFF_MORLUAM_CLAUDE_V1.md) |

@@ -22,7 +22,8 @@ struct SettingsData {
     float steerDps = 60.0f;
     // demo button
     bool demoReset = true;                // a demo press makes HERE (0,0), the front 0 deg
-    float demoDistM = 0.30f;              // demos 3/4: goal distance  (DEMO_COMPARE_DIST_M)
+    float demoDistM = 0.30f;              // demos 3/4: TOTAL outbound waypoint-leg length
+    uint8_t demoSegments = 1;            // total outbound distance split into short right-bending legs
     float demoRightDeg = 6.0f;            // ... and angle clockwise of the aligned wheel (DEMO_COMPARE_RIGHT_DEG)
     // steering (SteerDriveController::setTuning)
     float steerLandDeg = 2.0f;            // STEER_LAND_DEG

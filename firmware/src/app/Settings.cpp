@@ -44,6 +44,8 @@ void Settings::load() {
     d_.steerDps = flt("sdps", 60.0f);
     d_.demoReset = prefs_.isKey("dreset") ? prefs_.getBool("dreset", true) : true;
     d_.demoDistM = flt("ddist", DEMO_COMPARE_DIST_M);
+    d_.demoSegments = prefs_.getUChar("dlegs", 1);
+    if (d_.demoSegments < 1 || d_.demoSegments > DEMO_COMPARE_MAX_SEGMENTS) d_.demoSegments = 1;
     d_.demoRightDeg = flt("dright", DEMO_COMPARE_RIGHT_DEG);
     d_.steerLandDeg = flt("sland", STEER_LAND_DEG);
     d_.reaimOn = prefs_.isKey("reaim") ? prefs_.getBool("reaim", DRIVE_REAIM) : DRIVE_REAIM;
@@ -64,6 +66,7 @@ void Settings::save() {
     prefs_.putFloat("sdps", d_.steerDps);
     prefs_.putBool("dreset", d_.demoReset);
     prefs_.putFloat("ddist", d_.demoDistM);
+    prefs_.putUChar("dlegs", d_.demoSegments);
     prefs_.putFloat("dright", d_.demoRightDeg);
     prefs_.putFloat("sland", d_.steerLandDeg);
     prefs_.putBool("reaim", d_.reaimOn);
@@ -91,6 +94,13 @@ bool Settings::update(JsonObjectConst in, String& err) {
     if (in["steerDps"].is<float>()) n.steerDps = in["steerDps"].as<float>();
     if (in["demoReset"].is<bool>()) n.demoReset = in["demoReset"].as<bool>();
     if (in["demoDistM"].is<float>()) n.demoDistM = in["demoDistM"].as<float>();
+    if (!in["demoSegments"].isNull()) {
+        if (!in["demoSegments"].is<int>() || in["demoSegments"].as<int>() < 1 ||
+            in["demoSegments"].as<int>() > DEMO_COMPARE_MAX_SEGMENTS) {
+            err = "จำนวนช่วงเดโมต้องเป็นจำนวนเต็ม 1-7"; return false;
+        }
+        n.demoSegments = in["demoSegments"].as<uint8_t>();
+    }
     if (in["demoRightDeg"].is<float>()) n.demoRightDeg = in["demoRightDeg"].as<float>();
     if (in["steerLandDeg"].is<float>()) n.steerLandDeg = in["steerLandDeg"].as<float>();
     if (in["reaimOn"].is<bool>()) n.reaimOn = in["reaimOn"].as<bool>();
@@ -111,7 +121,8 @@ bool Settings::update(JsonObjectConst in, String& err) {
     }
     if (n.navTolM < 0.0025f || n.navTolM > 0.5f) { err = "ระยะถึงจุดต้องอยู่ระหว่าง 0.0025-0.5 m (2.5 มม. - 50 ซม.)"; return false; }
     if (n.steerDps < 5.0f || n.steerDps > 720.0f) { err = "ความเร็วเลี้ยวต้องอยู่ระหว่าง 5-720 °/s"; return false; }
-    if (!(n.demoDistM >= 0.10f && n.demoDistM <= 1.0f)) { err = "ระยะเป้าเดโม 3/4 ต้องอยู่ระหว่าง 0.10-1.00 m"; return false; }
+    if (!(n.demoDistM >= 0.10f && n.demoDistM <= DEMO_COMPARE_MAX_DIST_M)) { err = "ระยะเป้าเดโม 3/4 ต้องอยู่ระหว่าง 0.10-2.00 m"; return false; }
+    if (n.demoDistM / n.demoSegments < 0.0999f) { err = "แต่ละช่วงเดโมต้องยาวอย่างน้อย 0.10 m"; return false; }
     if (!(n.demoRightDeg >= 5.0f && n.demoRightDeg <= 30.0f)) {
         err = "มุมเป้าเดโม 3/4 ต้องอยู่ระหว่าง 5-30° (ต่ำกว่า ~5° ล้อถือว่าเล็งตรงอยู่แล้ว สองแบบจะวิ่งเหมือนกัน)"; return false;
     }
@@ -165,6 +176,7 @@ void Settings::toJson(JsonObject o, bool withSecrets) {
     o["steerDps"] = d_.steerDps;
     o["demoReset"] = d_.demoReset;
     o["demoDistM"] = d_.demoDistM;
+    o["demoSegments"] = d_.demoSegments;
     o["demoRightDeg"] = d_.demoRightDeg;
     o["steerLandDeg"] = d_.steerLandDeg;
     o["reaimOn"] = d_.reaimOn;

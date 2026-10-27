@@ -73,6 +73,8 @@ static const float    DEMO_START_HEADING_DEG   = 0.0f;   // demos 3/4: wheel tur
 // The race geometry measured on the robot 2026-10-08 (tools/race_test.py): Detour
 // 22.6 % faster over 3+3 runs. The planner picks the detour with steerDps 35..60.
 static const float    DEMO_COMPARE_DIST_M      = 0.30f;
+static const float    DEMO_COMPARE_MAX_DIST_M  = 2.0f;   // adjustable goal; speed limits stay unchanged
+static const uint8_t  DEMO_COMPARE_MAX_SEGMENTS = 7;     // short legs make the turn/drive order visible
 static const float    DEMO_COMPARE_RIGHT_DEG   = 6.0f;
 static const float    DEMO_TRACE_STEP_M        = 0.005f;  // recorded path of a demo 3/4 run, for the web picture
 static const uint32_t DEMO_ACT_HOLD_MS         = 150;     // demo 3/4 time line: a change counts after this long

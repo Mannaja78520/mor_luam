@@ -33,6 +33,7 @@
   </div>
   <button class="btn estop" id="estop" type="button">หยุด<small>E-STOP</small></button>
 </header>
+<p id="pcConnection" class="hint hidden" aria-live="polite"></p>
 
 <div class="banner hidden" id="banner" role="alert"></div>
 
@@ -85,13 +86,14 @@
       </div>
 
       <div class="card" id="demoCard">
-        <h3>เดโม 3 / 4 ครั้ง <small>Direct เทียบ Detour · เป้าเดียวกัน</small></h3>
+        <h3>เดโม 3 / 4 ครั้ง <small>Direct เทียบ Detour · ผ่านจุดชุดเดียวกัน</small></h3>
         <div class="series-box" id="seriesBox">
-          <p class="hint">กดครั้งเดียว หุ่นวิ่งเทียบ Direct กับ Detour 3 รอบ (6 ครั้ง) ต่อกันเอง · ทุกครั้งกลับจุดเริ่มก่อน · สลับว่าแบบไหนวิ่งก่อน · ใช้ราว 6 นาที ต้องเปิดหน้านี้ไว้</p>
-          <label class="field check"><input type="checkbox" id="seriesReady"><span>หุ่นอยู่บนพื้น ฉันอยู่ข้างหุ่น และข้างหน้าว่างราว 0.5 ม.</span></label>
+          <p class="hint">กดครั้งเดียว หุ่นวิ่งเทียบ Direct กับ Detour 3 รอบ (6 ครั้ง) ต่อกันเอง · ทุกครั้งกลับจุดเริ่มก่อน · สลับว่าแบบไหนวิ่งก่อน · ต้องเปิดหน้านี้ไว้</p>
+          <p class="hint" id="seriesSetup">กำลังอ่านระยะเป้าจากหุ่น…</p>
+          <label class="field check"><input type="checkbox" id="seriesReady" disabled><span id="seriesReadyText">หุ่นอยู่บนพื้น ฉันอยู่ข้างหุ่น และพื้นที่ตลอดทางไป–กลับโล่ง</span></label>
           <div class="row">
-            <button class="btn go" type="button" id="seriesStart">ทดสอบ 3 รอบ</button>
-            <button class="btn stop" type="button" id="seriesStop">หยุดชุดทดสอบ</button>
+            <button class="btn go" type="button" id="seriesStart" disabled>ทดสอบ 3 รอบ</button>
+            <button class="btn stop" type="button" id="seriesStop" disabled>หยุดชุดทดสอบ</button>
           </div>
           <div class="progress" aria-hidden="true"><div id="seriesProg"></div></div>
           <p class="hint reserve" id="seriesMsg" aria-live="polite">&nbsp;</p>
@@ -122,7 +124,7 @@
           </div>
           <p class="hint reserve" id="navHint">&nbsp;</p>
           <p class="hint" id="btnInfo">ปุ่มบนหุ่น: –</p>
-          <p class="hint">ปุ่มบนหุ่น: กด 1 / 2 ครั้ง = เส้นทาง 1 / 2 (ตั้งจุดได้บนระนาบ เลือก "ปุ่ม 1 ครั้ง" หรือ "ปุ่ม 2 ครั้ง") · 3 ครั้ง = Direct · 4 ครั้ง = Detour (เป้าเดียวกัน ห่าง 30 ซม. เยื้องขวาจากล้อ 6° จับเวลาบนหุ่น ดูภาพในกล่อง "เดโม 3 / 4 ครั้ง") · ทุกครั้งที่กดเริ่มเดโม: ตรงที่หุ่นวางอยู่ = (0,0) และหน้าหุ่น = ทิศ 0° (นับ IMU ใหม่) · ทุกเดโมกลับจุดเริ่มเอง กดเดโมต่อได้เลย · กดระหว่างหุ่นเคลื่อนที่ = หยุด · กดค้างเกิน 1.5 วินาที = ไม่เริ่มอะไร</p>
+          <p class="hint">ปุ่มบนหุ่น: กด 1 / 2 ครั้ง = เส้นทาง 1 / 2 (ตั้งจุดได้บนระนาบ เลือก "ปุ่ม 1 ครั้ง" หรือ "ปุ่ม 2 ครั้ง") · 3 ครั้ง = Direct · 4 ครั้ง = Detour (ระยะรวม จำนวนช่วง และมุมตามแท็บตั้งค่า ผ่านจุดชุดเดียวกัน จับเวลาบนหุ่น ดูภาพในกล่อง "เดโม 3 / 4 ครั้ง") · ทุกครั้งที่กดเริ่มเดโม: ตรงที่หุ่นวางอยู่ = (0,0) และหน้าหุ่น = ทิศ 0° หากเปิดตัวเลือกรีเซ็ตเดโมไว้ · ทุกเดโมกลับจุดเริ่มเอง · กดระหว่างหุ่นเคลื่อนที่ = หยุด · กดค้างเกิน 1.5 วินาที = ไม่เริ่มอะไร</p>
           <details class="more">
             <summary>ตั้งตำแหน่งเริ่มใหม่</summary>
             <p class="hint">ให้ตำแหน่งที่หุ่นอยู่ตอนนี้เป็น (0,0) และทิศที่หน้าหุ่นหันอยู่เป็น +x (ทิศ 0°) โดยนับทิศ IMU ใหม่ด้วย ใช้ก่อนวางจุดชุดใหม่ · เส้นทางและการทดสอบจากเว็บใช้จุด (0,0) นี้ต่อไปเรื่อย ๆ ถึงหัวหุ่นจะเบี้ยวไปก็ยังไปถึงจุดถูกต้อง</p>
@@ -154,10 +156,24 @@
   <section class="tabpage" id="tab-simulation" role="tabpanel">
     <div class="card">
       <h3>จำลอง Detour Steer เทียบ Direct</h3>
-      <p class="hint">ใช้จุดที่วางในแท็บเส้นทาง และตำแหน่งเริ่มจากหุ่น จำลองในเบราว์เซอร์เท่านั้น เส้นสีเขียว = Detour, สีส้ม = Direct แบบเดิม</p>
+      <p class="hint">วางจุดได้บนระนาบด้านล่างโดยตรง · เริ่มจำลองที่ (0,0) หัวไป +x · จุดชุดนี้อยู่ในเบราว์เซอร์ ไม่บันทึกหรือสั่งมอเตอร์หุ่น · เขียว = Detour, ส้ม = Direct</p>
+      <div class="row plane-tools" role="toolbar" aria-label="วางจุดจำลอง">
+        <button class="chipbtn" id="simAddMode" type="button" aria-pressed="true">วาง / ลากจุด</button>
+        <button class="chipbtn" id="simDeleteMode" type="button" aria-pressed="false">ลบจุด</button>
+        <button class="chipbtn" id="simFitPoints" type="button">พอดีจอ</button>
+        <button class="chipbtn" id="simCopyPoints" type="button">คัดลอกจากเส้นทางที่เลือก</button>
+        <button class="chipbtn" id="simClearPoints" type="button">ล้างจุดจำลอง</button>
+      </div>
+      <div class="plane-wrap"><canvas id="simEditorCanvas" aria-label="วางจุดจำลอง: แตะเพื่อเพิ่มจุด ลากจุดเพื่อย้าย ใช้โหมดลบเพื่อลบจุด"></canvas></div>
+      <div class="plane-foot"><span id="simCursor">x –, y –</span><span id="simPointCount">0 / 32 จุด</span></div>
+      <div class="row sim-controls">
+        <label class="field">x (m)<input id="simPointX" type="number" min="-50" max="50" step="0.01" value="0.3"></label>
+        <label class="field">y (m)<input id="simPointY" type="number" min="-50" max="50" step="0.01" value="-0.03"></label>
+        <button class="btn" id="simAddPoint" type="button">เพิ่มจุดจำลอง</button>
+      </div>
       <div class="row sim-controls">
         <label class="field">ความเร็วขับ (m/s)<input id="simSpeed" type="number" min="0.005" max="0.035" step="0.001" value="0.03"></label>
-        <label class="field">ความเร็วเลี้ยว (°/s)<input id="simSteer" type="number" min="5" max="720" value="60"></label>
+        <label class="field">ความเร็วเลี้ยว (°/s)<input id="simSteer" type="number" min="5" max="720" value="35"></label>
         <label class="field">ความเร็วภาพ<select id="simRate"><option value="1">1×</option><option value="4" selected>4×</option><option value="10">10×</option></select></label>
       </div>
       <label class="field check"><input id="simNoiseEnabled" type="checkbox"><span>จำลองความคลาดเคลื่อนและการสั่น</span></label>
@@ -172,6 +188,7 @@
         <button class="btn" id="simPause" type="button">พัก</button>
         <button class="btn" id="simReset" type="button">เริ่มใหม่</button>
         <button class="btn" id="simExample" type="button">ตัวอย่างอ้อม 0.3 m / 6°</button>
+        <button class="btn" id="simExample2m" type="button">ตัวอย่างรวม 2 m / 7 ช่วง</button>
       </div>
       <p class="hint" id="simSummary" aria-live="polite">วางจุดบนระนาบแล้วกดจำลอง</p>
       <p class="hint" id="simNoiseStatus" aria-live="polite"></p>

@@ -173,3 +173,11 @@ python tools/race_test.py --runs 3 --steer-dps 35   # plan with the measured ste
 Uses the robot's route test (same start angle, robot clock, alignment not timed) and drives home between runs.
 Set the goal radius first (Settings, e.g. 0.0025 m): with 5 cm the detour can "arrive" before its final turn.
 Result 2026-10-08 (2.5 mm radius, 3 runs each): Direct mean 25.84 s, Detour mean 19.99 s (-22.6 %).
+
+## PC web and two-metre model (27 October 2026)
+
+`docker\mor_luam.bat web` serves the real UI on localhost:8000 without a robot. The Simulation tab has isolated local waypoints: add/drag/delete, numerical entry, copy and two examples. Reconnection never starts a route or replays commands rejected while offline. `mor-luam.local` remains the ESP32 hostname. See [PC web guide](pc_web_th.md).
+
+Checked without hardware motion: `python tools/test_pc_web.py` (3 HTTP contracts), `node firmware/web/test_simulation_route.cjs` (editing/isolation/examples), route-test UI and planner tests (1,000 geometries), Docker host suite (0 failures; 40 runner scenarios), and firmware build. An actual browser opened the offline page, placed a point and ran the 2 m / 7-leg example.
+
+Current ideal model: Direct 137.82 s / 2.00 m; Detour 110.52 s / 2.17 m with four detours. Three paired rounds contain six runs plus returns. These are predictions, not replacement measurements for the historical runs above. No physical two-metre trial was performed in this session. Last live API issue remains unresolved: the hotspot lists mor-luam at 192.168.137.102, but HTTP does not respond. The PC simulator remains usable.

@@ -96,7 +96,7 @@ class Robot:
             "robotName": "mor_luam", "hostname": "mor-luam", "agentHost": "", "agentPort": 8888,
             "navSpeedMps": 0.03, "navTolM": 0.08, "navLoop": False, "planner": "detour",
             "planners": ["detour", "direct"], "steerDps": 60.0,
-            "demoReset": True, "demoDistM": 0.3, "demoRightDeg": 6.0,
+            "demoReset": True, "demoDistM": 0.3, "demoSegments": 1, "demoRightDeg": 6.0,
             "steerLandDeg": 2.0, "reaimOn": True, "reaimRatio": 3.0,
             "otaPass": "mock-ota", "apPass": "mock-ap-pass",
         }
@@ -272,6 +272,9 @@ class Robot:
                 "goalY": self.goal[1] if self.goal else 0, "haltWhy": self.halt_why,
             },
             "nav": {**self.nav, "count": n, "loop": self.route_loop,
+                    "demo": {"distM": s["demoDistM"], "rightDeg": s["demoRightDeg"],
+                             "segments": s["demoSegments"],
+                             "speedMps": s["navSpeedMps"], "steerDps": s["steerDps"]},
                     "series": {"id": 1, "active": False, "count": 6, "total": 6, "why": ""},
                     "waitLeftMs": max(0, self.wait_until - now_ms()) if self.wait_until else 0,
                     "planner": self.route_planner, "plan": self.plan, "test": test,
@@ -373,7 +376,15 @@ class Handler(BaseHTTPRequestHandler):
                     return self.fail("ไม่มีเส้นทางนี้")
                 return self.send(200, {"slot": slot, "points": R.routes[slot] if slot else R.points})
             if p == "/api/demo/compare":
-                return self.send(200, mock_compare())
+                comparison = mock_compare()
+                run = (parse_qs(u.query).get("run") or [None])[0]
+                if run is not None:
+                    if run not in ("0", "1"): return self.fail("ไม่มีผลรอบนี้")
+                    return self.send(200, comparison["direct" if run == "0" else "detour"])
+                for key in ("direct", "detour"):
+                    comparison[key].pop("path", None)
+                    comparison[key].pop("acts", None)
+                return self.send(200, comparison)
             if p == "/api/demo/series":
                 se = mock_series()
                 run = (parse_qs(u.query).get("run") or [None])[0]
@@ -384,6 +395,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(200, {**se["runs"][i], "index": i})
                 for r in se["runs"]:
                     r.pop("xy")                        # the summary has no paths
+                    r.pop("acts", None)
                 return self.send(200, se)
             if p == "/api/wifi":
                 return self.send(200, {"saved": R.wifi, "max": 6, "net": R.net()})
@@ -533,8 +545,14 @@ class Handler(BaseHTTPRequestHandler):
                     return self.fail("รหัส OTA ต้องยาวอย่างน้อย 4 ตัว")
                 if not 8 <= len(n["apPass"]) <= 63:
                     return self.fail("รหัส hotspot ต้องยาว 8-63 ตัว")
-                if not 0.05 <= n["navSpeedMps"] <= 1.0:
-                    return self.fail("ความเร็วต้องอยู่ระหว่าง 0.05-1.0 m/s")
+                if not 0.005 <= n["navSpeedMps"] <= 0.035:
+                    return self.fail("ความเร็วต้องอยู่ระหว่าง 0.005-0.035 m/s")
+                if not 0.1 <= n["demoDistM"] <= 2.0:
+                    return self.fail("ระยะเป้าเดโม 3/4 ต้องอยู่ระหว่าง 0.10-2.00 m")
+                if type(n["demoSegments"]) is not int or not 1 <= n["demoSegments"] <= 7:
+                    return self.fail("จำนวนช่วงเดโมต้องเป็นจำนวนเต็ม 1-7")
+                if n["demoDistM"] / n["demoSegments"] < 0.0999:
+                    return self.fail("แต่ละช่วงเดโมต้องยาวอย่างน้อย 0.10 m")
                 R.settings = n
                 return self.ok()
             if p == "/api/pid":

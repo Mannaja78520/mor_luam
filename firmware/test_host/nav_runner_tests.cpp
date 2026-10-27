@@ -44,10 +44,15 @@ struct Trial {
     void compareRun() {
         align();
         tick(1000);
-        const float b = -DEMO_COMPARE_RIGHT_DEG * 3.14159265f / 180.0f;
-        ctrl.applied.goalActive = false; ctrl.applied.targetRpm = 0;
-        ctrl.applied.x = DEMO_COMPARE_DIST_M * std::cos(b); ctrl.applied.y = DEMO_COMPARE_DIST_M * std::sin(b);
-        tick(); tick();                                   // at the goal: the hold starts
+        float x = 0, y = 0;
+        for (uint8_t i = 0; i < settings.data.demoSegments; ++i) {
+            const float b = -(i + 1) * settings.data.demoRightDeg * 3.14159265f / 180.0f;
+            x += settings.data.demoDistM / settings.data.demoSegments * std::cos(b);
+            y += settings.data.demoDistM / settings.data.demoSegments * std::sin(b);
+            ctrl.applied.goalActive = false; ctrl.applied.targetRpm = 0;
+            ctrl.applied.x = x; ctrl.applied.y = y;
+            tick(); tick();                               // next waypoint, or the final goal hold
+        }
         for (int i = 0; i < 110; ++i) tick();            // 5.5 s: hold over, the drive home is sent
         ctrl.applied.goalActive = false; ctrl.applied.targetRpm = 0;
         ctrl.applied.x = 0; ctrl.applied.y = 0;
@@ -320,11 +325,13 @@ int main() {
             assert(d.children["valid"].number == 1 && d.children["open"].number == 0);
             assert(d.children["elapsedMs"].number == elapsed);
             assert(std::fabs(d.children["goalX"].number - DEMO_COMPARE_DIST_M * std::cos(b)) < 1e-4);
-            auto& path = d.children["path"].items;
-            assert(path.size() == 2 && path[0].children["x"].number == 0);  // start, then where it ended
-            auto& acts = d.children["acts"].items;
+            assert(d.children["xy"].null && d.children["acts"].null); // bounded summary
+            JsonNode detail; t.runner.compareJson(JsonObject(&detail), 0);
+            auto& path = detail.children["xy"].items;
+            assert(path.size() == 4 && path[0].number == 0);  // flat start/end xy
+            auto& acts = detail.children["acts"].items;
             assert(!acts.empty() && acts[0].children["t"].number == 0 && acts[0].children["a"].text == "still");
-            assert(std::fabs(path[1].children["x"].number - DEMO_COMPARE_DIST_M * std::cos(b)) < 1e-3);
+            assert(std::fabs(path[2].number - DEMO_COMPARE_DIST_M * std::cos(b)) < 1e-3);
         }
         t.ctrl.applied.goalActive = false; t.ctrl.applied.targetRpm = 0;
         t.ctrl.applied.x = 0; t.ctrl.applied.y = 0;                       // back at the start
@@ -412,7 +419,8 @@ int main() {
         JsonNode o; t.runner.compareJson(JsonObject(&o));
         JsonNode& d = o.children["detour"];
         assert(!d.null && d.children["valid"].number == 0 && d.children["open"].number == 0);
-        assert(d.children["path"].items.size() >= 10);
+        JsonNode detail; t.runner.compareJson(JsonObject(&detail), 1);
+        assert(detail.children["xy"].items.size() >= 20);
         assert(o.children["direct"].null);
         assert(t.status().children["test"].children["goalX"].null);
     }
@@ -436,8 +444,8 @@ int main() {
         for (int i = 0; i < 20; ++i) t.tick();                                                     // 1 s turning
         t.ctrl.applied.driving = true; t.ctrl.applied.steerRateDps = 0; t.ctrl.applied.rpm = 7.5;
         for (int i = 0; i < 20; ++i) t.tick();                                                     // 1 s driving
-        JsonNode o; t.runner.compareJson(JsonObject(&o));
-        auto& acts = o.children["direct"].children["acts"].items;
+        JsonNode o; t.runner.compareJson(JsonObject(&o), 0);
+        auto& acts = o.children["acts"].items;
         assert(acts.size() >= 3 && acts[1].children["a"].text == "turn" && acts[2].children["a"].text == "drive");
         t.runner.stop("test");
     }
@@ -466,9 +474,10 @@ int main() {
         const char* order[4] = {"direct", "detour", "detour", "direct"};
         for (int i = 0; i < 4; ++i) {
             assert(runs[i].children["planner"].text == order[i] && runs[i].children["valid"].number == 1);
-            assert(runs[i].children["xy"].null && !runs[i].children["acts"].items.empty());   // summary: no path
+            assert(runs[i].children["xy"].null && runs[i].children["acts"].null);   // bounded summary
             JsonNode one; assert(t.runner.seriesJson(JsonObject(&one), i));                    // one run: its path
             assert(one.children["index"].number == i && one.children["xy"].items.size() >= 4);
+            assert(!one.children["acts"].items.empty());
         }
         JsonNode none; assert(!t.runner.seriesJson(JsonObject(&none), 4));
         assert(t.status().children["status"].text == "done" && !t.runner.seriesActive());
@@ -528,5 +537,69 @@ int main() {
         assert(t.runner.startButtonRoute(1, t.err) && t.ctrl.poseResets == 0);   // route 1 in the kept frame
         t.runner.stop("test");
     }
-    std::cout << "WaypointRunner comparison tests PASS (36 scenarios)\n";
+    {   // a 2 m goal is used by all six runs; each still returns before the next
+        Trial t;
+        t.settings.data.demoDistM = DEMO_COMPARE_MAX_DIST_M;
+        assert(t.runner.startSeries(3, t.err, false, true));
+        for (int i = 0; i < 6; ++i) {
+            t.compareRun();
+            for (int j = 0; j < 45; ++j) t.tick();
+        }
+        JsonNode o; t.runner.seriesJson(JsonObject(&o));
+        assert(o.children["count"].number == 6 && o.children["active"].number == 0);
+        for (const auto& r : o.children["runs"].items) {
+            const float dx = r.children.at("goalX").number - r.children.at("startX").number;
+            const float dy = r.children.at("goalY").number - r.children.at("startY").number;
+            assert(std::fabs(std::hypot(dx, dy) - 2.0f) < 1e-4f);
+            assert(r.children.at("valid").number == 1);
+        }
+    }
+    {   // a slow 2 m button comparison must allow the outbound AND home journeys
+        Trial t;
+        t.settings.data.demoDistM = 2.0f;
+        t.settings.data.navSpeedMps = 0.005f;
+        assert(t.runner.startCompare("direct", t.err));
+        const double limit = t.status().children["demoLimitS"].number;
+        assert(limit > 1600 && limit <= DEMO_LIMIT_CEIL_MS / 1000);
+        t.runner.stop("test");
+    }
+    {   // seven short legs, two metres in total; all six runs share those goals
+        Trial t;
+        t.settings.data.demoDistM = 2.0f;
+        t.settings.data.demoSegments = 7;
+        assert(t.runner.startSeries(3, t.err, false, true));
+        for (int i = 0; i < 6; ++i) {
+            t.compareRun();
+            for (int j = 0; j < 45; ++j) t.tick();
+        }
+        JsonNode se; t.runner.seriesJson(JsonObject(&se));
+        assert(se.children["count"].number == 6 && se.children["active"].number == 0);
+        for (int i = 0; i < 6; ++i) {
+            JsonNode o; assert(t.runner.seriesJson(JsonObject(&o), i));
+            const auto& route = o.children["route"].items;
+            assert(route.size() == 7 && o.children["valid"].number == 1);
+            double x = o.children["startX"].number, y = o.children["startY"].number, total = 0;
+            for (const auto& point : route) {
+                const double px = point.children.at("x").number, py = point.children.at("y").number;
+                const double leg = std::hypot(px - x, py - y);
+                assert(std::fabs(leg - 2.0 / 7) < 1e-5);
+                total += leg; x = px; y = py;
+            }
+            assert(std::fabs(total - 2) < 1e-5);
+        }
+    }
+    {   // long multi-leg time lines retain more than the old 32 change points
+        Trial t;
+        t.settings.data.demoDistM = 2; t.settings.data.demoSegments = 7;
+        assert(t.runner.startCompare("direct", t.err)); t.align();
+        for (int i = 0; i < 48; ++i) {
+            t.ctrl.applied.driving = i % 2;
+            t.ctrl.applied.rpm = i % 2 ? 7.5f : 2.0f;
+            for (int j = 0; j < 7; ++j) t.tick();
+        }
+        JsonNode detail; t.runner.compareJson(JsonObject(&detail), 0);
+        assert(detail.children["acts"].items.size() > 32);
+        t.runner.stop("test");
+    }
+    std::cout << "WaypointRunner comparison tests PASS (40 scenarios)\n";
 }

@@ -14,14 +14,15 @@ Ubuntu ใช้ `./docker/mor_luam.sh` แทน `.\docker\mor_luam.bat`
 
 ## เปิดเว็บหุ่น
 
-เปิดหุ่น ให้คอมกับหุ่นอยู่ Wi-Fi เดียวกัน แล้วรัน:
+เปิดเว็บบนคอมได้แม้ไม่มีหุ่น โดยรัน:
 
 ```powershell
 .\docker\mor_luam.bat web
 ```
 
-ใช้ Python บน Windows หาหุ่น แสดง URL/เครือข่ายสำหรับคอมและมือถือ และเปิดเว็บ
-**ไม่ต้องเปิด Docker หรือ ROS agent** เว็บอยู่บน ESP32
+ใช้ Python เปิดเว็บที่ [localhost:8000](http://localhost:8000/) จำลองได้ offline และเชื่อม API ของหุ่นอัตโนมัติ
+**ไม่ต้องเปิด Docker หรือ ROS agent** เก็บ terminal ไว้ระหว่างใช้เว็บ อ่าน [คู่มือเว็บบนคอม](../docs/pc_web_th.md)
+ถ้าต้องการหน้าเว็บบน ESP32 โดยตรง ใช้ `web-robot` หรือ URL mor-luam.local ด้านล่าง
 เครื่องนี้เคยใช้ Mobile Hotspot `manny`; หุ่นเลือก Wi-Fi ตามลำดับที่บันทึกไว้
 
 - เปิดตรง: [mor-luam.local](http://mor-luam.local/)
@@ -31,7 +32,6 @@ Ubuntu ใช้ `./docker/mor_luam.sh` แทน `.\docker\mor_luam.bat`
 
 อ่าน [คู่มือเว็บทุกแท็บ/เดโมภาษาไทย](../docs/web_guide_th.md)
 สำหรับชุดเปรียบเทียบเดินรวม 2 m แบ่ง 7 ช่วง อ่าน [คู่มือเปรียบเทียบ 2 เมตร](../docs/compare_2m_th.md)
-คู่มือนี้อธิบายฟีเจอร์ใหม่ในเครื่องที่ยังรอ push โค้ด; ตรวจสถานะการเผยแพร่ในคู่มือก่อนใช้กับ checkout ใหม่
 ตั้ง `demoDistM=2.00`, `demoSegments=7`, `demoRightDeg=6` จากแท็บตั้งค่าแล้วบันทึก
 ค่าที่บันทึกไม่เริ่มมอเตอร์เอง; เริ่มจริงจากกล่องทดสอบหลังผู้ควบคุมยืนยันพื้นที่พร้อม
 เว็บมีเส้นทาง, Simulation, Wi-Fi, ตั้งค่า, ระบบ และกล่องเดโม Direct/Detour
@@ -42,7 +42,8 @@ Ubuntu ใช้ `./docker/mor_luam.sh` แทน `.\docker\mor_luam.bat`
 | ส่วน | ทำงานที่ไหน | ใช้ Docker |
 |---|---|---|
 | ควบคุมมอเตอร์/odometry/เว็บจริง | ESP32 | ไม่ต้อง |
-| `find`, `web`, `web-mock`, `robot-test` | Python บนคอม | ไม่ต้อง |
+| `web` | server บนคอม + จำลอง offline + ควบคุม API จริงเมื่อเชื่อม | ไม่ต้อง |
+| `find`, `web-robot`, `web-mock`, `robot-test` | Python บนคอม | ไม่ต้อง |
 | `fw-ota` | Windows curl ส่งไฟล์ที่ build แล้ว | ไม่ต้อง |
 | `fw-flash` | Windows PlatformIO/esptool ส่งไฟล์ที่ build แล้ว | ไม่ต้อง |
 | `fw-build`, `fw-test`, `fw-clean-ros` | container `firmware` | ต้อง |

@@ -21,10 +21,10 @@ static float rpmFor(float mps) { return mps / ((float)M_PI * WHEEL_DIAMETER) * 6
 // demo 3/4 time line: what the robot is visibly doing now. The controller's own
 // mode decides drive vs turn: the drive encoder also counts while the wheel steers
 // (measured 2026-10-09), so rpm alone would call a turn in place "driving".
-static ActivityLog<32>::Act activityOf(const RobotState& s) {
-    if (s.halted) return ActivityLog<32>::Still;
-    if (s.driving) return fabsf(s.rpm) >= DEMO_DRIVE_RPM ? ActivityLog<32>::Drive : ActivityLog<32>::Still;
-    return fabsf(s.steerRateDps) >= DEMO_TURN_DPS ? ActivityLog<32>::Turn : ActivityLog<32>::Still;
+static ActivityLog<64>::Act activityOf(const RobotState& s) {
+    if (s.halted) return ActivityLog<64>::Still;
+    if (s.driving) return fabsf(s.rpm) >= DEMO_DRIVE_RPM ? ActivityLog<64>::Drive : ActivityLog<64>::Still;
+    return fabsf(s.steerRateDps) >= DEMO_TURN_DPS ? ActivityLog<64>::Turn : ActivityLog<64>::Still;
 }
 
 void WaypointRunner::begin(ControlLoop* ctrl, Settings* settings) {
@@ -306,6 +306,7 @@ bool WaypointRunner::beginTest(const String& planner, float heading, bool ready,
     if (newFrame) ctrl_->resetPose();
     if (compare) {                           // the demo goal from the settings page
         compareDistM_ = settings.demoDistM;
+        compareSegments_ = settings.demoSegments;
         compareRightDeg_ = settings.demoRightDeg;
     }
     local_ = local;                          // from the button: no web heartbeat
@@ -321,7 +322,12 @@ bool WaypointRunner::beginTest(const String& planner, float heading, bool ready,
         count_ = 1;
     }
     prepare(settings);
-    localLimitMs_ = DEMO_MAX_MS;             // demos 3/4: one short goal
+    // Longer comparison goals include the drive home; keep the moving-time
+    // guard useful at slow speeds instead of imposing the old fixed five minutes.
+    const float compareMs = DEMO_TIME_FACTOR * (2.0f * compareDistM_ / speedMps_ +
+                            (compareSegments_ + 1) * 360.0f / DEMO_SLOW_STEER_DPS) * 1000.0f;
+    localLimitMs_ = compare ? (uint32_t)fminf((float)DEMO_LIMIT_CEIL_MS,
+                         fmaxf((float)DEMO_MAX_MS, compareMs)) : DEMO_MAX_MS;
     loop_ = false;
     plannerName_ = planner;
     testPhase_ = TestPhase::Aligning;
@@ -365,9 +371,14 @@ void WaypointRunner::alignTest(const RobotState& s, uint32_t now) {
     if (now - testStableMs_ < 200) return;
     testActualHeadingDeg_ = s.wheelHeadingDeg;
     if (compare_) {   // demo 3/4: same goal for both, measured from where the wheel really points
-        const float b = angles::deg2rad(s.wheelHeadingDeg - compareRightDeg_);
-        pts_[0] = {s.x + compareDistM_ * cosf(b), s.y + compareDistM_ * sinf(b), 0.0f};
-        count_ = 1;
+        float x = s.x, y = s.y;
+        count_ = compareSegments_;
+        for (uint8_t i = 0; i < count_; ++i) {
+            const float b = angles::deg2rad(s.wheelHeadingDeg - compareRightDeg_ * (i + 1));
+            x += compareDistM_ / count_ * cosf(b);
+            y += compareDistM_ / count_ * sinf(b);
+            pts_[i] = {x, y, 0.0f};
+        }
         runIdx_ = plannerName_ == "detour" ? 1 : 0;
         CompareRun& r = runs_[runIdx_];
         r.planner = runIdx_;
@@ -378,8 +389,10 @@ void WaypointRunner::alignTest(const RobotState& s, uint32_t now) {
         r.startX = s.x;
         r.startY = s.y;
         r.headingDeg = s.wheelHeadingDeg;
-        r.goalX = pts_[0].x;
-        r.goalY = pts_[0].y;
+        r.goalX = pts_[count_ - 1].x;
+        r.goalY = pts_[count_ - 1].y;
+        r.routeCount = count_;
+        for (uint8_t i = 0; i < count_; ++i) r.route[i] = pts_[i];
         r.speedMps = speedMps_;
         r.steerDps = params_.steerDps;
         r.tolM = tolM_;
@@ -728,15 +741,20 @@ uint32_t WaypointRunner::demoLimitMs() const {
     return (uint32_t)ms;
 }
 
-void WaypointRunner::compareJson(JsonObject o) {
+void WaypointRunner::compareJson(JsonObject o, int run) {
     lock();
+    if (run >= 0 && run < 2) {
+        const CompareRun& r = runs_[run];
+        if (r.id) runJson(r, o, r.open ? millis() - testStartMs_ : r.elapsedMs, PathJson::Flat);
+        unlock(); return;
+    }
     o["distM"] = compareDistM_;
     o["rightDeg"] = compareRightDeg_;
     static const char* const names[2] = {"direct", "detour"};
     for (uint8_t k = 0; k < 2; ++k) {
         const CompareRun& r = runs_[k];
         if (!r.id) { o[names[k]] = nullptr; continue; }
-        runJson(r, o[names[k]].to<JsonObject>(), r.open ? millis() - testStartMs_ : r.elapsedMs, PathJson::Objects);
+        runJson(r, o[names[k]].to<JsonObject>(), r.open ? millis() - testStartMs_ : r.elapsedMs, PathJson::None);
     }
     unlock();
 }
@@ -781,6 +799,14 @@ void WaypointRunner::runJson(const CompareRun& r, JsonObject j, uint32_t elapsed
     j["speedMps"] = r.speedMps;
     j["steerDps"] = r.steerDps;
     j["tolM"] = r.tolM;
+    float distance = 0, x = r.startX, y = r.startY;
+    for (uint8_t i = 0; i < r.routeCount; ++i) {
+        distance += hypotf(r.route[i].x - x, r.route[i].y - y);
+        x = r.route[i].x; y = r.route[i].y;
+    }
+    j["distanceM"] = distance;
+    j["segments"] = r.routeCount;
+    if (pathJson == PathJson::None) return;
     static const char* const actNames[3] = {"still", "turn", "drive"};
     JsonArray acts = j["acts"].to<JsonArray>();     // [{t: ms since the start, a: what}]
     for (uint8_t i = 0; i < r.acts.size(); ++i) {
@@ -788,7 +814,12 @@ void WaypointRunner::runJson(const CompareRun& r, JsonObject j, uint32_t elapsed
         a["t"] = r.acts.t(i);
         a["a"] = actNames[r.acts.act(i)];
     }
-    if (pathJson == PathJson::None) return;
+    JsonArray route = j["route"].to<JsonArray>();
+    for (uint8_t i = 0; i < r.routeCount; ++i) {
+        JsonObject p = route.add<JsonObject>();
+        p["x"] = r.route[i].x;
+        p["y"] = r.route[i].y;
+    }
     if (pathJson == PathJson::Flat) {
         JsonArray xy = j["xy"].to<JsonArray>();
         for (uint8_t i = 0; i < r.path.size(); ++i) {

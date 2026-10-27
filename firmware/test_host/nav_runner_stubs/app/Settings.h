@@ -6,6 +6,7 @@ struct SettingsData {
     String planner = "detour";
     bool demoReset = true;
     float demoDistM = 0.30f, demoRightDeg = 6.0f;
+    uint8_t demoSegments = 1;
 };
 class Settings {
 public:

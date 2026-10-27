@@ -52,6 +52,8 @@ docker\mor_luam.bat fw-build             build -> firmware\firmware_out\ (also r
 docker\mor_luam.bat fw-ota -Host <IP>    flash over Wi-Fi (password: env MORLUAM_OTA_PASS or prompt)
 docker\mor_luam.bat fw-flash -Port COM9  first flash over USB (CP210x shows as COM9 on this PC)
 docker\mor_luam.bat fw-test              PC tests
+docker\mor_luam.bat web                  PC web with offline editor and automatic real connection
+docker\mor_luam.bat web-robot            open the ESP32-hosted page (robot required)
 docker\mor_luam.bat web-mock             page on http://localhost:8000 with a fake robot
 node firmware\web\test_simulation.cjs   offline browser planner tests; no motor commands
 docker\mor_luam.bat find                 robots on this Wi-Fi
@@ -80,5 +82,7 @@ docker\mor_luam.bat wifi | logs | topics | run <prog> | shell | stop     ROS sid
   pre-sized. Split big data into pages (see `/api/demo/series?run=i`); `reply()` reserves the String once.
 
 ## Multi-leg comparison (2026-10-27)
+
+PC-hosted UI: `docker\mor_luam.bat web` starts `tools/pc_web.py` at localhost:8000; `web-robot` opens the direct ESP32 page. `32_simulation_route.js` owns isolated local simulation waypoints and has no API reference. Its Plane2D editor can add/drag/delete points offline; import copies the selected real route without mutating it. Discovery uses whoami, never a background heartbeat. Reconnection never replays offline movement commands. See `docs/pc_web_th.md`.
 
 See `docs/compare_2m_th.md`: demoDistM is the TOTAL outbound waypoint length (max 2 m), demoSegments 1..7, each leg >=0.10 m. The 2 m / 7 / 6-degree profile uses short right-bending legs for both planners; the return is untimed. Each run records its actual waypoint list. Compare and series summaries omit paths/activities; request compare?run=0|1 or series?run=i for xy, route and acts. Never draw a single-goal plan for a multi-leg run. ActivityLog holds 64 changes per run.
