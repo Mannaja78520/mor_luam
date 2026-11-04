@@ -17,6 +17,9 @@ Source map: `CLAUDE.md`. Install: `docs/INSTALL_TH.md`. Safety: `docs/safety.md`
   3/4 = Direct/Detour comparison, press = stop. Web "ทดสอบ 3 รอบ" runs a 3-round series.
 - Straighter Direct legs (2026-10-10): STEER_LAND_DEG 2.0, IMU settle, early re-aim.
   Floor result, 3 rounds: Direct mean 23.49 s, Detour mean 21.31 s (9.3 % faster, 3/3 wins).
+- Drift right while driving (owner-confirmed 2026-11-04): AS5600 wheel angle keeps changing and the
+  front turns while driving (drive torque turns wheel module/gears); also wheel slip, uneven floor,
+  unbalanced weight; plus the planned ~2 deg short steer. Written in all report PDFs.
 - Pose from the web (`/api/pose/reset`, `/api/pose/set`); demo press = new zero (`demoReset`).
 - HTTP replies must stay small (a few KB): big replies reset the ESP32. Series data is paged.
 - Newest compiled build (Codex V9, 2026-10-27: firmware.bin 1213664 bytes) was **not confirmed
