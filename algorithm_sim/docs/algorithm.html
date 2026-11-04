@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CounterClockwise-Only Steering Robot &mdash; Detour Steer Algorithm</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm;
+  }
+
+  html {
+    font-size: 11pt;
+  }
+
+  body {
+    margin: 0;
+    font-family: "Palatino Linotype", "Book Antiqua", Palatino, Cambria, "Times New Roman", serif;
+    color: #000;
+    background: #fff;
+  }
+
+  h1.doc-auther-name {
+    font-size: 11pt;
+    font-weight: 700;
+    text-align: right;
+    margin: 0 0 2mm 0;
+  }
+
+  h1.doc-title {
+    font-size: 14pt;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 2mm 0;
+  }
+
+  p.doc-sub {
+    font-size: 10.5pt;
+    text-align: center;
+    margin: 0 0 7mm 0;
+  }
+
+  /* ---------- algorithm float ---------- */
+  .algo {
+    margin: 0 0 7mm 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .rule-top {
+    border-top: 1.2pt solid #000;
+  }
+
+  .algo-title {
+    font-size: 11pt;
+    padding: 1.6mm 0 1.6mm 1mm;
+  }
+
+  .algo-title b {
+    font-weight: 700;
+  }
+
+  .rule-mid {
+    border-top: 0.7pt solid #000;
+    margin-bottom: 1.6mm;
+  }
+
+  .algo-body {
+    border: 0.7pt solid #000;
+    padding: 1.6mm 1.2mm 1.6mm 0;
+  }
+
+  .rule-bot {
+    border-top: 1.2pt solid #000;
+    margin-top: 1.6mm;
+  }
+
+  /* ---------- code rows ---------- */
+  .row {
+    display: flex;
+    align-items: stretch;
+    font-size: 10pt;
+    line-height: 1.55;
+  }
+
+  .ln {
+    flex: 0 0 7mm;
+    text-align: right;
+    padding-right: 1.6mm;
+    font-size: 8pt;
+    line-height: 1.94;      /* keeps the small number on the text baseline */
+  }
+
+  .ind {
+    flex: 0 0 4.2mm;
+  }
+
+  .ind.bar {
+    border-left: 0.7pt solid #000;
+  }
+
+  .txt {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .cmt {
+    flex: 0 0 78mm;
+    min-width: 0;
+    font-size: 8pt;
+    line-height: 1.94;
+    padding-left: 3mm;
+    hyphens: none;
+  }
+
+  /* ---------- token styles ---------- */
+  .kw {
+    font-weight: 700;
+  }
+
+  .var {
+    font-style: italic;
+  }
+
+  .fn {
+    font-style: italic;
+  }
+
+  .const {
+    font-variant: normal;
+  }
+
+  .str {
+    font-style: normal;
+  }
+
+  sub {
+    font-size: 0.72em;
+    line-height: 0;
+  }
+
+  /* ---------- narrow screens: comments go under the code ---------- */
+  @media (max-width: 720px) {
+    body { margin: 0 16px; }
+    .row { flex-wrap: wrap; }
+    .cmt { flex: 1 1 100%; padding-left: 11mm; }
+    .notes table { font-size: 9pt; }
+    .table-wrap { overflow-x: auto; }
+  }
+
+  /* ---------- properties page ---------- */
+  .notes { font-size: 10pt; line-height: 1.5; margin: 0 0 7mm 0; }
+  .notes .rule-top, .notes .rule-bot { margin: 0; }
+  .notes h2 { font-size: 11pt; font-weight: 700; margin: 0; padding: 1.6mm 0 1.6mm 1mm; }
+  .notes p { margin: 1.6mm 0; }
+  .notes dl { margin: 1.6mm 0; }
+  .notes dt { font-weight: 700; float: left; width: 9mm; }
+  .notes dd { margin: 0 0 1.2mm 9mm; }
+  .notes .eq { text-align: center; margin: 2mm 0; }
+  .notes table { border-collapse: collapse; margin: 2mm auto; font-size: 10pt; }
+  .notes th, .notes td { padding: 0.6mm 3mm; text-align: right; }
+  .notes thead tr:first-child th { border-top: 1.2pt solid #000; }
+  .notes thead tr:last-child th { border-bottom: 0.7pt solid #000; }
+  .notes tbody tr:last-child td { border-bottom: 1.2pt solid #000; }
+  .notes th.grp { text-align: center; border-bottom: 0.7pt solid #000; }
+  .fig img { display: block; width: 93%; height: auto; margin: 2mm auto; }
+
+</style>
+</head>
+<body>
+
+<h1 class="doc-auther-name">Phuthiphong Wongchantib 660610840</h1>
+<h1 class="doc-title">CounterClockwise-Only Steering Robot &mdash; Detour Steer Algorithm</h1>
+<p class="doc-sub">Drive on, steer less, come back</p>
+<p class="notes"><b>Robot.</b> One DC motor: turning it one way <i>steers</i> the wheel module, <i>counter-clockwise only</i> (one-way clutch); turning it the other way <i>drives</i> forward. It can never steer and drive at the same time. The old method steers straight at the goal, so a goal a little to the <i>right</i> (&phi; close to 360&deg;) costs almost a full turn. <b>Idea.</b> Two straight legs whose headings differ by more than 180&deg; can reach any direction, so the robot may instead drive <span class="var">a</span> straight on, steer only <span class="var">&beta;</span><sup>*</sup> (180&deg; &lt; <span class="var">&beta;</span><sup>*</sup> &lt; <span class="var">&phi;</span>), and drive <span class="var">b</span> to the goal. The best <span class="var">&beta;</span><sup>*</sup> has a closed form. Headings are counter-clockwise from the +x axis. <span class="var">&omega;</span> steer speed, <span class="var">v</span> drive speed, <span class="var">t</span><sub>s</sub> settle time, <span class="var">t</span><sub>b</sub> stop time (drive &rarr; steer), <span class="var">tol</span> tolerance, <span class="var">r</span><sub>goal</sub> arrival radius.
+<b>On the robot</b> (<code>mor_luam</code>, ESP32) the module turns counter-clockwise seen from above: the same frame as this page. The firmware helper name cwErrorDeg is historical; its sign is counter-clockwise. Algorithms 1.1&ndash;1.5 plan; 1.6&ndash;1.7 are how the robot steers and drives each leg.</p>
+
+<!-- ======================= ALGORITHM 1.1 ======================= -->
+<div class="algo">
+  <div class="rule-top"></div>
+  <div class="algo-title"><b>Algorithm 1.1:</b> CounterClockwise Heading Helpers (firmware <code>util/Angles.h</code>: <code>cwErrorDeg</code>, <code>cwInTolerance</code>)</div>
+  <div class="rule-mid"></div>
+  <div class="algo-body">
+
+    <div class="row">
+      <span class="ln">1</span>
+      <span class="txt"><span class="kw">Procedure</span> : <span class="fn">Bearing</span>(&Delta;<span class="var">x</span>, &Delta;<span class="var">y</span>)</span>
+      <span class="cmt">// CounterClockwise heading that points along (&Delta;<span class="var">x</span>, &Delta;<span class="var">y</span>)</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">2</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">return</span> atan2(&Delta;<span class="var">y</span>, &Delta;<span class="var">x</span>) mod 2&pi;;</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">3</span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">4</span>
+      <span class="txt"><span class="kw">Procedure</span> : <span class="fn">SteeringError</span>(<span class="var">&theta;</span>, <span class="var">h</span>)</span>
+      <span class="cmt">// How far the wheel must turn counter-clockwise: 0 &hellip; 2&pi;</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">5</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">return</span> (<span class="var">&theta;</span> &minus; <span class="var">h</span>) mod 2&pi;;</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">6</span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">7</span>
+      <span class="txt"><span class="kw">Procedure</span> : <span class="fn">InTolerance</span>(<span class="var">e</span>)</span>
+      <span class="cmt">// Close enough on either side of the target</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">8</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">return</span> <span class="var">e</span> &le; <span class="var">tol</span> <span class="kw">or</span> <span class="var">e</span> &ge; 2&pi; &minus; <span class="var">tol</span>;</span>
+      <span class="cmt">// Just <i>past</i> the target reads as <span class="var">e</span> &asymp; 2&pi;</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">9</span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+  </div>
+  <div class="rule-bot"></div>
+</div>
+
+<!-- ======================= ALGORITHM 1.2 ======================= -->
+<div class="algo">
+  <div class="rule-top"></div>
+  <div class="algo-title"><b>Algorithm 1.2:</b> Optimal Detour Angle in Closed Form, O(1)</div>
+  <div class="rule-mid"></div>
+  <div class="algo-body">
+
+    <div class="row">
+      <span class="ln">1</span>
+      <span class="txt"><span class="kw">Procedure</span> : <span class="fn">OptimalDetourAngle</span>(<span class="var">&phi;</span>, <span class="var">d</span>)</span>
+      <span class="cmt">// <span class="var">&phi;</span>: counter-clockwise angle to the goal, <span class="var">d</span>: distance</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">2</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">if</span> <span class="var">&phi;</span> &le; &pi; <span class="kw">then return None</span>;</span>
+      <span class="cmt">// Theorem 1: steering straight is optimal</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">3</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="var">k</span> &larr; (<span class="var">d</span>&thinsp;<span class="var">&omega;</span> / <span class="var">v</span>)&thinsp;|sin&thinsp;<span class="var">&phi;</span>|;</span>
+      <span class="cmt">// One number decides everything</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">4</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">if</span> <span class="var">k</span> &ge; 2 <span class="kw">then return None</span>;</span>
+      <span class="cmt">// Theorem 3: time keeps falling up to &beta; = <span class="var">&phi;</span></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">5</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="var">&beta;</span><sup>*</sup> &larr; 2&pi; &minus; arccos(<span class="var">k</span> &minus; 1);</span>
+      <span class="cmt">// The only root of dT/d&beta; = 0 in (&pi;, 2&pi;)</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">6</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">if</span> <span class="var">&beta;</span><sup>*</sup> &ge; <span class="var">&phi;</span> <span class="kw">then return None</span>;</span>
+      <span class="cmt">// The best angle is not a detour</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">7</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">return</span> <span class="var">&beta;</span><sup>*</sup>;</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">8</span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+  </div>
+  <div class="rule-bot"></div>
+</div>
+
+<!-- ======================= ALGORITHM 1.3 ======================= -->
+<div class="algo">
+  <div class="rule-top"></div>
+  <div class="algo-title"><b>Algorithm 1.3:</b> Plan One Leg: Direct or Detour, O(1)</div>
+  <div class="rule-mid"></div>
+  <div class="algo-body">
+
+    <div class="row">
+      <span class="ln">1</span>
+      <span class="txt"><span class="kw">Procedure</span> : <span class="fn">PlanLeg</span>(<span class="var">&phi;</span>, <span class="var">d</span>)</span>
+      <span class="cmt">// Returns (kind, <span class="var">a</span>, &beta;, <span class="var">b</span>, time)</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">2</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="var">T</span><sub>D</sub> &larr; <span class="var">&phi;</span>/<span class="var">&omega;</span> + <span class="var">t</span><sub>s</sub> + <span class="var">d</span>/<span class="var">v</span>;</span>
+      <span class="cmt">// Old method: steer <span class="var">&phi;</span>, drive <span class="var">d</span></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">3</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="var">&beta;</span><sup>*</sup> &larr; <span class="fn">OptimalDetourAngle</span>(<span class="var">&phi;</span>, <span class="var">d</span>);</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">4</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">if</span> <span class="var">&beta;</span><sup>*</sup> = <span class="kw">None then return</span> (DIRECT, 0, <span class="var">&phi;</span>, <span class="var">d</span>, <span class="var">T</span><sub>D</sub>);</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">5</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="var">a</span> &larr; <span class="var">d</span>&thinsp;sin(<span class="var">&beta;</span><sup>*</sup> &minus; <span class="var">&phi;</span>) / sin&thinsp;<span class="var">&beta;</span><sup>*</sup>;</span>
+      <span class="cmt">// Leg 1: heading unchanged, no steer</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">6</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="var">b</span> &larr; <span class="var">d</span>&thinsp;sin&thinsp;<span class="var">&phi;</span> / sin&thinsp;<span class="var">&beta;</span><sup>*</sup>;</span>
+      <span class="cmt">// Leg 2: heading <span class="var">&beta;</span><sup>*</sup>, ends at the goal</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">7</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="var">T</span><sub>R</sub> &larr; <span class="var">a</span>/<span class="var">v</span> + <span class="var">t</span><sub>b</sub> + <span class="var">&beta;</span><sup>*</sup>/<span class="var">&omega;</span> + <span class="var">t</span><sub>s</sub> + <span class="var">b</span>/<span class="var">v</span>;</span>
+      <span class="cmt">// One extra stop between the legs</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">8</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">if</span> <span class="var">T</span><sub>R</sub> &lt; <span class="var">T</span><sub>D</sub> <span class="kw">then return</span> (DETOUR, <span class="var">a</span>, <span class="var">&beta;</span><sup>*</sup>, <span class="var">b</span>, <span class="var">T</span><sub>R</sub>);</span>
+      <span class="cmt">// Use the detour only if it is really faster</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">9</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">return</span> (DIRECT, 0, <span class="var">&phi;</span>, <span class="var">d</span>, <span class="var">T</span><sub>D</sub>);</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">10</span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+  </div>
+  <div class="rule-bot"></div>
+</div>
+
+<!-- ======================= ALGORITHM 1.4 ======================= -->
+<div class="algo">
+  <div class="rule-top"></div>
+  <div class="algo-title"><b>Algorithm 1.4:</b> Closed-Loop Detour Steer to One Goal (plan again after every move)</div>
+  <div class="rule-mid"></div>
+  <div class="algo-body">
+
+    <div class="row">
+      <span class="ln">1</span>
+      <span class="txt"><span class="kw">Procedure</span> : <span class="fn">DetourSteer</span>(<span class="var">p</span>, <span class="var">h</span>, <span class="var">g</span>)</span>
+      <span class="cmt">// <span class="var">p</span>: position, <span class="var">h</span>: wheel heading, <span class="var">g</span>: goal</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">2</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">while</span> &Vert;<span class="var">g</span> &minus; <span class="var">p</span>&Vert; &gt; <span class="var">r</span><sub>goal</sub> <span class="kw">do</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">3</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="var">d</span> &larr; &Vert;<span class="var">g</span> &minus; <span class="var">p</span>&Vert;; &nbsp; <span class="var">e</span> &larr; <span class="fn">SteeringError</span>(<span class="fn">Bearing</span>(<span class="var">g</span> &minus; <span class="var">p</span>), <span class="var">h</span>);</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">4</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="kw">if</span> <span class="fn">InTolerance</span>(<span class="var">e</span>) <span class="kw">then</span></span>
+      <span class="cmt">// Already aimed: drive to the goal</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">5</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="fn">DriveReaim</span>(<span class="var">d</span>);</span>
+      <span class="cmt">// Algorithm 1.7</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">6</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="kw">else</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">7</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="var">plan</span> &larr; <span class="fn">PlanLeg</span>(<span class="var">e</span>, <span class="var">d</span>);</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">8</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="kw">if</span> <span class="var">plan</span>.<span class="var">kind</span> = DETOUR <span class="kw">then</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">9</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="fn">DriveReaim</span>(<span class="var">plan</span>.<span class="var">a</span>);</span>
+      <span class="cmt">// Leg 1: straight on, no steer</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">10</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="fn">Stop</span>();</span>
+      <span class="cmt">// <span class="var">t</span><sub>b</sub>: switch the motor from drive to steer</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">11</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="kw">else</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">12</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="fn">SteerOneWay</span>(<span class="fn">Bearing</span>(<span class="var">g</span> &minus; <span class="var">p</span>));</span>
+      <span class="cmt">// Algorithm 1.6: stops a little short on purpose</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">13</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">14</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">15</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="var">p</span> &larr; <span class="fn">MeasurePosition</span>(); &nbsp; <span class="var">h</span> &larr; <span class="fn">MeasureHeading</span>();</span>
+      <span class="cmt">// AS5600 wheel angle + IMU body heading; Theorem 4: the new plan is consistent. Short by &epsilon;: <span class="var">e</span> = &epsilon;, a small extra steer. Past by &epsilon;: <span class="var">e</span> = 2&pi; &minus; &epsilon;, PlanLeg detours</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">16</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">17</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">return</span> (<span class="var">p</span>, <span class="var">h</span>);</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">18</span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+  </div>
+  <div class="rule-bot"></div>
+</div>
+
+<!-- ======================= ALGORITHM 1.5 ======================= -->
+<div class="algo">
+  <div class="rule-top"></div>
+  <div class="algo-title"><b>Algorithm 1.5:</b> End-to-End Route Following with Detour Steer</div>
+  <div class="rule-mid"></div>
+  <div class="algo-body">
+
+    <div class="row">
+      <span class="ln">1</span>
+      <span class="txt"><span class="kw">Procedure</span> : <span class="fn">FollowRouteDetour</span>(<span class="var">W</span>)</span>
+      <span class="cmt">// Master procedure: visit the goals <span class="var">W</span> in order</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">2</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="var">p</span> &larr; (0, 0); &nbsp; <span class="var">h</span> &larr; 0;</span>
+      <span class="cmt">// Start pose</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">3</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">foreach</span> <span class="var">g</span> &isin; <span class="var">W</span> <span class="kw">do</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">4</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt">(<span class="var">p</span>, <span class="var">h</span>) &larr; <span class="fn">DetourSteer</span>(<span class="var">p</span>, <span class="var">h</span>, <span class="var">g</span>);</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">5</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">6</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">Display</span> total time;</span>
+      <span class="cmt">// Goal 1&thinsp;m at 350&deg;: <span class="var">a</span>=1.03&thinsp;m, &beta;<sup>*</sup>=254&deg;, <span class="var">b</span>=0.18&thinsp;m, 9.34&thinsp;s (old method: 9.88&thinsp;s)</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">7</span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+  </div>
+  <div class="rule-bot"></div>
+</div>
+
+
+<!-- ======================= ALGORITHM 1.6 ======================= -->
+<div class="algo">
+  <div class="rule-top"></div>
+  <div class="algo-title"><b>Algorithm 1.6:</b> Steer One Way: Stop a Little Short on Purpose (robot, every 10&thinsp;ms)</div>
+  <div class="rule-mid"></div>
+  <div class="algo-body">
+
+    <div class="row">
+      <span class="ln">1</span>
+      <span class="txt"><span class="kw">Procedure</span> : <span class="fn">SteerOneWay</span>(<span class="var">&theta;</span>)</span>
+      <span class="cmt">// <span class="var">&theta;</span>: the heading to reach</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">2</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">while</span> true <span class="kw">do</span></span>
+      <span class="cmt">// Every control tick, 10&thinsp;ms</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">3</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="var">h</span> &larr; <span class="fn">MeasureHeading</span>();</span>
+      <span class="cmt">// Wheel (AS5600) + body (IMU): the body twists as it steers</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">4</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="var">e</span> &larr; <span class="fn">SteeringError</span>(<span class="var">&theta;</span>, <span class="var">h</span>); &nbsp; <span class="var">r</span> &larr; steering speed over 50&thinsp;ms;</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">5</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="kw">if</span> <span class="var">e</span> &lt; &pi; <span class="kw">and</span> <span class="var">e</span> &le; <span class="var">e</span><sub>land</sub> + <span class="var">r</span>&thinsp;<span class="var">c</span> <span class="kw">then break</span>;</span>
+      <span class="cmt">// Cut early: it coasts on to &asymp; <span class="var">e</span><sub>land</sub> short</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">6</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="kw">if</span> <span class="fn">InTolerance</span>(<span class="var">e</span>) <span class="kw">and</span> (<span class="var">e</span> &gt; &pi; <span class="kw">or</span> <span class="var">r</span> &lt; <span class="var">r</span><sub>min</sub>) <span class="kw">then break</span>;</span>
+      <span class="cmt">// Past, or standing: a push from rest jumps past</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">7</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt">steering motor on;</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">8</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">9</span>
+      <span class="ind"></span>
+      <span class="txt">steering motor off; wait until the wheel stops and the body turns &lt; 5&deg;/s (at most 0.4&thinsp;s);</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">10</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="var">c</span> &larr; (1 &minus; &lambda;)&thinsp;<span class="var">c</span> + &lambda;&thinsp;(angle coasted / <span class="var">r</span><sub>cut</sub>);</span>
+      <span class="cmt">// Learn the coast time <span class="var">c</span></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">11</span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+  </div>
+  <div class="rule-bot"></div>
+</div>
+
+<!-- ======================= ALGORITHM 1.7 ======================= -->
+<div class="algo">
+  <div class="rule-top"></div>
+  <div class="algo-title"><b>Algorithm 1.7:</b> Drive with Early Re-aim (one motor: it cannot steer while it drives)</div>
+  <div class="rule-mid"></div>
+  <div class="algo-body">
+
+    <div class="row">
+      <span class="ln">1</span>
+      <span class="txt"><span class="kw">Procedure</span> : <span class="fn">DriveReaim</span>(<span class="var">&ell;</span>)</span>
+      <span class="cmt">// <span class="var">&ell;</span>: leg length on the current heading <span class="var">h</span></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">2</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="var">q</span> &larr; <span class="var">p</span> + <span class="var">&ell;</span>&thinsp;(cos&thinsp;<span class="var">h</span>, sin&thinsp;<span class="var">h</span>);</span>
+      <span class="cmt">// The end of this leg</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">3</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">while</span> true <span class="kw">do</span></span>
+      <span class="cmt">// Every control tick, 10&thinsp;ms</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">4</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt">(<span class="var">f</span>, <span class="var">s</span>) &larr; <span class="var">q</span> &minus; <span class="var">p</span> seen from the wheel;</span>
+      <span class="cmt">// <span class="var">f</span> ahead, <span class="var">s</span> beside (+: steering side)</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">5</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="kw">if</span> &Vert;<span class="var">q</span> &minus; <span class="var">p</span>&Vert; &le; <span class="var">r</span><sub>goal</sub> <span class="kw">or</span> <span class="var">f</span> &le; 0 <span class="kw">then break</span>;</span>
+      <span class="cmt">// Arrived, or level with it</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">6</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt"><span class="kw">if</span> <span class="var">s</span> &gt; <span class="var">r</span><sub>goal</sub> <span class="kw">and</span> <span class="var">f</span> &le; max(<span class="var">m</span>, <span class="var">R</span>&thinsp;<span class="var">s</span>) <span class="kw">then break</span>;</span>
+      <span class="cmt">// Re-aim is then only arctan(1/<span class="var">R</span>)</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">7</span>
+      <span class="ind"></span>
+      <span class="ind bar"></span>
+      <span class="txt">drive motor on;</span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">8</span>
+      <span class="ind"></span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+    <div class="row">
+      <span class="ln">9</span>
+      <span class="ind"></span>
+      <span class="txt">drive motor off; &nbsp; <span class="var">p</span> &larr; <span class="fn">MeasurePosition</span>();</span>
+      <span class="cmt">// Algorithm 1.4 plans again from here</span>
+    </div>
+
+    <div class="row">
+      <span class="ln">10</span>
+      <span class="txt"><span class="kw">end</span></span>
+      <span class="cmt"></span>
+    </div>
+
+  </div>
+  <div class="rule-bot"></div>
+</div>
+
+<!-- ======================= PROPERTIES ======================= -->
+<div class="notes">
+  <div class="rule-top"></div>
+  <h2>Correctness, complexity, results and closest prior work</h2>
+  <div class="rule-mid"></div>
+  <p>For a goal at counter-clockwise angle <span class="var">&phi;</span> &gt; &pi; and distance <span class="var">d</span>, a detour with final heading &beta; takes</p>
+  <p class="eq"><span class="var">T</span>(&beta;) = &beta;/<span class="var">&omega;</span> + <span class="var">t</span><sub>s</sub> + <span class="var">t</span><sub>b</sub> + (<span class="var">d</span>/<span class="var">v</span>)&thinsp;<span class="var">g</span>(&beta;), &nbsp;&nbsp;
+     <span class="var">g</span>(&beta;) = [sin(&beta; &minus; <span class="var">&phi;</span>) + sin&thinsp;<span class="var">&phi;</span>] / sin&thinsp;&beta;, &nbsp;&nbsp;
+     <span class="var">g</span>&prime;(&beta;) = sin&thinsp;<span class="var">&phi;</span> / (1 + cos&thinsp;&beta;).</p>
+  <dl>
+    <dt>T1.</dt><dd>If <span class="var">&phi;</span> &le; 180&deg;, steering straight at the goal is optimal. Two headings less than 180&deg;
+      apart only reach directions between them, so every path steers at least <span class="var">&phi;</span>; every path also drives at
+      least <span class="var">d</span>. The direct path does both.</dd>
+    <dt>T2.</dt><dd>If <span class="var">&phi;</span> &gt; 180&deg;, a best path has at most 2 legs, with headings 0 and &beta;. The shortest
+      way to write the goal vector with headings in [0, &beta;] uses the two headings on either side of <span class="var">&phi;</span>
+      (the optimum of a 2-row linear program has 2 non-zero variables).</dd>
+    <dt>T3.</dt><dd>On (&pi;, 2&pi;), <span class="var">T</span>&prime;(&beta;) = 1/<span class="var">&omega;</span> &minus; (<span class="var">d</span>/<span class="var">v</span>)|sin&thinsp;<span class="var">&phi;</span>|/(1 + cos&thinsp;&beta;)
+      is strictly increasing, so <span class="var">T</span> has exactly one minimum: cos&thinsp;<span class="var">&beta;</span><sup>*</sup> = <span class="var">k</span> &minus; 1 with
+      <span class="var">k</span> = (<span class="var">d</span><span class="var">&omega;</span>/<span class="var">v</span>)|sin&thinsp;<span class="var">&phi;</span>|. If <span class="var">k</span> &ge; 2, <span class="var">T</span> keeps falling up to &beta; = <span class="var">&phi;</span>,
+      which is the direct path.</dd>
+    <dt>T4.</dt><dd>After leg 1, <span class="fn">PlanLeg</span>(<span class="var">&beta;</span><sup>*</sup>, <span class="var">b</span>) returns &ldquo;steer <span class="var">&beta;</span><sup>*</sup>, drive <span class="var">b</span>&rdquo;. Any other
+      detour from there is a longer leg 1 plus one more stop <span class="var">t</span><sub>b</sub>, which T3 already beat. So the planner can run
+      again after every move (closed loop) without changing its mind.</dd>
+    <dt>O.</dt><dd><span class="fn">PlanLeg</span> is O(1) in time and memory: 0.54&thinsp;&mu;s per call in Python, against
+      505&thinsp;&mu;s for a 3600-point search over &beta; (944&times;). T1&ndash;T4 are also checked by brute force
+      in <code>detour_steer.py</code>: closed form vs a 20&thinsp;000-point grid, vs every 2-leg path on a
+      2&deg; grid, and 2000 replans. All PASS.</dd>
+  </dl>
+  <p><b>Unknown stop error.</b> Nobody knows in advance whether the wheel stops a little past or a little short.
+     The robot reads the real wheel angle (AS5600) and body heading (IMU) after it stops, and <span class="fn">DetourSteer</span> plans
+     again from there; <span class="fn">PlanLeg</span> never uses the error. Inside &plusmn;<span class="var">tol</span> the robot drives on its real heading, and a
+     miss of more than <span class="var">r</span><sub>goal</sub> is planned again.</p>
+  <p><b>Why stop short on purpose (Algorithm 1.6).</b> Past its angle by more than <span class="var">tol</span>, a one-way wheel needs almost a
+     full turn; short of it, only a little more. So the robot cuts the motor early and lets the wheel coast to
+     <span class="var">e</span><sub>land</sub> = 2&deg; short of the angle (<span class="var">c</span>, the coast time, is learned on every steer). A wheel standing inside
+     the band is never pushed again: from rest the motor must build up power and the wheel jumps past (measured: 9&deg;).
+     Stopping short also means a miss always leaves the goal on the <i>steering side</i> of the line the robot drives on, so
+     <span class="fn">DriveReaim</span> fixes it with a small turn (arctan(1/<span class="var">R</span>) = 18&deg; for <span class="var">R</span> = 3, <span class="var">m</span> = 2&thinsp;cm)
+     instead of a 90&deg; turn after passing the goal.</p>
+  <p><b>Results</b> (5000 random goals, <span class="var">d</span> &isin; [0.3, 2]&thinsp;m, <span class="var">v</span> = 0.25&thinsp;m/s, <span class="var">t</span><sub>b</sub> = 0.2&thinsp;s,
+     <span class="var">&omega;</span> = 60&deg;/s; the same goals and stop errors for both; mean time per goal):</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th style="text-align:left">wheel stops</th><th>bias</th><th>sd</th><th>old method (s)</th><th>detour (s)</th><th>saved</th></tr>
+    </thead>
+    <tbody>
+      <tr><td style="text-align:left">exactly</td><td>0&deg;</td><td>0&deg;</td><td>7.56</td><td>7.53</td><td>0.4&thinsp;%</td></tr>
+      <tr><td style="text-align:left">either way, random</td><td>0&deg;</td><td>2&deg;</td><td>8.42</td><td>8.23</td><td>2.3&thinsp;%</td></tr>
+      <tr><td style="text-align:left">either way, random</td><td>0&deg;</td><td>3&deg;</td><td>9.43</td><td>8.78</td><td>6.9&thinsp;%</td></tr>
+      <tr><td style="text-align:left">mostly short</td><td>&minus;2&deg;</td><td>2&deg;</td><td>8.08</td><td>8.03</td><td>0.7&thinsp;%</td></tr>
+      <tr><td style="text-align:left">mostly past</td><td>+2&deg;</td><td>2&deg;</td><td>10.74</td><td>9.36</td><td>12.8&thinsp;%</td></tr>
+      <tr><td style="text-align:left">mostly past</td><td>+2&deg;</td><td>3&deg;</td><td>11.87</td><td>9.70</td><td>18.3&thinsp;%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>In every case Detour Steer is slower on 0&thinsp;% of the goals. With exact stops the gain is small on average
+     but up to 28&thinsp;% for a goal just to the right. The more the wheel stops past its target, the more it gains:
+     an overshoot no longer costs a full extra turn. Slower steering gives more gain (at 30&deg;/s, sd 2&deg;:
+     4.8&thinsp;%).</p>
+  <p><b>Results on the robot</b> (<code>mor_luam</code>: <span class="var">v</span> = 0.03&thinsp;m/s, <span class="var">&omega;</span> = 35&deg;/s its measured steering speed,
+     <span class="var">t</span><sub>b</sub> = 0.2&thinsp;s, <span class="var">r</span><sub>goal</sub> = 2.5&thinsp;mm). The same task for both: before the clock starts the wheel is turned to the
+     start heading and is still; the goal is then placed <span class="var">d</span> = 0.30&thinsp;m away at <span class="var">&phi;</span> = 354&deg; from where the wheel really
+     points. The robot times each run itself and drives back to the start (not timed). 3 rounds, order old&ndash;detour,
+     detour&ndash;old, old&ndash;detour:</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th style="text-align:left">round</th><th>old method (s)</th><th>Detour Steer (s)</th><th>saved (s)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td style="text-align:left">1</td><td>24.17</td><td>20.83</td><td>3.34</td></tr>
+      <tr><td style="text-align:left">2</td><td>22.94</td><td>20.77</td><td>2.17</td></tr>
+      <tr><td style="text-align:left">3</td><td>23.36</td><td>22.33</td><td>1.03</td></tr>
+      <tr><td style="text-align:left; border-top:0.7pt solid #000">mean</td><td style="border-top:0.7pt solid #000">23.49</td><td style="border-top:0.7pt solid #000">21.31</td><td style="border-top:0.7pt solid #000">2.18 (9.3&thinsp;%)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Detour Steer was faster in 3 of 3 rounds. It steered 3.8&thinsp;s less (8.5 vs 12.4&thinsp;s) and drove 1.2&thinsp;s more
+     (11.8 vs 10.6&thinsp;s). The plan predicted 18.8 vs 20.2&thinsp;s; the floor gave a bigger gap, because the old method&rsquo;s
+     near-full turn also needs more correction at the end. All 6 runs ended within 2.5&thinsp;mm of the goal.</p>
+  <p><b>Closest prior work, and the difference.</b> One-motor steer-and-drive mechanisms (US&nbsp;8,424,627&nbsp;B2, 2013;
+     Sekine &amp; Mizuuchi, ICINCO 2022) give no planner. Dubins cars that can turn one way only (Bakolas &amp; Tsiotras,
+     JOTA 2011; Patsko &amp; Fedotov, 2018&ndash;2019) turn <i>while moving</i>. Turn-cost routing (angular-metric and
+     quadratic TSP) orders waypoints, and predictive coast stopping (US&nbsp;8,571,394&nbsp;B2) stops early. None of the
+     work found gives this closed-form detour for a robot that must <i>stop to steer, counter-clockwise only</i>.
+     &ldquo;Not found&rdquo; is not proof that nobody did it.</p>
+  <div class="rule-bot"></div>
+</div>
+
+<!-- ======================= FIGURE ======================= -->
+<div class="notes fig">
+  <div class="rule-top"></div>
+  <h2>Figure 1. The 3 rounds on the robot, from its own record</h2>
+  <div class="rule-mid"></div>
+  <img src="robot_3rounds.png" alt="Time line and paths of 3 rounds: the old method steers about 9.4 s in place first, Detour Steer drives at once and steers less later. Mean 23.49 s vs 21.31 s.">
+  <p><b>Top:</b> what each run did over time (hatched pink = steering in place, blue = driving, grey = still). The old method
+     first steers &asymp; 9.4&thinsp;s in place, then drives; Detour Steer drives at once and steers less later. <b>Bottom:</b> the
+     paths the robot measured (odometry), all six from one start, seen from above; dashed = the plan. (The robot steers
+     counter-clockwise, so here the goal is to the right.)</p>
+  <div class="rule-bot"></div>
+</div>
+
+<section><h2>Current robot profile and 2 m / 7-leg comparison</h2>
+<p>The 0.25 m/s benchmark is a theoretical reference. The robot planning profile is 0.03 m/s,
+35 degrees/s and a 2.5 mm arrival radius. Seven equal legs total 2 m; each subsequent bearing is
+6 degrees clockwise of the previous one. Steering remains counter-clockwise.</p>
+<p>Ideal model only: Direct 137.82 s / 2.00 m; Detour 110.52 s / 2.17 m, four detours.
+The additional return (about 1.96 m) is untimed. Three paired rounds mean six runs.
+These predictions are not new real-robot measurements.</p></section></body>
+</html>
