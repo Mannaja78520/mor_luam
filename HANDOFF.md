@@ -31,7 +31,7 @@ Source map: `CLAUDE.md`. Install: `docs/INSTALL_TH.md`. Safety: `docs/safety.md`
 - `algorithm_sim/`: Python planner + simulators (no Docker), `docs/algorithm.pdf` (last page =
   Git link only), `docs/report.pdf` (report + Appendix A: Git link page, then code listings),
   `docs/660610840_DetourSteer.pdf` (Thai report, `xelatex` twice, font Leelawadee UI),
-  `docs/explain_th.md` (Thai talk guide). Video link (Google Drive) is on every Git page. Tests: `python -m unittest test_current_robot`,
+  `docs/explain_th.md` (Thai talk guide). Video link (Google Drive) is on every Git page: it shows the robot in synchronize mode; there is NO Detour vs Direct video (comparison = robot record only). Tests: `python -m unittest test_current_robot`,
   `python detour_steer.py --no-bench` (T1-T4 PASS).
 - Rebuild PDFs after code changes: `cd algorithm_sim/docs && pdflatex report.tex` (twice).
   The Python listing uses fixed lines 241-299 of `detour_steer.py`; re-check after editing it.

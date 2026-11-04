@@ -54,7 +54,7 @@ python -m unittest test_current_robot
 
 Ubuntu ใช้ `./docker/mor_luam.sh` แทน `docker\mor_luam.bat` ด้วยคำสั่งเดียวกัน
 
-วิดีโอการทำงานของหุ่น: https://drive.google.com/drive/folders/11qOM6UoeH2c4nEuM0a0JO6eXTnr0eDud
+วิดีโอการทำงานของหุ่น (คลิปหุ่นทำงานแบบ synchronize; ไม่มีคลิปเปรียบเทียบ Detour กับ Direct ผลเปรียบเทียบมาจากข้อมูลที่หุ่นบันทึกเอง): https://drive.google.com/drive/folders/11qOM6UoeH2c4nEuM0a0JO6eXTnr0eDud
 
 ## ผลบนหุ่นจริง (ทดสอบ 3 รอบ)
 
