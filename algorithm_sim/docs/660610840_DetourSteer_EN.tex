@@ -573,4 +573,61 @@ Step-by-step install guide: \texttt{docs/INSTALL\_TH.md} in the repository.
 
 \subsection*{A.3 Planner on the robot (\texttt{firmware/src/algorithm/DetourSteer.cpp})}
 \lstinputlisting[language=C++]{../../firmware/src/algorithm/DetourSteer.cpp}
+
+\clearpage
+\section*{Appendix B. Additional results, kept for reference}
+These results come from earlier versions of this report. They are kept so that nothing is lost, but each one
+is labelled: theory speed, fitted values or estimate. The main results are in Parts 1 and 2.
+
+\subsection*{B.1 Decision map at the robot's drive speed (Figure 5)}
+Where the detour is faster (blue) for each goal angle $\varphi$ and distance $d$, at $v = 0.03$\,m/s and three
+steering speeds. At the robot's speeds the detour wins only for goals just to the right: from
+$\varphi \ge 346^\circ$ at $d = 0.30$\,m and $\varphi \ge 356^\circ$ at $d = 1$\,m. The largest gain in the robot's
+test range ($d \ge 0.30$\,m) is 21.9\,\%, for a goal at $\varphi \approx 360^\circ$, 0.30\,m away.
+
+\Needspace*{80mm}
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{Figure 5.} Decision map: where the detour is faster (blue), drive 0.03\,m/s\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
+\begin{center}\includegraphics[width=0.95\linewidth]{sim_decision_map.png}\end{center}
+\noindent\rule{\linewidth}{1.1pt}\par
+
+\subsection*{B.2 Theory speed (first version of this report)}
+The first benchmark used a theory reference speed, not the robot's: $v = 0.25$\,m/s, $\omega = 60^\circ$/s,
+$t_b = 0.2$\,s, goal radius 5\,cm; 5000 random goals, $d \in [0.3, 2]$\,m, mean time per goal:
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+wheel stops & bias & sd & old method (s) & detour (s) & saved \\
+\midrule
+exactly             & $0^\circ$  & $0^\circ$ &  7.56 & 7.53 &  0.4\,\% \\
+either way, random  & $0^\circ$  & $2^\circ$ &  8.42 & 8.23 &  2.3\,\% \\
+either way, random  & $0^\circ$  & $3^\circ$ &  9.43 & 8.78 &  6.9\,\% \\
+mostly short        & $-2^\circ$ & $2^\circ$ &  8.08 & 8.03 &  0.7\,\% \\
+mostly past         & $+2^\circ$ & $2^\circ$ & 10.74 & 9.36 & 12.8\,\% \\
+mostly past         & $+2^\circ$ & $3^\circ$ & 11.87 & 9.70 & 18.3\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+At this theory speed Detour Steer was slower on 0\,\% of the goals; a goal just to the right gained up to
+28\,\% ($\varphi = 356.4^\circ$, $d = 0.3$\,m), and slower steering gained more ($30^\circ$/s, sd $2^\circ$: 4.8\,\%).
+Example: a goal 1\,m away at $350^\circ$ gives $a = 1.03$\,m, $\beta^\ast = 254^\circ$, $b = 0.18$\,m and 9.34\,s,
+against 9.88\,s for the old method (5.5\,\%). These numbers hold for a faster robot, not for \texttt{mor\_luam}.
+
+\subsection*{B.3 Fitted robot-like model (before the logs were used)}
+Before the robot's logs were read, a robot-like model was fitted to the 3 robot rounds with guessed values:
+stop $2^\circ$ short (sd $1^\circ$), drift right $3 \pm 6^\circ$/m, steering $50^\circ$/s plus a fixed 1.3\,s per steer,
+drive coast $\pm 4$\,mm. It matched the robot closely (1000 runs): old method 24.18\,s ($+2.9\,\%$), Detour Steer
+21.07\,s ($-1.1\,\%$), but the fixed 1.3\,s and $50^\circ$/s were fitted, not measured, so Part 2 uses the
+measured values instead. On the 2\,m route this fitted model gave old 155.8\,s, Detour 149.9\,s (3.8\,\%).
+
+\subsection*{B.4 Estimate of the 2\,m route on the robot (not measured)}
+Scaling the ideal 2\,m times by each robot round's own error (old method $\times 1.138$--$1.199$, Detour Steer
+$\times 1.103$--$1.186$) gives old method 156.8--165.2\,s and Detour Steer 121.9--131.1\,s (16.4--26.2\,\% faster).
+This is an estimate from the simulation, not a measurement; the 2\,m route has not been run on the robot.
+
+\subsection*{B.5 Notes on the test procedure}
+A ``test 3 rounds'' series runs the two methods in pairs: 3 paired rounds are 6 timed runs, in the order
+old--detour, detour--old, old--detour. Each run drives back to its start afterwards; the return (about 1.96\,m on
+the 2\,m route) is not timed. Saving settings on the robot's web page never starts a motion.
 \end{document}
