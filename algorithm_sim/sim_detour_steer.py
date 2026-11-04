@@ -27,7 +27,7 @@ from typing import List, Optional, Tuple
 
 from detour_steer import (TAU, NoiseConfig, RealismConfig, RobotConfig, bearing, steer_error,
                           fixed_stop_errors, gaussian_stop_error, in_tolerance,
-                          plan_leg, real_times, run_goal, unit)
+                          plan_leg, real_steer_time, real_stop_error, real_times, run_goal, unit)
 
 # =====================================================================
 # Configuration (dataclasses, course house style)
@@ -164,10 +164,13 @@ class SimRobot:
             self.plan_text = f"เลี้ยว {math.degrees(e):.0f}° แล้ววิ่ง {dist:.2f} m (วางแผนใหม่จากตำแหน่งจริง)"
         else:
             self.plan_text = f"เลี้ยวตรง: เลี้ยว {math.degrees(e):.0f}° แล้ววิ่ง {dist:.2f} m"
-        turn = max(0.0, e + self.rng.gauss(math.radians(real.bias_deg), math.radians(real.sd_deg)))
+        turn = max(0.0, e + real_stop_error(real, self.rng, math.radians(robot.tol_deg)))
         self.pending_stop = turn - e
-        self.queue = ([Phase("stop", robot.stop_s)] if self.driven else []) + \
-                     [Phase("steer", turn), Phase("settle", robot.settle_s + real.steer_overhead_s)]
+        # measured steering time: the wheel animates at real.steer_dps, the rest
+        # (motor start, slow-down, the wait for the IMU) is shown as "settle"
+        total = real_steer_time(real, turn, self.rng, self.driven)
+        rest = max(0.0, total - math.degrees(turn) / real.steer_dps)
+        self.queue = [Phase("steer", turn), Phase("settle", rest)]
         self.driven = False
         self.n_steers += 1
 

@@ -433,58 +433,68 @@ stops (see ``Why the robot drifts right''). It also under-states the gain: the r
 simulation 6.6\,\%, because the old method's near-full turn needs more correction on the floor.
 
 \smallskip
-\noindent\textbf{Robot-like simulation (stop bias, drift, slip, coast, re-aim).} A stop bias alone cannot match
-both methods: with bias $-2^\circ$, sd $2^\circ$ the old method gives 23.38\,s (close) but Detour Steer 18.84\,s
-(2.5\,s short). The robot's own time line gives more: it steered $352^\circ$ in about 9.4\,s and $249^\circ$ in
-about 7.2\,s, so the wheel turns at about $50^\circ$/s plus a fixed time per steer (motor start, coast, waiting
-for the IMU). The robot-like model therefore adds: the wheel stops $2^\circ$ short (sd $1^\circ$); the heading
-drifts right $3 \pm 6^\circ$/m while driving (the AS5600 angle and the front of the robot turn); the drive
-motor coasts, so a drive ends $\pm 4$\,mm from its point; the robot stops early and re-aims (Algorithm 1.7,
-$R = 3$); steering at $50^\circ$/s plus 1.3\,s per steer. The planner itself still uses $35^\circ$/s.
-These values were fitted to the 3 robot rounds; 1000 random runs each (range = 5--95\,\%):
+\noindent\textbf{Robot-like simulation from measured values.} The robot's own logs (every 10\,ms; 15 big turns,
+5 small turns and 23 drives, \texttt{tools/test\_out}) show how it really moves. Each turn and drive in the
+simulation is drawn at random from these measured spreads, so no two runs are the same (1000 runs each;
+range = 5--95\,\%):
+\begin{itemize}\setlength\itemsep{0pt}
+\item steering time (motor on) $= 0.90$\,s $+$ angle$/37.8^\circ$/s, scatter sd 0.19\,s (turns of $3$--$4^\circ$: 0.5--0.65\,s);
+  the speed is not constant: it ramps up, runs at 30--50$^\circ$/s and slows down at the end;
+\item after a steer the robot waits 0.11\,s (measured), plus up to 0.4\,s for the IMU in the current firmware;
+\item the wheel stops $2^\circ$ short on purpose, spread $0.15^\circ$ (measured);
+\item while driving, the direction of travel turns right $14.4 \pm 14.5^\circ$/m: the body $7.4 \pm 7.1^\circ$/m (IMU)
+  plus the wheel module $7.0 \pm 12.6^\circ$/m (AS5600), as the drive torque turns the module and gears;
+\item early re-aim (Algorithm 1.7);
+\item overshoot: a turn that ends past its angle needs almost another full turn. None of the 20 logged turns
+  overshot, but it does happen on the robot, so it is tested with a probability $p$ per turn.
+\end{itemize}
 \begin{center}
-\begin{tabular}{lrrr}
+\begin{tabular}{lrr}
 \toprule
- & ideal model (s) & robot-like model (s) & robot, 3 rounds (s) \\
+ & old method (s) & Detour Steer (s) \\
 \midrule
-old method   & 20.16 ($-14.2\,\%$) & 24.18 (20.42--32.67), $+2.9\,\%$ & 23.49 (22.94--24.17) \\
-Detour Steer & 18.83 ($-11.6\,\%$) & 21.07 (17.64--29.87), $-1.1\,\%$ & 21.31 (20.77--22.33) \\
-time saved   & 6.6\,\% & 12.8\,\% & 9.3\,\% \\
+robot, 3 rounds              & 23.49 (22.94--24.17) & 21.31 (20.77--22.33) \\
+model, $p = 0$               & 23.95 (22.09--26.11), $+2.0\,\%$ & 18.42 (16.83--20.99), $-13.6\,\%$ \\
+model, $p = 3\,\%$           & 24.67 (22.15--33.94), $+5.0\,\%$ & 18.67 (16.73--21.93), $-12.4\,\%$ \\
+model, $p = 8\,\%$           & 26.11 (22.22--36.41), $+11.2\,\%$ & 18.99 (16.73--25.79), $-10.9\,\%$ \\
 \bottomrule
 \end{tabular}
 \end{center}
-The robot-like model is within 3\,\% of the robot for each method. Its range is wider than the 3 robot
-rounds, and it still over-states the gain a little (12.8\,\% against 9.3\,\%); with only 3 rounds per method
-these values are a fit, not a proof. The simulator window has the same mode (``robot-like'' check box): each
-press of Start is one new random run, and it also shows the mean and range of 1000 runs.
+With measured values only (nothing fitted) the old method matches the robot within 2\,\%. Detour Steer on the
+robot is about 2.9\,s slower than the model: every real Detour run ends with one more small turn and a short
+drive (Figure 4, the last pink and blue), which the model does not produce. The logs hold no Detour run, so
+the cause of this end correction cannot be measured yet; a logged Detour run would close the gap. This model
+therefore over-states the gain (23\,\% against 9.3\,\%) and is not used to claim a number for the robot.
+Overshoot makes the old method slower (each one costs almost a full turn), while Detour Steer turns such a
+miss into a detour. The simulator window has the same mode (``robot-like'' check box): each press of Start is
+one new random run, and it shows the mean and range of 1000 runs.
 
 \smallskip
-\noindent\textbf{The 2\,m route in the robot-like model.} This route was run in simulation only, not on the robot. In the robot-like model (1000 runs each) the
-gain depends strongly on how close the robot must get to each point (\texttt{navTolM}); the robot test used 2.5\,mm:
+\noindent\textbf{The 2\,m route in the robot-like model.} This route was run in simulation only, not on the
+robot. In the measured model ($p = 0$, 1000 runs each) the gain depends on how close the robot must get to each
+point (\texttt{navTolM}); the robot test used 2.5\,mm:
 \begin{center}
 \begin{tabular}{lrrr}
 \toprule
 point tolerance & old method (s) & Detour Steer (s) & saved \\
 \midrule
-2.5\,mm (as tested) & 155.8 (143.1--175.0) & 149.9 (134.7--170.6) & 3.8\,\% \\
-1\,cm               & 138.5 (128.5--144.6) & 126.0 (112.1--136.5) & 9.1\,\% \\
-2\,cm               & 130.5 (115.1--140.6) & 114.6 (97.8--131.5)  & 12.2\,\% \\
-6\,cm               & 119.1 (101.6--134.6) & 96.6 (84.2--110.7)   & 19.0\,\% \\
+2.5\,mm (as tested) & 154.6 (150.8--158.1) & 143.1 (132.1--148.2) & 7.4\,\% \\
+1\,cm               & 150.5 (147.4--153.4) & 130.4 (105.5--142.7) & 13.4\,\% \\
+2\,cm               & 149.7 (146.8--152.4) & 118.1 (80.7--139.9)  & 21.1\,\% \\
+6\,cm               & 144.5 (133.4--148.7) & 108.0 (76.4--135.8)  & 25.3\,\% \\
 \bottomrule
 \end{tabular}
 \end{center}
-With a 2.5\,mm tolerance both methods spend most of their extra time on small corrections at each of the 7
-points, so the gain of the detour is small (3.8\,\%). With a looser tolerance the corrections shrink and the
-gain approaches the ideal model (19.8\,\%).
+With a 2.5\,mm tolerance both methods spend much of their time on small corrections at each of the 7 points.
+Because the model is too fast for Detour Steer on the 0.30\,m test, these gains are upper values.
 The return to the start (about 1.96\,m) is not timed.
-
 
 \medskip
 \noindent\textbf{Part 2 conclusion.} On the real robot Detour Steer was faster in 3 of 3 rounds: 21.31\,s
-against 23.49\,s (9.3\,\%). The robot is 11.6--14.2\,\% slower than the ideal model because of drift, slip,
-coast and re-aim stops; a robot-like simulation with these effects fits the robot within 3\,\%. In that
-simulation the 2\,m route gains 3.8\,\% at a 2.5\,mm point tolerance and up to 19.0\,\% at 6\,cm.
-The 2\,m route has not been run on the robot.
+against 23.49\,s (9.3\,\%); this measured result is the one to trust. The robot is 11.6--14.2\,\% slower than the
+ideal model because of drift, the turning wheel module, slip and re-aim stops. A simulation built only from
+the robot's logs matches the old method within 2\,\% but is about 2.9\,s too fast for Detour Steer (one end
+correction it does not reproduce). The 2\,m route has been run only in simulation.
 }
 
 \vspace{4mm}

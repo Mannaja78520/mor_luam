@@ -62,6 +62,7 @@ Source map: `CLAUDE.md`. Install: `docs/INSTALL_TH.md`. Safety: `docs/safety.md`
 - Compiling is not proof of an installed build; check `sys.build` on the robot.
 
 ## Log (newest first, one line per session)
+- 2026-11-04 Claude: RealismConfig now from MEASURED logs (algorithm_sim/measure_logs.py over tools/test_out): steer 0.90 s + angle/37.8 deg/s sd 0.19, drift 14.4+-14.5 deg/m (body+wheel), stop -2+-0.15, overshoot_p what-if. Old method matches robot +2 %; Detour model 2.9 s too fast (real Detour always does one end correction; no Detour run in the logs). Next with the robot: log a Detour series to explain it.
 - 2026-11-04 Claude: reports split into Part 1 (algorithm: proofs + ideal sim) and Part 2 (real robot + robot-like sim), each with a conclusion. RealismConfig refit (steer 50 deg/s +1.3 s/steer, drift 3+-6 deg/m, drive coast 4 mm): 0.30 m test +2.9 % / -1.1 %. GUI 'แบบใกล้หุ่นจริง' checkbox: 1 random run per Start + 1000-run mean/range. 2 m robot estimate removed (sim only, tolerance table).
 - 2026-11-04 Claude: robot-like sim (RealismConfig: bias -2, sd 1, drift 5+-5 deg/m, re-aim, +1.25 s/steer) fitted to the 0.30 m robot test (+5.4 % / -5.1 %); 2 m range estimate old ~157-167 s, Detour ~122-156 s (7-26 %) in reports. Owner not at the robot; a real 2 m series would replace the estimate.
 - 2026-11-04 Claude: 2 m / 7-leg sim figure (fig_route_2m.png, 19.8 %) + sim-vs-robot error table (old -14.2 %, Detour -11.6 %; 2 m robot times are an estimate only) in all reports.

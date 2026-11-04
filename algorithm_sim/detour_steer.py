@@ -389,28 +389,56 @@ def run_goal(goal: Tuple[float, float], robot: RobotConfig, stop_error: StopErro
 
 @dataclass(frozen=True)
 class RealismConfig:
-    """What the ideal model leaves out, fitted to the 3-round robot test.
+    """What the ideal model leaves out, MEASURED from the robot's own logs.
 
-    stop error: where the wheel really stops (+ past, - short); the robot
-    lands ~2 deg short on purpose. drift: while it drives, the AS5600 angle
-    and the front of the robot turn, so the heading turns RIGHT (clockwise)
-    by this many degrees per metre, at random around the mean. steering:
-    from the robot's own time line, 352 deg took ~9.4 s and 249 deg ~7.2 s,
-    so the wheel turns ~50 deg/s plus a fixed time per steer. drive coast:
-    the drive motor also coasts, so a drive never ends exactly on its point.
+    Source: tools/test_out/*.csv (2026-10-08, every 10 ms): 15 big turns,
+    5 small turns, 23 drives. Each turn and drive is drawn at random from
+    these measured spreads, so no two runs are the same.
+    - steering time (motor on) = fixed + angle / 37.8 deg/s, fixed 0.90 s
+      for big turns and ~0.45 s for 3-4 deg turns, scatter sd 0.19 s
+    - after a steer the robot waits 0.11 s (measured) plus the IMU settle
+      of the current firmware (0 .. 0.4 s); a drive -> steer switch: ~0 s
+    - where the wheel stops: the current firmware lands 2 deg short on
+      purpose (the logs, before that change: 3.45 +- 0.15 deg short).
+      overshoot_p: chance that it turns PAST instead (by tol .. 10 deg),
+      which costs almost a full extra turn; none was in the logs, so it is
+      a what-if setting (default 0)
+    - drift while driving: the direction of travel = body heading (IMU) +
+      wheel angle (AS5600). Body: 7.4 +- 7.1 deg/m to the right; wheel:
+      7.0 +- 12.6 deg/m to the right; together 14.4 +- 14.5 deg/m
     """
-    # fitted 2026-11-04 to the robot test (0.30 m at 354 deg, 3 rounds each), 1000 runs:
-    # see print_robot_like() for the model against the robot
     bias_deg: float = -2.0
-    sd_deg: float = 1.0
-    drift_deg_per_m: float = 3.0
-    drift_sd_deg_per_m: float = 6.0
-    steer_overhead_s: float = 1.3   # extra time per steer: motor start, coast, settle on the IMU
-    steer_dps: float = 50.0         # wheel speed WHILE turning (the planner still uses 35 deg/s)
-    drive_bias_m: float = 0.0       # where a drive really stops: + past, - short
-    drive_sd_m: float = 0.004
+    sd_deg: float = 0.15
+    overshoot_p: float = 0.0
+    overshoot_max_deg: float = 10.0
+    drift_deg_per_m: float = 14.4
+    drift_sd_deg_per_m: float = 14.5
+    steer_dps: float = 37.8         # wheel speed while turning (the planner still uses its own 35 deg/s)
+    steer_fixed_s: float = 0.90     # motor start + slow-down, big turns
+    steer_fixed_small_s: float = 0.45
+    steer_time_sd_s: float = 0.19
+    settle_min_s: float = 0.11      # measured gap steer -> drive
+    settle_max_s: float = 0.51      # + up to 0.4 s IMU settle (current firmware)
+    switch_s: float = 0.0           # measured gap drive -> steer
+    drive_bias_m: float = 0.0       # where a drive really stops: + past, - short (not in the logs)
+    drive_sd_m: float = 0.0
     reaim_ratio: float = 3.0        # Algorithm 1.7: stop when the goal is this many times its offset ahead
     reaim_min_m: float = 0.02
+
+
+def real_stop_error(real: RealismConfig, rng: random.Random, tol: float) -> float:
+    """Where the wheel stops against the target (rad, + = past)."""
+    if real.overshoot_p > 0 and rng.random() < real.overshoot_p:
+        return rng.uniform(tol + 1e-3, math.radians(real.overshoot_max_deg))
+    return rng.gauss(math.radians(real.bias_deg), math.radians(real.sd_deg))
+
+
+def real_steer_time(real: RealismConfig, turn: float, rng: random.Random, driven: bool) -> float:
+    """Measured steering time for one turn (rad), including the waits around it."""
+    deg = math.degrees(turn)
+    fixed = real.steer_fixed_small_s + (real.steer_fixed_s - real.steer_fixed_small_s) * min(1.0, deg / 40.0)
+    motor = max(0.2, fixed + deg / real.steer_dps + rng.gauss(0.0, real.steer_time_sd_s))
+    return motor + rng.uniform(real.settle_min_s, real.settle_max_s) + (real.switch_s if driven else 0.0)
 
 
 def run_route_real(points, robot: RobotConfig, real: RealismConfig, rng: random.Random,
@@ -463,9 +491,8 @@ def run_route_real(points, robot: RobotConfig, real: RealismConfig, rng: random.
             if plan is not None and plan.kind == "detour":
                 drive(plan.a)
                 continue
-            turn = max(0.0, e + rng.gauss(math.radians(real.bias_deg), math.radians(real.sd_deg)))
-            w_real = math.radians(real.steer_dps) if real.steer_dps > 0 else w
-            t += turn / w_real + robot.settle_s + real.steer_overhead_s + (robot.stop_s if driven else 0.0)
+            turn = max(0.0, e + real_stop_error(real, rng, tol))
+            t += real_steer_time(real, turn, rng, driven)
             driven = False
             h = (h + turn) % TAU
     return t, path
@@ -712,10 +739,10 @@ def print_robot_like(cfg: HWConfig) -> None:
     real = RealismConfig()
     phi = math.radians(354.0)
     test = [(EXAMPLE_D_M * math.cos(phi), EXAMPLE_D_M * math.sin(phi))]
-    print("\n  robot-like model (stop %+.0f+-%.0f deg, drift %.0f+-%.0f deg/m, steer %.0f deg/s +%.2f s, "
-          "drive coast +-%.0f mm), 1000 runs:"
-          % (real.bias_deg, real.sd_deg, real.drift_deg_per_m, real.drift_sd_deg_per_m, real.steer_dps,
-             real.steer_overhead_s, 1000 * real.drive_sd_m))
+    print("\n  robot-like model, values measured from tools/test_out logs (stop %+.1f+-%.2f deg, "
+          "drift %.1f+-%.1f deg/m, steer %.2f s + angle/%.1f deg/s), 1000 runs:"
+          % (real.bias_deg, real.sd_deg, real.drift_deg_per_m, real.drift_sd_deg_per_m,
+             real.steer_fixed_s, real.steer_dps))
     for name, pts in (("0.30 m test", test), ("2 m / 7 legs", comparison_route())):
         res = real_times(pts, cfg.robot, real, n=1000)
         o, n = res["old"], res["detour"]
