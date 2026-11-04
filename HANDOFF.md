@@ -32,11 +32,11 @@ Source map: `CLAUDE.md`. Install: `docs/INSTALL_TH.md`. Safety: `docs/safety.md`
 
 **Algorithm / homework (271401)**
 - `algorithm_sim/`: Python planner + simulators (no Docker), `docs/algorithm.pdf` (last page =
-  Git link only), `docs/report.pdf` (report + Appendix A: Git link page, then code listings),
+  Git link only), `docs/660610840_DetourSteer_EN.pdf` (English full report + Appendix A: Git link page, then code listings),
   `docs/660610840_DetourSteer.pdf` (Thai report, `xelatex` twice, font Leelawadee UI),
   `docs/explain_th.md` (Thai talk guide). Video link (Google Drive) is on every Git page: it shows the robot in synchronize mode; there is NO Detour vs Direct video (comparison = robot record only). Tests: `python -m unittest test_current_robot`,
   `python detour_steer.py --no-bench` (T1-T4 PASS).
-- Rebuild PDFs after code changes: `cd algorithm_sim/docs && pdflatex report.tex` (twice).
+- Rebuild PDFs after code changes: `cd algorithm_sim/docs && pdflatex 660610840_DetourSteer_EN.tex` (twice; Thai: `xelatex 660610840_DetourSteer.tex`).
   The Python listing uses fixed lines 241-299 of `detour_steer.py`; re-check after editing it.
 - Homework copy `E:\271401\271401_pee_aut_homework\algorithm\DETOUR_STEERING\` is a separate repo,
   not committed.
@@ -62,7 +62,7 @@ Source map: `CLAUDE.md`. Install: `docs/INSTALL_TH.md`. Safety: `docs/safety.md`
 - Compiling is not proof of an installed build; check `sys.build` on the robot.
 
 ## Log (newest first, one line per session)
-- 2026-11-04 Claude: summaries 660610840_DetourSteer_summary_TH.pdf (xelatex) and _EN.pdf (pdflatex), 3 pages each.
+- 2026-11-04 Claude: owner wants FULL reports only: summaries removed; report.pdf renamed 660610840_DetourSteer_EN.pdf.
 - 2026-11-04 Claude: Thai report 660610840_DetourSteer.pdf; video link added to all PDFs.
 - 2026-11-04 Claude: added `algorithm_sim/` + report PDF with Git page; merged all handoffs into this file.
 - 2026-10-27 Codex V2-V9: PC web/simulator, 2 m multi-leg comparison, Wi-Fi/status fixes, portable setup.
