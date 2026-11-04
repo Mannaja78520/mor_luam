@@ -383,6 +383,95 @@ def run_goal(goal: Tuple[float, float], robot: RobotConfig, stop_error: StopErro
 
 
 # =====================================================================
+# Robot-like model: stop error + drift while driving, fitted to the robot
+# =====================================================================
+
+
+@dataclass(frozen=True)
+class RealismConfig:
+    """What the ideal model leaves out, fitted to the 3-round robot test.
+
+    stop error: where the wheel really stops (+ past, - short); the robot
+    lands ~2 deg short on purpose. drift: while it drives, the AS5600 angle
+    and the front of the robot turn, so the heading turns RIGHT (clockwise)
+    by this many degrees per metre, at random around the mean.
+    """
+    # fitted 2026-11-04 to the robot test (0.30 m at 354 deg, 3 rounds each):
+    # model old 24.75 s vs robot 23.49 s (+5.4 %), Detour 20.22 s vs 21.31 s (-5.1 %)
+    bias_deg: float = -2.0
+    sd_deg: float = 1.0
+    drift_deg_per_m: float = 5.0
+    drift_sd_deg_per_m: float = 5.0
+    steer_overhead_s: float = 1.25  # extra time per steer: motor start, coast, settle on the IMU
+    reaim_ratio: float = 3.0        # Algorithm 1.7: stop when the goal is this many times its offset ahead
+    reaim_min_m: float = 0.02
+
+
+def run_route_real(points, robot: RobotConfig, real: RealismConfig, rng: random.Random,
+                   use_detour: bool = True) -> Tuple[float, list]:
+    """Closed loop over a route with stop error and drive drift. Returns (time s, path)."""
+    w = math.radians(robot.steer_speed_dps)
+    tol = math.radians(robot.tol_deg)
+    x = y = h = t = 0.0
+    path = [(0.0, 0.0)]
+    driven = False                     # a steer right after a drive pays the motor switch t_b
+
+    def drive(dist: float) -> None:
+        """Algorithm 1.7: drive towards the leg end q with drift; stop early to re-aim."""
+        nonlocal x, y, h, t, driven
+        rate = math.radians(rng.gauss(real.drift_deg_per_m, real.drift_sd_deg_per_m))
+        qx, qy = x + dist * math.cos(h), y + dist * math.sin(h)
+        step, moved = 0.002, 0.0
+        while moved < dist + 0.05:
+            ex, ey = qx - x, qy - y
+            f = ex * math.cos(h) + ey * math.sin(h)          # ahead
+            s = -ex * math.sin(h) + ey * math.cos(h)         # beside, + = steering side (left)
+            if math.hypot(ex, ey) <= robot.goal_radius_m or f <= 0.0:
+                break
+            if s > robot.goal_radius_m and f <= max(real.reaim_min_m, real.reaim_ratio * s):
+                break
+            h -= rate * step / 2
+            x += step * math.cos(h); y += step * math.sin(h)
+            h -= rate * step / 2
+            moved += step
+        h %= TAU
+        t += moved / robot.drive_speed_mps
+        driven = True
+        path.append((x, y))
+
+    for gx, gy in points:
+        for _ in range(robot.max_phases):
+            dx, dy = gx - x, gy - y
+            dist = math.hypot(dx, dy)
+            if dist <= robot.goal_radius_m:
+                break
+            e = steer_error(bearing(dx, dy), h)
+            if in_tolerance(e, tol):
+                drive(dist)
+                continue
+            plan = plan_leg(e, dist, robot) if use_detour else None
+            if plan is not None and plan.kind == "detour":
+                drive(plan.a)
+                continue
+            turn = max(0.0, e + rng.gauss(math.radians(real.bias_deg), math.radians(real.sd_deg)))
+            t += turn / w + robot.settle_s + real.steer_overhead_s + (robot.stop_s if driven else 0.0)
+            driven = False
+            h = (h + turn) % TAU
+    return t, path
+
+
+ROBOT_TEST = {"old": (24.17, 22.94, 23.36), "detour": (20.83, 20.77, 22.33)}   # s, 3 rounds each
+
+
+def real_times(points, robot, real, n=400, seed=11):
+    out = {}
+    for name, det in (("old", False), ("detour", True)):
+        ts = sorted(run_route_real(points, robot, real, random.Random(seed + i), det)[0] for i in range(n))
+        out[name] = (sum(ts) / n, ts[int(0.05 * n)], ts[int(0.95 * n) - 1])
+    return out
+
+
+# =====================================================================
 # Verification: the theorems, checked by brute force
 # =====================================================================
 
@@ -605,6 +694,21 @@ def plot_route_2m(cfg: HWConfig, path: str) -> None:
     plt.close(fig)
     print(f"  2 m / 7 legs: old method {old['time_s']:.2f} s ({old['turn_deg']:.0f} deg steered), "
           f"Detour Steer {new['time_s']:.2f} s ({new['turn_deg']:.0f} deg, {new['detours']} detours), {saved:.1f}% faster")
+
+
+def print_robot_like(cfg: HWConfig) -> None:
+    """Robot-like model (stop bias, drift, re-aim, per-steer time) against the robot test, then 2 m."""
+    real = RealismConfig()
+    phi = math.radians(354.0)
+    test = [(EXAMPLE_D_M * math.cos(phi), EXAMPLE_D_M * math.sin(phi))]
+    print("\n  robot-like model (bias %+.0f deg, sd %.0f deg, drift %.0f+-%.0f deg/m, +%.2f s per steer), 1000 runs:"
+          % (real.bias_deg, real.sd_deg, real.drift_deg_per_m, real.drift_sd_deg_per_m, real.steer_overhead_s))
+    for name, pts in (("0.30 m test", test), ("2 m / 7 legs", comparison_route())):
+        res = real_times(pts, cfg.robot, real, n=1000)
+        o, n = res["old"], res["detour"]
+        print(f"    {name:<13}: old {o[0]:.2f} s (5-95 %: {o[1]:.2f}-{o[2]:.2f}), "
+              f"Detour {n[0]:.2f} s ({n[1]:.2f}-{n[2]:.2f}), saved {100 * (o[0] - n[0]) / o[0]:.1f}%")
+    print("    robot test, mean of 3: old 23.49 s, Detour 21.31 s (saved 9.3%)")
 
 
 def plot_decision_map(cfg: HWConfig, path: str) -> None:
@@ -855,6 +959,7 @@ def main() -> None:
     plot_examples(cfg, os.path.join(cfg.output_dir, "fig_path.png"))
     plot_decision_map(cfg, os.path.join(cfg.output_dir, "fig_decision_map.png"))
     plot_route_2m(cfg, os.path.join(cfg.output_dir, "fig_route_2m.png"))
+    print_robot_like(cfg)
 
     if not args.no_bench:
         run_benchmark(cfg)

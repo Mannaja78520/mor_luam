@@ -420,6 +420,26 @@ stops (see ``Why the robot drifts right''). It also under-states the gain: the r
 simulation 6.6\,\%, because the old method's near-full turn needs more correction on the floor.
 
 \smallskip
+\noindent\textbf{Simulation with stop bias, drift and re-aim (robot-like).} A stop bias alone cannot match both
+methods: with bias $-2^\circ$, sd $2^\circ$ the old method gives 23.38\,s (close) but Detour Steer 18.84\,s (2.5\,s
+short). A robot-like model adds what the robot does: the wheel stops $2^\circ$ short (sd $1^\circ$), the heading
+drifts right $5 \pm 5^\circ$/m while driving, the robot stops early and re-aims (Algorithm 1.7), and every steer
+costs 1.25\,s more (motor start, coast, settle on the IMU). These values were fitted to the robot test
+(1000 runs; range = 5--95\,\%):
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+ & ideal model (s) & robot-like model (s) & robot, 3 rounds (s) \\
+\midrule
+old method   & 20.16 ($-14.2\,\%$) & 24.75 (23.38--26.83), $+5.4\,\%$ & 23.49 (22.94--24.17) \\
+Detour Steer & 18.83 ($-11.6\,\%$) & 20.22 (19.48--22.45), $-5.1\,\%$ & 21.31 (20.77--22.33) \\
+\bottomrule
+\end{tabular}
+\end{center}
+The robot-like model is within about 5\,\% of the robot for each method, but it over-states the gain
+(18.3\,\% against 9.3\,\%), so it is not exact.
+
+\smallskip
 \noindent\textbf{The 2\,m route (Figure 4).} A total of 2\,m split into 7 equal legs (2/7\,m each), each leg
 $6^\circ$ to the right of the one before; both methods visit the same points.
 At the robot's speeds the simulation gives:
@@ -436,9 +456,12 @@ saved        & 27.30 (19.8\,\%) & & & \\
 \end{tabular}
 \end{center}
 Every leg is $6^\circ$ to the right, so the old method steers about $354^\circ$ at each point; Detour Steer
-drives on and steers less at 4 of the 7 points. This route was run in simulation only. If the robot has the
-same error as in the 0.30\,m test (old method $-14.2\,\%$, Detour Steer $-11.6\,\%$), the robot would take
-about 160.6\,s and 125.1\,s (22.1\,\% faster); this is an estimate from the simulation, not a measurement.
+drives on and steers less at 4 of the 7 points. This route was run in simulation only. Two ways to estimate it on the robot:
+(1) the ideal times scaled by each robot round's own error: old method 156.8--165.2\,s, Detour Steer
+121.9--131.1\,s (16.4--26.2\,\% faster); (2) the robot-like model: old method 159.6--166.5\,s, Detour Steer
+139.3--156.3\,s (7.3\,\% faster on average). Expected range on the robot: \textbf{old method about 157--167\,s,
+Detour Steer about 122--156\,s}, so Detour Steer should be faster, by about 7--26\,\%.
+These are estimates from the simulation, not measurements.
 The return to the start (about 1.96\,m) is not timed.
 
 \Needspace*{90mm}
