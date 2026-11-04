@@ -575,6 +575,38 @@ def plot_examples(cfg: HWConfig, path: str) -> None:
     plt.close(fig)
 
 
+def plot_route_2m(cfg: HWConfig, path: str) -> None:
+    """The 2 m / 7-leg route at the robot's speeds: old method vs Detour Steer."""
+    pts = comparison_route()
+    old = ideal_route(pts, cfg.robot, use_detour=False)
+    new = ideal_route(pts, cfg.robot, use_detour=True)
+    saved = 100.0 * (old["time_s"] - new["time_s"]) / old["time_s"]
+    fig, ax = plt.subplots(figsize=(10.5, 4.4))
+    for res, color, name in ((old, C_OLD, "Old method"), (new, C_NEW, "Detour Steer")):
+        xs, ys = zip(*res["path"])
+        ax.plot(xs, ys, "-", color=color, lw=2.2,
+                label=f"{name}: {res['time_s']:.2f} s, {res['length_m']:.2f} m, "
+                      f"steered {res['turn_deg']:.0f}°, {res['detours']} detours")
+    ax.plot(0, 0, "o", color=INK, ms=6)
+    ax.text(0, 0.03, "start", fontsize=8.5, color=INK, ha="center")
+    for i, (x, y) in enumerate(pts, 1):
+        ax.plot(x, y, marker="o", mfc="white", mec=INK, ms=7)
+        ax.text(x, y + 0.03, str(i), fontsize=8.5, color=INK, ha="center")
+    ax.set_aspect("equal")
+    ax.set_xlabel("x (m)", fontsize=9, color=MUTED)
+    ax.set_ylabel("y (m)", fontsize=9, color=MUTED)
+    ax.legend(frameon=False, fontsize=9, loc="lower left")
+    ax.set_title(f"2 m in 7 legs, each 6° to the right (steer {cfg.robot.steer_speed_dps:.0f}°/s, "
+                 f"drive {cfg.robot.drive_speed_mps} m/s): Detour Steer {saved:.1f}% faster",
+                 fontsize=10.5, color=INK, loc="left")
+    _style(ax)
+    fig.tight_layout()
+    fig.savefig(path, dpi=160, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  2 m / 7 legs: old method {old['time_s']:.2f} s ({old['turn_deg']:.0f} deg steered), "
+          f"Detour Steer {new['time_s']:.2f} s ({new['turn_deg']:.0f} deg, {new['detours']} detours), {saved:.1f}% faster")
+
+
 def plot_decision_map(cfg: HWConfig, path: str) -> None:
     """Where the detour wins, and by how much, for a few steering speeds."""
     mc = cfg.decision_map
@@ -822,6 +854,7 @@ def main() -> None:
               f"current method {old.time_s:6.2f} s (steered {math.degrees(old.steer_turn_rad):4.0f} deg)")
     plot_examples(cfg, os.path.join(cfg.output_dir, "fig_path.png"))
     plot_decision_map(cfg, os.path.join(cfg.output_dir, "fig_decision_map.png"))
+    plot_route_2m(cfg, os.path.join(cfg.output_dir, "fig_route_2m.png"))
 
     if not args.no_bench:
         run_benchmark(cfg)

@@ -62,6 +62,7 @@ Source map: `CLAUDE.md`. Install: `docs/INSTALL_TH.md`. Safety: `docs/safety.md`
 - Compiling is not proof of an installed build; check `sys.build` on the robot.
 
 ## Log (newest first, one line per session)
+- 2026-11-04 Claude: 2 m / 7-leg sim figure (fig_route_2m.png, 19.8 %) + sim-vs-robot error table (old -14.2 %, Detour -11.6 %; 2 m robot times are an estimate only) in all reports.
 - 2026-11-04 Claude: simulation now at the robot's measured speeds (0.03 m/s, 35 deg/s, r 2.5 mm) as RobotConfig defaults; reports show those values (random goals 0-5.9 %, robot-test goal 6.6 %) plus an 'other speeds' table/figure (fig_speeds.png). Owner: no inflated numbers.
 - 2026-11-04 Claude: owner wants FULL reports only: summaries removed; report.pdf renamed 660610840_DetourSteer_EN.pdf.
 - 2026-11-04 Claude: Thai report 660610840_DetourSteer.pdf; video link added to all PDFs.

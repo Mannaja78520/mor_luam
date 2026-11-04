@@ -400,16 +400,53 @@ from above; dashed = the plan. (The robot steers counter-clockwise, so here the 
 \noindent\rule{\linewidth}{1.1pt}\par
 
 \clearpage
-\section*{Current robot profile and two-metre comparison (27 October 2026)}
-The simulation results above use the robot's measured planning profile:
-$v=0.03$ m/s, $\omega=35^\circ$/s, and goal radius 0.0025 m.
-For the longer comparison, split a total outbound length of 2 m into seven
-equal legs, each 2/7 m, bending $6^\circ$ clockwise from the preceding bearing.
-Both planners visit the same waypoints; physical steering remains counter-clockwise.
-The ideal model gives Direct 137.82 s / 2.00 m and Detour 110.52 s / 2.17 m,
-with four detours. These are model predictions, not new real-robot measurements.
-The return to start (about 1.96 m) is additional and untimed.
-Three paired rounds contain six runs. No autonomous motion follows from saving settings.
+\section*{Simulation against the robot, and the 2\,m route}
+\textbf{How far the simulation is from the robot.} The only route run on both is the robot test
+(0.30\,m at $354^\circ$, 3 rounds each). The simulation uses the robot's measured speeds
+($v = 0.03$\,m/s, $\omega = 35^\circ$/s, $t_b = 0.2$\,s, $r_{goal} = 2.5$\,mm):
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+ & simulation (s) & robot, mean of 3 (s) & error \\
+\midrule
+old method   & 20.16 & 23.49 & $-3.33$\,s ($-14.2\,\%$) \\
+Detour Steer & 18.83 & 21.31 & $-2.48$\,s ($-11.6\,\%$) \\
+time saved   & 1.33 (6.6\,\%) & 2.18 (9.3\,\%) & \\
+\bottomrule
+\end{tabular}
+\end{center}
+The simulation is 11.6--14.2\,\% faster than the robot, because it has no drift, no slip and no re-aim
+stops (see ``Why the robot drifts right''). It also under-states the gain: the robot saved 9.3\,\%, the
+simulation 6.6\,\%, because the old method's near-full turn needs more correction on the floor.
+
+\smallskip
+\noindent\textbf{The 2\,m route (Figure 4).} A total of 2\,m split into 7 equal legs (2/7\,m each), each leg
+$6^\circ$ to the right of the one before; both methods visit the same points.
+At the robot's speeds the simulation gives:
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+ & time (s) & path (m) & steered & detours \\
+\midrule
+old method   & 137.82 & 2.00 & $2478^\circ$ & 0 \\
+Detour Steer & 110.52 & 2.17 & $1291^\circ$ & 4 \\
+\midrule
+saved        & 27.30 (19.8\,\%) & & & \\
+\bottomrule
+\end{tabular}
+\end{center}
+Every leg is $6^\circ$ to the right, so the old method steers about $354^\circ$ at each point; Detour Steer
+drives on and steers less at 4 of the 7 points. This route was run in simulation only. If the robot has the
+same error as in the 0.30\,m test (old method $-14.2\,\%$, Detour Steer $-11.6\,\%$), the robot would take
+about 160.6\,s and 125.1\,s (22.1\,\% faster); this is an estimate from the simulation, not a measurement.
+The return to the start (about 1.96\,m) is not timed.
+
+\Needspace*{90mm}
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{Figure 4.} Simulation of the 2\,m / 7-leg route at the robot's speeds\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
+\begin{center}\includegraphics[width=0.92\linewidth]{sim_route_2m.png}\end{center}
+\noindent\rule{\linewidth}{1.1pt}\par
 
 \clearpage
 \section*{Appendix A. Code and Git repository}
