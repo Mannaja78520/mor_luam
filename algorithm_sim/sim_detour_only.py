@@ -87,10 +87,10 @@ FORMULAS = ("k  = (d·ω / v)·|sin φ|\n"
 def selftest(cfg: SimConfig) -> bool:
     robot = RobotConfig()
     print("Self-test: the animated Detour Steer robot vs detour_steer.run_goal()")
-    for name, phi_deg, errs in (("(a) goal 1 m, 10 deg to the right", 350.0, []),
-                                ("(b) goal at 60 deg, stops 8 deg too far", 60.0, [8.0])):
+    for name, phi_deg, errs in (("(a) goal 0.30 m, 6 deg to the right", 354.0, []),
+                                ("(b) goal 0.30 m at 60 deg, stops 8 deg too far", 60.0, [8.0])):
         phi = math.radians(phi_deg)
-        goal = (math.cos(phi), math.sin(phi))
+        goal = (0.3 * math.cos(phi), 0.3 * math.sin(phi))
         sim = SimRobot(use_detour=True)
         sim.reset([goal], [0], errs)
         t_sim = run_to_end(sim, robot, NoiseConfig(0.0, 0.0))
@@ -255,7 +255,7 @@ class OnlyApp:
 
     def _example(self, phi_deg: float, scripted: List[float]) -> None:
         phi = math.radians(phi_deg)
-        d = 0.3 if phi_deg == 354.0 else 1.0
+        d = 0.3   # the robot test distance
         self.goals, self.seeds, self.scripted = [(d * math.cos(phi), d * math.sin(phi))], [0], scripted
         for key, val in (("steer_dps", 35.0), ("drive_mps", 0.03), ("stop_s", 0.2),
                          ("bias_deg", 0.0), ("sd_deg", 0.0)):
@@ -348,7 +348,7 @@ def main() -> None:
         sys.exit(0 if selftest(cfg) else 1)
     app = OnlyApp(cfg)
     if args.shot:
-        app.screenshot(args.shot, after_s=3.0)
+        app.screenshot(args.shot, after_s=4.0)
     app.run()
 
 

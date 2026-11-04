@@ -183,7 +183,7 @@ Algorithms 1.1--1.5 plan; 1.6--1.7 are how the robot steers and drives each leg.
   \ForEach{$g \in W$}{
     $(p, h) \leftarrow$ \FDetourSteer{$p$, $h$, $g$}\;
   }
-  \KwDisplay{total time}\tcp*[r]{Goal 1\,m at $350^\circ$: $a{=}1.03$\,m, $\beta^\ast{=}254^\circ$, $b{=}0.18$\,m, 9.34\,s (old method: 9.88\,s)}
+  \KwDisplay{total time}\tcp*[r]{Goal 0.30\,m at $354^\circ$: $a{=}0.31$\,m, $\beta^\ast{=}249^\circ$, $b{=}0.034$\,m, 18.83\,s (old method: 20.16\,s)}
 }
 \end{algorithm}
 }
@@ -251,8 +251,8 @@ Algorithms 1.1--1.5 plan; 1.6--1.7 are how the robot steers and drives each leg.
 \item[\textbf{T4.}] After leg 1, \FPlan{$\beta^\ast$, $b$} returns ``steer $\beta^\ast$, drive $b$''. Any other
   detour from there is a longer leg 1 plus one more stop $t_b$, which T3 already beat. So the planner can
   run again after every move (closed loop) without changing its mind.
-\item[\textbf{O.}] \FPlan{} is $O(1)$ in time and memory: 0.54\,$\mu$s per call in Python, against 505\,$\mu$s
-  for a 3600-point search over $\beta$ ($944\times$). T1--T4 are also checked by brute force in
+\item[\textbf{O.}] \FPlan{} is $O(1)$ in time and memory: 0.52\,$\mu$s per call in Python, against 505\,$\mu$s
+  for a 3600-point search over $\beta$ ($973\times$). T1--T4 are also checked by brute force in
   \texttt{detour\_steer.py}: closed form vs a 20\,000-point grid, vs every 2-leg path on a
   $2^\circ$ grid, and 2000 replans. All PASS.
 \end{enumerate}
@@ -272,26 +272,46 @@ wheel jumps past (measured: $9^\circ$). Stopping short also means a miss always 
 ($\arctan(1/R) = 18^\circ$ for $R = 3$, $m = 2$\,cm) instead of a $90^\circ$ turn after passing the goal.
 
 \smallskip
-\noindent\textbf{Results} (5000 random goals, $d \in [0.3, 2]$\,m, $v = 0.25$\,m/s, $t_b = 0.2$\,s,
-$\omega = 60^\circ$/s; the same goals and stop errors for both; mean time per goal):
+\noindent\textbf{Results in simulation, at the robot's own speeds} ($v = 0.03$\,m/s, $\omega = 35^\circ$/s,
+$t_b = 0.2$\,s, $r_{goal} = 2.5$\,mm, the values measured on \texttt{mor\_luam}; 5000 random goals,
+$d \in [0.3, 2]$\,m; the same goals and stop errors for both; mean time per goal):
 \begin{center}
 \begin{tabular}{lrrrrr}
 \toprule
 wheel stops & bias & sd & old method (s) & detour (s) & saved \\
 \midrule
-exactly             & $0^\circ$  & $0^\circ$ &  7.56 & 7.53 &  0.4\,\% \\
-either way, random  & $0^\circ$  & $2^\circ$ &  8.42 & 8.23 &  2.3\,\% \\
-either way, random  & $0^\circ$  & $3^\circ$ &  9.43 & 8.78 &  6.9\,\% \\
-mostly short        & $-2^\circ$ & $2^\circ$ &  8.08 & 8.03 &  0.7\,\% \\
-mostly past         & $+2^\circ$ & $2^\circ$ & 10.74 & 9.36 & 12.8\,\% \\
-mostly past         & $+2^\circ$ & $3^\circ$ & 11.87 & 9.70 & 18.3\,\% \\
+exactly             & $0^\circ$  & $0^\circ$ & 43.40 & 43.40 & 0.0\,\% \\
+either way, random  & $0^\circ$  & $1^\circ$ & 48.33 & 48.10 & 0.5\,\% \\
+either way, random  & $0^\circ$  & $2^\circ$ & 50.10 & 49.60 & 1.0\,\% \\
+either way, random  & $0^\circ$  & $3^\circ$ & 53.00 & 51.75 & 2.4\,\% \\
+mostly short        & $-2^\circ$ & $2^\circ$ & 48.21 & 48.08 & 0.3\,\% \\
+mostly past         & $+2^\circ$ & $2^\circ$ & 57.55 & 55.09 & 4.3\,\% \\
+mostly past         & $+2^\circ$ & $3^\circ$ & 60.44 & 56.88 & 5.9\,\% \\
 \bottomrule
 \end{tabular}
 \end{center}
-\noindent In every case Detour Steer is slower on 0\,\% of the goals. With exact stops the gain is small on
-average but up to 28\,\% for a goal just to the right. The more the wheel stops past its target, the more it
-gains: an overshoot no longer costs a full extra turn. Slower steering gives more gain
-(at $30^\circ$/s, sd $2^\circ$: 4.8\,\%).
+\noindent At the robot's speeds Detour Steer was slower on 0\,\% of the goals in every case, but the gain on
+random goals is small (0--5.9\,\%). The robot drives slowly, so driving takes most of the time, and a detour is
+chosen only for goals just to the right: from $\varphi \ge 346^\circ$ at $d = 0.30$\,m and $\varphi \ge 356^\circ$
+at $d = 1$\,m. For the goal of the robot test (0.30\,m at $354^\circ$) the model gives 18.83\,s against
+20.16\,s (6.6\,\%, Figure 2a).
+
+\smallskip
+\noindent\textbf{Other speeds} (the same 5000 goals and stop errors, sd $2^\circ$; time saved by Detour Steer, Figure 3):
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+drive \textbackslash{} steer & $20^\circ$/s & $35^\circ$/s & $60^\circ$/s & $120^\circ$/s \\
+\midrule
+0.03\,m/s (the robot) & 2.3\,\% & 1.0\,\% & 0.4\,\% & 0.1\,\% \\
+0.10\,m/s             & 5.4\,\% & 3.8\,\% & 2.2\,\% & 0.6\,\% \\
+0.25\,m/s             & 6.7\,\% & 5.7\,\% & 4.2\,\% & 2.2\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent A faster drive or a slower steer makes the detour pay more. At the robot's drive speed with steering
+at $20^\circ$/s, 0.2\,\% of the goals were a little slower with Detour Steer (a stop error after the extra
+stop); at $35^\circ$/s and faster, none were.
 
 \medskip
 \noindent\textbf{Results on the robot} (\texttt{mor\_luam}: $v = 0.03$\,m/s, $\omega = 35^\circ$/s its measured
@@ -342,6 +362,7 @@ that nobody did it.
 \noindent\rule{\linewidth}{1.1pt}\par
 
 \vspace{4mm}
+\Needspace*{135mm}
 \noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
 \noindent\textbf{Figure 1.} The 3 rounds on the robot, from its own record\par\vspace{1.4mm}
 \noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
@@ -357,10 +378,26 @@ from above; dashed = the plan. (The robot steers counter-clockwise, so here the 
 \noindent\rule{\linewidth}{1.1pt}\par
 
 
+
+\vspace{4mm}
+\Needspace*{95mm}
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{Figure 2.} Simulation at the robot's speeds: two goals 0.30\,m away\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
+\begin{center}\includegraphics[width=0.86\linewidth]{sim_path.png}\end{center}
+\noindent\rule{\linewidth}{1.1pt}\par
+
+\vspace{4mm}
+\Needspace*{100mm}
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{Figure 3.} Other speeds: time saved on the same 5000 goals\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
+\begin{center}\includegraphics[width=0.80\linewidth]{sim_speeds.png}\end{center}
+\noindent\rule{\linewidth}{1.1pt}\par
+
 \clearpage
 \section*{Current robot profile and two-metre comparison (27 October 2026)}
-The numerical benchmark above uses a theoretical reference speed of 0.25 m/s;
-it is not the physical robot's speed. The measured planning profile is
+The simulation results above use the robot's measured planning profile:
 $v=0.03$ m/s, $\omega=35^\circ$/s, and goal radius 0.0025 m.
 For the longer comparison, split a total outbound length of 2 m into seven
 equal legs, each 2/7 m, bending $6^\circ$ clockwise from the preceding bearing.

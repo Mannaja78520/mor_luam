@@ -593,7 +593,7 @@
       <span class="ln">6</span>
       <span class="ind"></span>
       <span class="txt"><span class="kw">Display</span> total time;</span>
-      <span class="cmt">// Goal 1&thinsp;m at 350&deg;: <span class="var">a</span>=1.03&thinsp;m, &beta;<sup>*</sup>=254&deg;, <span class="var">b</span>=0.18&thinsp;m, 9.34&thinsp;s (old method: 9.88&thinsp;s)</span>
+      <span class="cmt">// Goal 0.30&thinsp;m at 354&deg;: <span class="var">a</span>=0.31&thinsp;m, &beta;<sup>*</sup>=249&deg;, <span class="var">b</span>=0.034&thinsp;m, 18.83&thinsp;s (old method: 20.16&thinsp;s)</span>
     </div>
 
     <div class="row">
@@ -804,8 +804,8 @@
     <dt>T4.</dt><dd>After leg 1, <span class="fn">PlanLeg</span>(<span class="var">&beta;</span><sup>*</sup>, <span class="var">b</span>) returns &ldquo;steer <span class="var">&beta;</span><sup>*</sup>, drive <span class="var">b</span>&rdquo;. Any other
       detour from there is a longer leg 1 plus one more stop <span class="var">t</span><sub>b</sub>, which T3 already beat. So the planner can run
       again after every move (closed loop) without changing its mind.</dd>
-    <dt>O.</dt><dd><span class="fn">PlanLeg</span> is O(1) in time and memory: 0.54&thinsp;&mu;s per call in Python, against
-      505&thinsp;&mu;s for a 3600-point search over &beta; (944&times;). T1&ndash;T4 are also checked by brute force
+    <dt>O.</dt><dd><span class="fn">PlanLeg</span> is O(1) in time and memory: 0.52&thinsp;&mu;s per call in Python, against
+      505&thinsp;&mu;s for a 3600-point search over &beta; (973&times;). T1&ndash;T4 are also checked by brute force
       in <code>detour_steer.py</code>: closed form vs a 20&thinsp;000-point grid, vs every 2-leg path on a
       2&deg; grid, and 2000 replans. All PASS.</dd>
   </dl>
@@ -820,27 +820,38 @@
      Stopping short also means a miss always leaves the goal on the <i>steering side</i> of the line the robot drives on, so
      <span class="fn">DriveReaim</span> fixes it with a small turn (arctan(1/<span class="var">R</span>) = 18&deg; for <span class="var">R</span> = 3, <span class="var">m</span> = 2&thinsp;cm)
      instead of a 90&deg; turn after passing the goal.</p>
-  <p><b>Results</b> (5000 random goals, <span class="var">d</span> &isin; [0.3, 2]&thinsp;m, <span class="var">v</span> = 0.25&thinsp;m/s, <span class="var">t</span><sub>b</sub> = 0.2&thinsp;s,
-     <span class="var">&omega;</span> = 60&deg;/s; the same goals and stop errors for both; mean time per goal):</p>
+  <p><b>Results in simulation, at the robot's own speeds</b> (<span class="var">v</span> = 0.03&thinsp;m/s, <span class="var">&omega;</span> = 35&deg;/s, <span class="var">t</span><sub>b</sub> = 0.2&thinsp;s, <span class="var">r</span><sub>goal</sub> = 2.5&thinsp;mm, measured on <code>mor_luam</code>; 5000 random goals, <span class="var">d</span> &isin; [0.3, 2]&thinsp;m; the same goals and stop errors for both; mean time per goal):</p>
   <div class="table-wrap">
   <table>
     <thead>
       <tr><th style="text-align:left">wheel stops</th><th>bias</th><th>sd</th><th>old method (s)</th><th>detour (s)</th><th>saved</th></tr>
     </thead>
     <tbody>
-      <tr><td style="text-align:left">exactly</td><td>0&deg;</td><td>0&deg;</td><td>7.56</td><td>7.53</td><td>0.4&thinsp;%</td></tr>
-      <tr><td style="text-align:left">either way, random</td><td>0&deg;</td><td>2&deg;</td><td>8.42</td><td>8.23</td><td>2.3&thinsp;%</td></tr>
-      <tr><td style="text-align:left">either way, random</td><td>0&deg;</td><td>3&deg;</td><td>9.43</td><td>8.78</td><td>6.9&thinsp;%</td></tr>
-      <tr><td style="text-align:left">mostly short</td><td>&minus;2&deg;</td><td>2&deg;</td><td>8.08</td><td>8.03</td><td>0.7&thinsp;%</td></tr>
-      <tr><td style="text-align:left">mostly past</td><td>+2&deg;</td><td>2&deg;</td><td>10.74</td><td>9.36</td><td>12.8&thinsp;%</td></tr>
-      <tr><td style="text-align:left">mostly past</td><td>+2&deg;</td><td>3&deg;</td><td>11.87</td><td>9.70</td><td>18.3&thinsp;%</td></tr>
+      <tr><td style="text-align:left">exactly</td><td>0&deg;</td><td>0&deg;</td><td>43.40</td><td>43.40</td><td>0.0&thinsp;%</td></tr>
+      <tr><td style="text-align:left">either way, random</td><td>0&deg;</td><td>1&deg;</td><td>48.33</td><td>48.10</td><td>0.5&thinsp;%</td></tr>
+      <tr><td style="text-align:left">either way, random</td><td>0&deg;</td><td>2&deg;</td><td>50.10</td><td>49.60</td><td>1.0&thinsp;%</td></tr>
+      <tr><td style="text-align:left">either way, random</td><td>0&deg;</td><td>3&deg;</td><td>53.00</td><td>51.75</td><td>2.4&thinsp;%</td></tr>
+      <tr><td style="text-align:left">mostly short</td><td>&minus;2&deg;</td><td>2&deg;</td><td>48.21</td><td>48.08</td><td>0.3&thinsp;%</td></tr>
+      <tr><td style="text-align:left">mostly past</td><td>+2&deg;</td><td>2&deg;</td><td>57.55</td><td>55.09</td><td>4.3&thinsp;%</td></tr>
+      <tr><td style="text-align:left">mostly past</td><td>+2&deg;</td><td>3&deg;</td><td>60.44</td><td>56.88</td><td>5.9&thinsp;%</td></tr>
     </tbody>
   </table>
   </div>
-  <p>In every case Detour Steer is slower on 0&thinsp;% of the goals. With exact stops the gain is small on average
-     but up to 28&thinsp;% for a goal just to the right. The more the wheel stops past its target, the more it gains:
-     an overshoot no longer costs a full extra turn. Slower steering gives more gain (at 30&deg;/s, sd 2&deg;:
-     4.8&thinsp;%).</p>
+  <p>At the robot's speeds Detour Steer was slower on 0&thinsp;% of the goals in every case, but the gain on random goals is small (0&ndash;5.9&thinsp;%). The robot drives slowly, so driving takes most of the time, and a detour is chosen only for goals just to the right: from &phi; &ge; 346&deg; at <span class="var">d</span> = 0.30&thinsp;m and &phi; &ge; 356&deg; at 1&thinsp;m. For the goal of the robot test (0.30&thinsp;m at 354&deg;) the model gives 18.83&thinsp;s against 20.16&thinsp;s (6.6&thinsp;%).</p>
+  <p><b>Other speeds</b> (the same 5000 goals, stop error sd 2&deg;; time saved by Detour Steer):</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th style="text-align:left">drive \ steer</th><th>20&deg;/s</th><th>35&deg;/s</th><th>60&deg;/s</th><th>120&deg;/s</th></tr>
+    </thead>
+    <tbody>
+      <tr><td style="text-align:left">0.03&thinsp;m/s (the robot)</td><td>2.3&thinsp;%</td><td>1.0&thinsp;%</td><td>0.4&thinsp;%</td><td>0.1&thinsp;%</td></tr>
+      <tr><td style="text-align:left">0.10&thinsp;m/s</td><td>5.4&thinsp;%</td><td>3.8&thinsp;%</td><td>2.2&thinsp;%</td><td>0.6&thinsp;%</td></tr>
+      <tr><td style="text-align:left">0.25&thinsp;m/s</td><td>6.7&thinsp;%</td><td>5.7&thinsp;%</td><td>4.2&thinsp;%</td><td>2.2&thinsp;%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>A faster drive or a slower steer makes the detour pay more. At the robot's drive speed with steering at 20&deg;/s, 0.2&thinsp;% of the goals were a little slower with Detour Steer; at 35&deg;/s and faster, none were.</p>
   <p><b>Results on the robot</b> (<code>mor_luam</code>: <span class="var">v</span> = 0.03&thinsp;m/s, <span class="var">&omega;</span> = 35&deg;/s its measured steering speed,
      <span class="var">t</span><sub>b</sub> = 0.2&thinsp;s, <span class="var">r</span><sub>goal</sub> = 2.5&thinsp;mm). The same task for both: before the clock starts the wheel is turned to the
      start heading and is still; the goal is then placed <span class="var">d</span> = 0.30&thinsp;m away at <span class="var">&phi;</span> = 354&deg; from where the wheel really
@@ -885,7 +896,7 @@
 </div>
 
 <section><h2>Current robot profile and 2 m / 7-leg comparison</h2>
-<p>The 0.25 m/s benchmark is a theoretical reference. The robot planning profile is 0.03 m/s,
+<p>The simulation results above use the robot's measured planning profile: 0.03 m/s,
 35 degrees/s and a 2.5 mm arrival radius. Seven equal legs total 2 m; each subsequent bearing is
 6 degrees clockwise of the previous one. Steering remains counter-clockwise.</p>
 <p>Ideal model only: Direct 137.82 s / 2.00 m; Detour 110.52 s / 2.17 m, four detours.

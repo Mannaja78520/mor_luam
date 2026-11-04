@@ -69,12 +69,12 @@ TAU = 2.0 * math.pi
 @dataclass(frozen=True)
 class RobotConfig:
     """The robot. Set these to the robot's own values."""
-    drive_speed_mps: float = 0.25   # THEORY reference, not the measured robot speed (0.03 m/s)
-    steer_speed_dps: float = 60.0   # THEORY reference; measured planning profile uses 35 deg/s
+    drive_speed_mps: float = 0.03   # the real robot mor_luam (measured)
+    steer_speed_dps: float = 35.0   # the real robot's steering speed (measured)
     settle_s: float = 0.05          # STEER_SETTLE_MS = 50 (hold inside tolerance)
     stop_s: float = 0.20            # stop + clutch switch, drive -> steer
     tol_deg: float = 3.5            # Wheel_STEER_ERROR_TOLERANCE = 3.5 deg
-    goal_radius_m: float = 0.05     # drive_to_xy.py --tolerance 0.05: arrived when this close
+    goal_radius_m: float = 0.0025   # the robot's goal radius: arrived when this close
     max_phases: int = 60            # safety cap on steer/drive phases per goal
 
 
@@ -95,11 +95,14 @@ class BenchConfig:
     """Random goals: the same list for both methods (same seed)."""
     n_goals: int = 5000
     dist_range_m: Tuple[float, float] = (0.3, 2.0)
-    steer_speeds_dps: Tuple[float, ...] = (30.0, 45.0, 60.0, 90.0, 120.0)
+    steer_speeds_dps: Tuple[float, ...] = (20.0, 35.0, 60.0, 90.0, 120.0)
     # (bias, sd) in deg: none, a little either way, mostly short, mostly past
     noise_cases: Tuple[Tuple[float, float], ...] = ((0.0, 0.0), (0.0, 1.0), (0.0, 2.0), (0.0, 3.0),
                                                      (-2.0, 2.0), (2.0, 2.0), (2.0, 3.0))
-    noise_case_speed_dps: float = 60.0
+    noise_case_speed_dps: float = 35.0
+    # "other speeds": the same goals with a faster or slower robot
+    sweep_drive_mps: Tuple[float, ...] = (0.03, 0.10, 0.25)
+    sweep_steer_dps: Tuple[float, ...] = (20.0, 35.0, 60.0, 120.0)
     seed: int = 2026
 
 
@@ -116,9 +119,9 @@ class VerifyConfig:
 @dataclass(frozen=True)
 class MapConfig:
     """The decision map: where the detour wins, for a few steering speeds."""
-    steer_speeds_dps: Tuple[float, ...] = (30.0, 60.0, 120.0)
+    steer_speeds_dps: Tuple[float, ...] = (20.0, 35.0, 60.0)
     phi_range_deg: Tuple[float, float] = (180.0, 360.0)
-    dist_range_m: Tuple[float, float] = (0.05, 3.0)
+    dist_range_m: Tuple[float, float] = (0.05, 2.0)
     resolution: int = 240
 
 
@@ -142,6 +145,9 @@ def describe(cfg: HWConfig) -> str:
         f"Steer tolerance : +-{r.tol_deg} deg",
         f"Stop error      : bias {n.bias_deg} deg, sd {n.sd_deg} deg",
     ])
+
+
+EXAMPLE_D_M = 0.30   # the goal distance used in the robot test
 
 
 def measured_robot() -> RobotConfig:
@@ -538,35 +544,33 @@ def plot_examples(cfg: HWConfig, path: str) -> None:
     robot = cfg.robot
     fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.6))
     cases = [
-        ("(a) Goal 1 m away, 10\u00b0 to the RIGHT", 350.0, []),
-        ("(b) Goal at 60\u00b0, the wheel stops 8\u00b0 too far", 60.0, [8.0]),
+        ("(a) Goal 0.30 m away, 6\u00b0 to the RIGHT (the robot test)", 354.0, []),
+        ("(b) Goal 0.30 m at 60\u00b0, the wheel stops 8\u00b0 too far", 60.0, [8.0]),
     ]
     for ax, (title, phi_deg, errs) in zip(axes, cases):
         phi = math.radians(phi_deg)
-        goal = (math.cos(phi), math.sin(phi))
+        goal = (EXAMPLE_D_M * math.cos(phi), EXAMPLE_D_M * math.sin(phi))
         new = run_goal(goal, robot, fixed_stop_errors(errs), use_detour=True)
         old = run_goal(goal, robot, fixed_stop_errors(errs), use_detour=False)
         _draw_run(ax, new, C_NEW)
         ax.plot(0, 0, "o", color=INK, ms=6)
-        ax.text(-0.13, -0.05, "start,\nheading 0\u00b0", fontsize=8.5, color=INK, ha="right", va="top")
+        ax.text(-0.02, -0.01, "start,\nheading 0\u00b0", fontsize=8.5, color=INK, ha="right", va="top")
         ax.plot(*goal, marker="*", color=INK, ms=13)
-        ax.text(goal[0] + 0.05, goal[1] + 0.03, "goal", fontsize=9, color=INK)
-        ax.set_title(title, fontsize=10.5, color=INK, loc="left")
+        ax.text(goal[0] + 0.01, goal[1] + 0.01, "goal", fontsize=9, color=INK)
         saved = 100.0 * (old.time_s - new.time_s) / old.time_s
-        ax.text(0.02, 0.10, f"Detour Steer: {new.time_s:.2f} s, steered {math.degrees(new.steer_turn_rad):.0f}\u00b0",
-                transform=ax.transAxes, fontsize=9.5, color=INK, fontweight="bold")
-        ax.text(0.02, 0.03, f"Current method: {old.time_s:.2f} s, steered {math.degrees(old.steer_turn_rad):.0f}\u00b0"
-                f"   ({saved:.1f}% faster)", transform=ax.transAxes, fontsize=9.5, color=MUTED)
+        ax.set_title(f"{title}\nDetour Steer {new.time_s:.2f} s, steered {math.degrees(new.steer_turn_rad):.0f}\u00b0"
+                     f" ({saved:.1f}% faster)\nold method {old.time_s:.2f} s, steered "
+                     f"{math.degrees(old.steer_turn_rad):.0f}\u00b0", fontsize=9.5, color=INK, loc="left")
         ax.set_aspect("equal")
-        ax.set_xlim(-0.6, 1.45)
-        ax.set_ylim(-1.25, 0.55)
+        ax.set_xlim(-0.16, 0.46)
+        ax.set_ylim(-0.12, 0.40)
         ax.set_xlabel("x (m)", fontsize=9, color=MUTED)
         _style(ax)
     axes[0].set_ylabel("y (m)", fontsize=9, color=MUTED)
     fig.suptitle(f"Detour Steer (steer {robot.steer_speed_dps:.0f}\u00b0/s, "
                  f"drive {robot.drive_speed_mps} m/s): drive on, steer less, come back",
                  fontsize=11, color=INK, x=0.01, ha="left")
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(path, dpi=160, bbox_inches="tight")
     plt.close(fig)
 
@@ -735,6 +739,47 @@ def run_benchmark(cfg: HWConfig) -> None:
     fig.tight_layout()
     fig.savefig(os.path.join(cfg.output_dir, "fig_noise.png"), dpi=160, bbox_inches="tight")
     plt.close(fig)
+    run_speed_sweep(cfg, goals)
+
+
+def run_speed_sweep(cfg: HWConfig, goals) -> None:
+    """Other speeds: the same goals and stop errors with a faster or slower robot."""
+    nz = cfg.noise
+    b = cfg.bench
+    print(f"\n3c. other speeds: time saved by Detour Steer (stop error bias {nz.bias_deg:+.0f} deg, sd {nz.sd_deg:.0f} deg)")
+    print(f"{'drive m/s':>9} | " + " ".join(f"{w:>8.0f}" for w in b.sweep_steer_dps) + "   <- steer deg/s")
+    table = []
+    for v in b.sweep_drive_mps:
+        row = []
+        for w in b.sweep_steer_dps:
+            robot = RobotConfig(**{**cfg.robot.__dict__, "drive_speed_mps": v, "steer_speed_dps": w})
+            o, n, _, _ = compare(goals, robot, nz)
+            row.append(100.0 * (o - n) / o)
+        table.append(row)
+        print(f"{v:>9.2f} | " + " ".join(f"{s:>7.1f}%" for s in row))
+
+    fig, ax = plt.subplots(figsize=(8.6, 3.8))
+    xs = list(range(len(b.sweep_steer_dps)))
+    width = 0.8 / len(b.sweep_drive_mps)
+    colors = [C_NEW, "#7fa8d8", "#c3d5ec"]
+    for i, (v, row) in enumerate(zip(b.sweep_drive_mps, table)):
+        pos = [x + (i - (len(b.sweep_drive_mps) - 1) / 2) * width for x in xs]
+        label = f"drive {v:.2f} m/s" + (" (the robot)" if abs(v - cfg.robot.drive_speed_mps) < 1e-9 else "")
+        ax.bar(pos, row, width=width * 0.95, color=colors[i % len(colors)], label=label)
+        for p, s_ in zip(pos, row):
+            ax.text(p, s_ + 0.2, f"{s_:.1f}", ha="center", va="bottom", fontsize=7.5, color=INK)
+    ax.set_xticks(xs)
+    ax.set_xticklabels([f"steer {w:.0f}°/s" + ("\n(the robot)" if abs(w - cfg.robot.steer_speed_dps) < 1e-9 else "")
+                        for w in b.sweep_steer_dps], fontsize=8.5, color=MUTED)
+    ax.set_ylabel("time saved by Detour Steer (%)", fontsize=9, color=MUTED)
+    ax.legend(frameon=False, fontsize=8.5, loc="upper right")
+    ax.set_title(f"Other speeds: the same {len(goals)} goals, stop error sd {nz.sd_deg:.0f}°",
+                 fontsize=10.5, color=INK, loc="left")
+    _style(ax)
+    ax.grid(False, axis="x")
+    fig.tight_layout()
+    fig.savefig(os.path.join(cfg.output_dir, "fig_speeds.png"), dpi=160, bbox_inches="tight")
+    plt.close(fig)
 
 
 # =====================================================================
@@ -762,13 +807,13 @@ def main() -> None:
     verify(cfg)
 
     print("\n============================================================")
-    print("2. Examples (goal 1 m away)")
+    print(f"2. Examples (goal {EXAMPLE_D_M} m away, the robot test distance)")
     print("============================================================")
-    for name, phi_deg, errs in (("10 deg to the right", 350.0, []),
+    for name, phi_deg, errs in (("6 deg to the right (robot test)", 354.0, []),
                                 ("60 deg, stops 8 deg too far", 60.0, [8.0])):
         phi = math.radians(phi_deg)
-        goal = (math.cos(phi), math.sin(phi))
-        plan = plan_leg(phi, 1.0, cfg.robot)
+        goal = (EXAMPLE_D_M * math.cos(phi), EXAMPLE_D_M * math.sin(phi))
+        plan = plan_leg(phi, EXAMPLE_D_M, cfg.robot)
         new = run_goal(goal, cfg.robot, fixed_stop_errors(errs), True)
         old = run_goal(goal, cfg.robot, fixed_stop_errors(errs), False)
         print(f"  {name:<28}: first plan {plan.kind:<6} a={plan.a:.3f} m beta={math.degrees(plan.beta):6.1f} deg "

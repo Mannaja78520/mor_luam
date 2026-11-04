@@ -233,10 +233,10 @@ def selftest(cfg: SimConfig) -> bool:
     robot = RobotConfig()
     exact = NoiseConfig(0.0, 0.0)
     print("Self-test: the animated robot vs detour_steer.run_goal()")
-    for name, phi_deg, errs in (("(a) goal 1 m, 10 deg to the right", 350.0, []),
-                                ("(b) goal at 60 deg, stops 8 deg too far", 60.0, [8.0])):
+    for name, phi_deg, errs in (("(a) goal 0.30 m, 6 deg to the right", 354.0, []),
+                                ("(b) goal 0.30 m at 60 deg, stops 8 deg too far", 60.0, [8.0])):
         phi = math.radians(phi_deg)
-        goal = (math.cos(phi), math.sin(phi))
+        goal = (0.3 * math.cos(phi), 0.3 * math.sin(phi))
         row = []
         for use_detour in (False, True):
             sim = SimRobot(use_detour)
@@ -501,7 +501,7 @@ class App:
 
     def _example(self, phi_deg: float, scripted: List[float]) -> None:
         phi = math.radians(phi_deg)
-        d = 0.3 if phi_deg == 354.0 else 1.0
+        d = 0.3   # the robot test distance
         self.goals, self.seeds, self.scripted = [(d * math.cos(phi), d * math.sin(phi))], [0], scripted
         # the examples in the README use exact stops and the default robot
         for key, val in (("steer_dps", 35.0), ("drive_mps", 0.03), ("stop_s", 0.2),

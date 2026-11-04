@@ -189,7 +189,7 @@ $t_b$ = เวลาหยุดเปลี่ยนจากวิ่งเป
   \ForEach{$g \in W$}{
     $(p, h) \leftarrow$ \FDetourSteer{$p$, $h$, $g$}\;
   }
-  \KwDisplay{เวลารวม}\tcp*[r]{เป้า 1\,m ที่ $350^\circ$: $a{=}1.03$\,m, $\beta^\ast{=}254^\circ$, $b{=}0.18$\,m, 9.34\,s (วิธีเดิม 9.88\,s)}
+  \KwDisplay{เวลารวม}\tcp*[r]{เป้า 0.30\,m ที่ $354^\circ$: $a{=}0.31$\,m, $\beta^\ast{=}249^\circ$, $b{=}0.034$\,m, 18.83\,s (วิธีเดิม 20.16\,s)}
 }
 \end{algorithm}
 }
@@ -257,8 +257,8 @@ $t_b$ = เวลาหยุดเปลี่ยนจากวิ่งเป
 \item[\textbf{T4.}] หลังวิ่งช่วงที่ 1 แล้ว \FPlan{$\beta^\ast$, $b$} จะได้ ``เลี้ยว $\beta^\ast$ แล้ววิ่ง $b$'' เสมอ
   การอ้อมแบบอื่นจากจุดนั้นเท่ากับช่วงที่ 1 ยาวขึ้นบวกการหยุดเพิ่มอีก $t_b$ ซึ่ง T3 ชนะไปแล้ว
   จึงวางแผนใหม่หลังขยับทุกครั้ง (วงปิด) ได้โดยแผนไม่เปลี่ยน
-\item[\textbf{O.}] \FPlan{} ใช้เวลาและหน่วยความจำ $O(1)$: 0.54\,$\mu$s ต่อครั้งใน Python เทียบกับ 505\,$\mu$s
-  ของการค้นหา $\beta$ 3600 จุด (เร็วกว่า $944\times$) T1--T4 ตรวจแบบ brute force ใน
+\item[\textbf{O.}] \FPlan{} ใช้เวลาและหน่วยความจำ $O(1)$: 0.52\,$\mu$s ต่อครั้งใน Python เทียบกับ 505\,$\mu$s
+  ของการค้นหา $\beta$ 3600 จุด (เร็วกว่า $973\times$) T1--T4 ตรวจแบบ brute force ใน
   \texttt{detour\_steer.py} ด้วย: สูตรปิดเทียบตาราง 20\,000 จุด, เทียบทุกเส้นทาง 2 ช่วงบนตารางทุก
   $2^\circ$ และวางแผนซ้ำ 2000 ครั้ง ผ่านทั้งหมด
 \end{enumerate}
@@ -278,26 +278,47 @@ $e_{land} = 2^\circ$ ก่อนถึงมุม ($c$ คือเวลา�
 แทนการเลี้ยว $90^\circ$ หลังวิ่งเลยเป้า
 
 \smallskip
-\noindent\textbf{ผลจากซิม} (เป้าสุ่ม 5000 จุด, $d \in [0.3, 2]$\,m, $v = 0.25$\,m/s, $t_b = 0.2$\,s,
-$\omega = 60^\circ$/s ใช้เป้าและความคลาดเคลื่อนชุดเดียวกันทั้งสองวิธี, เวลาเฉลี่ยต่อเป้า):
+\noindent\textbf{ผลจากซิม ที่ความเร็วของหุ่นจริง} ($v = 0.03$\,m/s, $\omega = 35^\circ$/s, $t_b = 0.2$\,s,
+$r_{goal} = 2.5$\,mm ซึ่งเป็นค่าที่วัดจาก \texttt{mor\_luam}; เป้าสุ่ม 5000 จุด, $d \in [0.3, 2]$\,m
+ใช้เป้าและความคลาดเคลื่อนชุดเดียวกันทั้งสองวิธี, เวลาเฉลี่ยต่อเป้า):
 \begin{center}
 \begin{tabular}{lrrrrr}
 \toprule
 ล้อหยุด & bias & sd & วิธีเดิม (s) & Detour (s) & ประหยัด \\
 \midrule
-ตรงมุมพอดี         & $0^\circ$  & $0^\circ$ &  7.56 & 7.53 &  0.4\,\% \\
-สุ่มได้ทั้งสองทาง    & $0^\circ$  & $2^\circ$ &  8.42 & 8.23 &  2.3\,\% \\
-สุ่มได้ทั้งสองทาง    & $0^\circ$  & $3^\circ$ &  9.43 & 8.78 &  6.9\,\% \\
-ส่วนใหญ่ขาด        & $-2^\circ$ & $2^\circ$ &  8.08 & 8.03 &  0.7\,\% \\
-ส่วนใหญ่เกิน        & $+2^\circ$ & $2^\circ$ & 10.74 & 9.36 & 12.8\,\% \\
-ส่วนใหญ่เกิน        & $+2^\circ$ & $3^\circ$ & 11.87 & 9.70 & 18.3\,\% \\
+ตรงมุมพอดี         & $0^\circ$  & $0^\circ$ & 43.40 & 43.40 & 0.0\,\% \\
+สุ่มได้ทั้งสองทาง    & $0^\circ$  & $1^\circ$ & 48.33 & 48.10 & 0.5\,\% \\
+สุ่มได้ทั้งสองทาง    & $0^\circ$  & $2^\circ$ & 50.10 & 49.60 & 1.0\,\% \\
+สุ่มได้ทั้งสองทาง    & $0^\circ$  & $3^\circ$ & 53.00 & 51.75 & 2.4\,\% \\
+ส่วนใหญ่ขาด        & $-2^\circ$ & $2^\circ$ & 48.21 & 48.08 & 0.3\,\% \\
+ส่วนใหญ่เกิน        & $+2^\circ$ & $2^\circ$ & 57.55 & 55.09 & 4.3\,\% \\
+ส่วนใหญ่เกิน        & $+2^\circ$ & $3^\circ$ & 60.44 & 56.88 & 5.9\,\% \\
 \bottomrule
 \end{tabular}
 \end{center}
-\noindent ทุกกรณี Detour Steer ไม่ช้ากว่าวิธีเดิมเลย (0\,\% ของเป้า) ถ้าล้อหยุดตรงพอดี
-ค่าเฉลี่ยดีขึ้นไม่มาก แต่เป้าที่อยู่ทางขวานิดเดียวเร็วขึ้นได้ถึง 28\,\%
-ยิ่งล้อหยุดเกินบ่อย ยิ่งได้ประโยชน์ เพราะการเกินไม่ต้องเสียเวลาหมุนอีกรอบแล้ว
-เลี้ยวช้าลงก็ได้ประโยชน์มากขึ้น (ที่ $30^\circ$/s, sd $2^\circ$: 4.8\,\%)
+\noindent ที่ความเร็วของหุ่นจริง Detour Steer ไม่ช้ากว่าวิธีเดิมเลย (0\,\% ของเป้า) ทุกกรณี
+แต่เป้าสุ่มประหยัดได้น้อย (0--5.9\,\%) เพราะหุ่นวิ่งช้า เวลาส่วนใหญ่จึงเป็นเวลาวิ่ง
+และหุ่นเลือกอ้อมเฉพาะเป้าที่อยู่ทางขวานิดเดียว: ตั้งแต่ $\varphi \ge 346^\circ$ ที่ $d = 0.30$\,m
+และ $\varphi \ge 356^\circ$ ที่ $d = 1$\,m
+สำหรับเป้าเดียวกับที่ทดสอบบนหุ่น (0.30\,m ที่ $354^\circ$) แบบจำลองได้ 18.83\,s เทียบ 20.16\,s
+(เร็วขึ้น 6.6\,\%, รูปที่ 2a)
+
+\smallskip
+\noindent\textbf{ถ้าเป็นความเร็วอื่น} (เป้า 5000 จุดชุดเดิม ความคลาดเคลื่อน sd $2^\circ$; เวลาที่ Detour Steer ประหยัดได้, รูปที่ 3):
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+ความเร็ววิ่ง \textbackslash{} ความเร็วเลี้ยว & $20^\circ$/s & $35^\circ$/s & $60^\circ$/s & $120^\circ$/s \\
+\midrule
+0.03\,m/s (หุ่นจริง) & 2.3\,\% & 1.0\,\% & 0.4\,\% & 0.1\,\% \\
+0.10\,m/s            & 5.4\,\% & 3.8\,\% & 2.2\,\% & 0.6\,\% \\
+0.25\,m/s            & 6.7\,\% & 5.7\,\% & 4.2\,\% & 2.2\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent ยิ่งวิ่งเร็วหรือเลี้ยวช้า การอ้อมยิ่งคุ้ม ที่ความเร็ววิ่งของหุ่นจริงและเลี้ยว $20^\circ$/s
+มีเป้า 0.2\,\% ที่ Detour Steer ช้ากว่าเล็กน้อย (จากความคลาดเคลื่อนหลังการหยุดเพิ่ม)
+ที่ $35^\circ$/s ขึ้นไปไม่มีเลย
 
 \medskip
 \noindent\textbf{ผลบนหุ่นจริง} (\texttt{mor\_luam}: $v = 0.03$\,m/s, $\omega = 35^\circ$/s ซึ่งเป็นความเร็วเลี้ยวที่วัดได้,
@@ -345,6 +366,7 @@ $t_b = 0.2$\,s, $r_{goal} = 2.5$\,mm) งานเดียวกันทั้
 \noindent\rule{\linewidth}{1.1pt}\par
 
 \vspace{4mm}
+\Needspace*{135mm}
 \noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
 \noindent\textbf{รูปที่ 1} ผล 3 รอบบนหุ่นจริง จากข้อมูลที่หุ่นบันทึกเอง\par\vspace{1.4mm}
 \noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
@@ -359,10 +381,26 @@ $t_b = 0.2$\,s, $r_{goal} = 2.5$\,mm) งานเดียวกันทั้
 \vspace{1mm}
 \noindent\rule{\linewidth}{1.1pt}\par
 
+
+\vspace{4mm}
+\Needspace*{95mm}
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{รูปที่ 2} ซิมที่ความเร็วของหุ่นจริง: เป้า 2 จุด ห่าง 0.30\,m\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
+\begin{center}\includegraphics[width=0.86\linewidth]{sim_path.png}\end{center}
+\noindent\rule{\linewidth}{1.1pt}\par
+
+\vspace{4mm}
+\Needspace*{100mm}
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{รูปที่ 3} ถ้าเป็นความเร็วอื่น: เวลาที่ประหยัดได้บนเป้า 5000 จุดชุดเดิม\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
+\begin{center}\includegraphics[width=0.80\linewidth]{sim_speeds.png}\end{center}
+\noindent\rule{\linewidth}{1.1pt}\par
+
 \clearpage
 \section*{ค่าของหุ่นปัจจุบัน และการเปรียบเทียบระยะ 2 เมตร (27 ตุลาคม 2026)}
-ผล benchmark ด้านบนใช้ความเร็วอ้างอิงทางทฤษฎี 0.25 m/s ไม่ใช่ความเร็วของหุ่นจริง
-ค่าที่วัดได้ซึ่งใช้วางแผนคือ $v=0.03$ m/s, $\omega=35^\circ$/s และรัศมีถึงเป้า 0.0025 m
+ผลซิมด้านบนใช้ค่าที่วัดจากหุ่นจริง คือ $v=0.03$ m/s, $\omega=35^\circ$/s และรัศมีถึงเป้า 0.0025 m
 สำหรับการเปรียบเทียบระยะยาว แบ่งระยะขาไปรวม 2 m เป็น 7 ช่วงเท่ากัน ช่วงละ 2/7 m
 แต่ละช่วงหักไปทางตามเข็ม $6^\circ$ จากทิศของช่วงก่อน ทั้งสองวิธีไปจุดเดียวกัน และหุ่นยังเลี้ยวทวนเข็มเหมือนเดิม
 แบบจำลองอุดมคติให้ Direct 137.82 s / 2.00 m และ Detour 110.52 s / 2.17 m โดยอ้อม 4 ครั้ง
@@ -417,7 +455,7 @@ docker\mor_luam.bat fw-ota -Host <IP>     # later, over Wi-Fi
 % =========================================================== Code ===========
 \clearpage
 \subsection*{ก.1 ตัววางแผนใน Python (\texttt{algorithm\_sim/detour\_steer.py})}
-\lstinputlisting[language=Python,firstline=241,lastline=299,firstnumber=241]{../detour_steer.py}
+\lstinputlisting[language=Python,firstline=247,lastline=305,firstnumber=247]{../detour_steer.py}
 
 \subsection*{ก.2 ตัววางแผนบนหุ่น (\texttt{firmware/src/algorithm/DetourSteer.h})}
 \lstinputlisting[language=C++]{../../firmware/src/algorithm/DetourSteer.h}
