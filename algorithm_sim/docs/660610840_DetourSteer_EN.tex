@@ -97,6 +97,7 @@ same frame as this page. The firmware helper name cwErrorDeg is historical; its 
 Algorithms 1.1--1.5 plan; 1.6--1.7 are how the robot steers and drives each leg.}
 \vspace{1mm}
 
+\section*{Part 1. The algorithm: why it is faster (proof and ideal simulation)}
 % ============================================================ Algorithm 1.1 ==
 \algohead{1.1}{Counter-Clockwise Heading Helpers}
 {\small
@@ -233,7 +234,7 @@ Algorithms 1.1--1.5 plan; 1.6--1.7 are how the robot steers and drives each leg.
 % ================================================================ Properties ==
 \newpage
 \noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
-\noindent\textbf{Correctness, complexity, results and closest prior work}\par\vspace{1.4mm}
+\noindent\textbf{Proof that Detour Steer is never slower, and how much faster it is (ideal model)}\par\vspace{1.4mm}
 \noindent\rule{\linewidth}{0.5pt}\par\vspace{1mm}
 {\small
 \noindent For a goal at counter-clockwise angle $\varphi > \pi$ and distance $d$, a detour with final heading $\beta$ takes
@@ -298,10 +299,10 @@ mostly past         & $+2^\circ$ & $3^\circ$ & 60.44 & 56.88 & 5.9\,\% \\
 random goals is small (0--5.9\,\%). The robot drives slowly, so driving takes most of the time, and a detour is
 chosen only for goals just to the right: from $\varphi \ge 346^\circ$ at $d = 0.30$\,m and $\varphi \ge 356^\circ$
 at $d = 1$\,m. For the goal of the robot test (0.30\,m at $354^\circ$) the model gives 18.83\,s against
-20.16\,s (6.6\,\%, Figure 2a).
+20.16\,s (6.6\,\%, Figure 1a).
 
 \smallskip
-\noindent\textbf{Other speeds} (the same 5000 goals and stop errors, sd $2^\circ$; time saved by Detour Steer, Figure 3):
+\noindent\textbf{Other speeds} (the same 5000 goals and stop errors, sd $2^\circ$; time saved by Detour Steer, Figure 2):
 \begin{center}
 \begin{tabular}{lrrrr}
 \toprule
@@ -317,7 +318,70 @@ drive \textbackslash{} steer & $20^\circ$/s & $35^\circ$/s & $60^\circ$/s & $120
 at $20^\circ$/s, 0.2\,\% of the goals were a little slower with Detour Steer (a stop error after the extra
 stop); at $35^\circ$/s and faster, none were.
 
+\smallskip
+\noindent\textbf{The 2\,m route (Figure 3).} A total of 2\,m split into 7 equal legs (2/7\,m each), each leg
+$6^\circ$ to the right of the one before; both methods visit the same points.
+At the robot's speeds the simulation gives:
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+ & time (s) & path (m) & steered & detours \\
+\midrule
+old method   & 137.82 & 2.00 & $2478^\circ$ & 0 \\
+Detour Steer & 110.52 & 2.17 & $1291^\circ$ & 4 \\
+\midrule
+saved        & 27.30 (19.8\,\%) & & & \\
+\bottomrule
+\end{tabular}
+\end{center}
+Every leg is $6^\circ$ to the right, so the old method steers about $354^\circ$ at each point; Detour Steer
+drives on and steers less at 4 of the 7 points.
+
 \medskip
+\noindent\textbf{Closest prior work, and the difference.}
+One-motor steer-and-drive mechanisms (US~8,424,627~B2, 2013; Sekine \& Mizuuchi, ICINCO 2022) give no
+planner. Dubins cars that can turn one way only (Bakolas \& Tsiotras, JOTA 2011; Patsko \& Fedotov,
+2018--2019) turn \emph{while moving}. Turn-cost routing (angular-metric and quadratic TSP) orders
+waypoints, and predictive coast stopping (US~8,571,394~B2) stops early. None of the work found gives this
+closed-form detour for a robot that must \emph{stop to steer, counter-clockwise only}. ``Not found'' is not proof
+that nobody did it.
+
+\medskip
+\noindent\textbf{Part 1 conclusion.} Detour Steer is proven never slower than steering straight (T1--T4)
+and plans in $O(1)$. In the ideal model at the robot's speeds it is 6.6\,\% faster on the robot-test goal,
+saves 0--5.9\,\% on random goals (it detours only for goals just to the right), and 19.8\,\% on the
+2\,m / 7-leg route, where every point is a little to the right.
+}
+\par\vspace{1mm}
+\noindent\rule{\linewidth}{1.1pt}\par
+
+\vspace{4mm}
+\Needspace*{95mm}
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{Figure 1.} Simulation at the robot's speeds: two goals 0.30\,m away\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
+\begin{center}\includegraphics[width=0.86\linewidth]{sim_path.png}\end{center}
+\noindent\rule{\linewidth}{1.1pt}\par
+
+\vspace{4mm}
+\Needspace*{100mm}
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{Figure 2.} Other speeds: time saved on the same 5000 goals\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
+\begin{center}\includegraphics[width=0.80\linewidth]{sim_speeds.png}\end{center}
+\noindent\rule{\linewidth}{1.1pt}\par
+
+
+\Needspace*{90mm}
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{Figure 3.} Simulation of the 2\,m / 7-leg route at the robot's speeds\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
+\begin{center}\includegraphics[width=0.92\linewidth]{sim_route_2m.png}\end{center}
+\noindent\rule{\linewidth}{1.1pt}\par
+
+\clearpage
+\section*{Part 2. The real robot: measured results and robot-like simulation}
+{\small
 \noindent\textbf{Results on the robot} (\texttt{mor\_luam}: $v = 0.03$\,m/s, $\omega = 35^\circ$/s its measured
 steering speed, $t_b = 0.2$\,s, $r_{goal} = 2.5$\,mm). The same task for both: before the clock starts the
 wheel is turned to the start heading and is still; the goal is then placed $d = 0.30$\,m away at
@@ -354,54 +418,7 @@ Together the body drifts about $3^\circ$ while driving (IMU), and both methods e
 line; the early re-aim (about $18^\circ$) brings them back.
 
 \medskip
-\noindent\textbf{Closest prior work, and the difference.}
-One-motor steer-and-drive mechanisms (US~8,424,627~B2, 2013; Sekine \& Mizuuchi, ICINCO 2022) give no
-planner. Dubins cars that can turn one way only (Bakolas \& Tsiotras, JOTA 2011; Patsko \& Fedotov,
-2018--2019) turn \emph{while moving}. Turn-cost routing (angular-metric and quadratic TSP) orders
-waypoints, and predictive coast stopping (US~8,571,394~B2) stops early. None of the work found gives this
-closed-form detour for a robot that must \emph{stop to steer, counter-clockwise only}. ``Not found'' is not proof
-that nobody did it.
-}
-\par\vspace{1mm}
-\noindent\rule{\linewidth}{1.1pt}\par
-
-\vspace{4mm}
-\Needspace*{135mm}
-\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
-\noindent\textbf{Figure 1.} The 3 rounds on the robot, from its own record\par\vspace{1.4mm}
-\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
-\begin{center}
-\includegraphics[width=0.86\linewidth]{robot_3rounds.png}
-\end{center}
-{\small
-\noindent\textbf{Top:} what each run did over time (hatched pink = steering in place, blue = driving, grey =
-still). The old method first steers $\approx 9.4$\,s in place, then drives; Detour Steer drives at once and
-steers less later. \textbf{Bottom:} the paths the robot measured (odometry), all six from one start, seen
-from above; dashed = the plan. (The robot steers counter-clockwise, so here the goal is to the right.)\par}
-\vspace{1mm}
-\noindent\rule{\linewidth}{1.1pt}\par
-
-
-
-\vspace{4mm}
-\Needspace*{95mm}
-\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
-\noindent\textbf{Figure 2.} Simulation at the robot's speeds: two goals 0.30\,m away\par\vspace{1.4mm}
-\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
-\begin{center}\includegraphics[width=0.86\linewidth]{sim_path.png}\end{center}
-\noindent\rule{\linewidth}{1.1pt}\par
-
-\vspace{4mm}
-\Needspace*{100mm}
-\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
-\noindent\textbf{Figure 3.} Other speeds: time saved on the same 5000 goals\par\vspace{1.4mm}
-\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
-\begin{center}\includegraphics[width=0.80\linewidth]{sim_speeds.png}\end{center}
-\noindent\rule{\linewidth}{1.1pt}\par
-
-\clearpage
-\section*{Simulation against the robot, and the 2\,m route}
-\textbf{How far the simulation is from the robot.} The only route run on both is the robot test
+\noindent\textbf{How far the simulation is from the robot.} The only route run on both is the robot test
 (0.30\,m at $354^\circ$, 3 rounds each). The simulation uses the robot's measured speeds
 ($v = 0.03$\,m/s, $\omega = 35^\circ$/s, $t_b = 0.2$\,s, $r_{goal} = 2.5$\,mm):
 \begin{center}
@@ -420,56 +437,78 @@ stops (see ``Why the robot drifts right''). It also under-states the gain: the r
 simulation 6.6\,\%, because the old method's near-full turn needs more correction on the floor.
 
 \smallskip
-\noindent\textbf{Simulation with stop bias, drift and re-aim (robot-like).} A stop bias alone cannot match both
-methods: with bias $-2^\circ$, sd $2^\circ$ the old method gives 23.38\,s (close) but Detour Steer 18.84\,s (2.5\,s
-short). A robot-like model adds what the robot does: the wheel stops $2^\circ$ short (sd $1^\circ$), the heading
-drifts right $5 \pm 5^\circ$/m while driving, the robot stops early and re-aims (Algorithm 1.7), and every steer
-costs 1.25\,s more (motor start, coast, settle on the IMU). These values were fitted to the robot test
-(1000 runs; range = 5--95\,\%):
+\noindent\textbf{Robot-like simulation (stop bias, drift, slip, coast, re-aim).} A stop bias alone cannot match
+both methods: with bias $-2^\circ$, sd $2^\circ$ the old method gives 23.38\,s (close) but Detour Steer 18.84\,s
+(2.5\,s short). The robot's own time line gives more: it steered $352^\circ$ in about 9.4\,s and $249^\circ$ in
+about 7.2\,s, so the wheel turns at about $50^\circ$/s plus a fixed time per steer (motor start, coast, waiting
+for the IMU). The robot-like model therefore adds: the wheel stops $2^\circ$ short (sd $1^\circ$); the heading
+drifts right $3 \pm 6^\circ$/m while driving (the AS5600 angle and the front of the robot turn); the drive
+motor coasts, so a drive ends $\pm 4$\,mm from its point; the robot stops early and re-aims (Algorithm 1.7,
+$R = 3$); steering at $50^\circ$/s plus 1.3\,s per steer. The planner itself still uses $35^\circ$/s.
+These values were fitted to the 3 robot rounds; 1000 random runs each (range = 5--95\,\%):
 \begin{center}
 \begin{tabular}{lrrr}
 \toprule
  & ideal model (s) & robot-like model (s) & robot, 3 rounds (s) \\
 \midrule
-old method   & 20.16 ($-14.2\,\%$) & 24.75 (23.38--26.83), $+5.4\,\%$ & 23.49 (22.94--24.17) \\
-Detour Steer & 18.83 ($-11.6\,\%$) & 20.22 (19.48--22.45), $-5.1\,\%$ & 21.31 (20.77--22.33) \\
+old method   & 20.16 ($-14.2\,\%$) & 24.18 (20.42--32.67), $+2.9\,\%$ & 23.49 (22.94--24.17) \\
+Detour Steer & 18.83 ($-11.6\,\%$) & 21.07 (17.64--29.87), $-1.1\,\%$ & 21.31 (20.77--22.33) \\
+time saved   & 6.6\,\% & 12.8\,\% & 9.3\,\% \\
 \bottomrule
 \end{tabular}
 \end{center}
-The robot-like model is within about 5\,\% of the robot for each method, but it over-states the gain
-(18.3\,\% against 9.3\,\%), so it is not exact.
+The robot-like model is within 3\,\% of the robot for each method. Its range is wider than the 3 robot
+rounds, and it still over-states the gain a little (12.8\,\% against 9.3\,\%); with only 3 rounds per method
+these values are a fit, not a proof. The simulator window has the same mode (``robot-like'' check box): each
+press of Start is one new random run, and it also shows the mean and range of 1000 runs.
 
 \smallskip
-\noindent\textbf{The 2\,m route (Figure 4).} A total of 2\,m split into 7 equal legs (2/7\,m each), each leg
-$6^\circ$ to the right of the one before; both methods visit the same points.
-At the robot's speeds the simulation gives:
+\noindent\textbf{The 2\,m route in the robot-like model.} This route was run in simulation only, not on the robot. In the robot-like model (1000 runs each) the
+gain depends strongly on how close the robot must get to each point (\texttt{navTolM}); the robot test used 2.5\,mm:
 \begin{center}
-\begin{tabular}{lrrrr}
+\begin{tabular}{lrrr}
 \toprule
- & time (s) & path (m) & steered & detours \\
+point tolerance & old method (s) & Detour Steer (s) & saved \\
 \midrule
-old method   & 137.82 & 2.00 & $2478^\circ$ & 0 \\
-Detour Steer & 110.52 & 2.17 & $1291^\circ$ & 4 \\
-\midrule
-saved        & 27.30 (19.8\,\%) & & & \\
+2.5\,mm (as tested) & 155.8 (143.1--175.0) & 149.9 (134.7--170.6) & 3.8\,\% \\
+1\,cm               & 138.5 (128.5--144.6) & 126.0 (112.1--136.5) & 9.1\,\% \\
+2\,cm               & 130.5 (115.1--140.6) & 114.6 (97.8--131.5)  & 12.2\,\% \\
+6\,cm               & 119.1 (101.6--134.6) & 96.6 (84.2--110.7)   & 19.0\,\% \\
 \bottomrule
 \end{tabular}
 \end{center}
-Every leg is $6^\circ$ to the right, so the old method steers about $354^\circ$ at each point; Detour Steer
-drives on and steers less at 4 of the 7 points. This route was run in simulation only. Two ways to estimate it on the robot:
-(1) the ideal times scaled by each robot round's own error: old method 156.8--165.2\,s, Detour Steer
-121.9--131.1\,s (16.4--26.2\,\% faster); (2) the robot-like model: old method 159.6--166.5\,s, Detour Steer
-139.3--156.3\,s (7.3\,\% faster on average). Expected range on the robot: \textbf{old method about 157--167\,s,
-Detour Steer about 122--156\,s}, so Detour Steer should be faster, by about 7--26\,\%.
-These are estimates from the simulation, not measurements.
+With a 2.5\,mm tolerance both methods spend most of their extra time on small corrections at each of the 7
+points, so the gain of the detour is small (3.8\,\%). With a looser tolerance the corrections shrink and the
+gain approaches the ideal model (19.8\,\%).
 The return to the start (about 1.96\,m) is not timed.
 
-\Needspace*{90mm}
+
+\medskip
+\noindent\textbf{Part 2 conclusion.} On the real robot Detour Steer was faster in 3 of 3 rounds: 21.31\,s
+against 23.49\,s (9.3\,\%). The robot is 11.6--14.2\,\% slower than the ideal model because of drift, slip,
+coast and re-aim stops; a robot-like simulation with these effects fits the robot within 3\,\%. In that
+simulation the 2\,m route gains 3.8\,\% at a 2.5\,mm point tolerance and up to 19.0\,\% at 6\,cm.
+The 2\,m route has not been run on the robot.
+}
+
+\vspace{4mm}
+\Needspace*{135mm}
 \noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
-\noindent\textbf{Figure 4.} Simulation of the 2\,m / 7-leg route at the robot's speeds\par\vspace{1.4mm}
+\noindent\textbf{Figure 4.} The 3 rounds on the robot, from its own record\par\vspace{1.4mm}
 \noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
-\begin{center}\includegraphics[width=0.92\linewidth]{sim_route_2m.png}\end{center}
+\begin{center}
+\includegraphics[width=0.86\linewidth]{robot_3rounds.png}
+\end{center}
+{\small
+\noindent\textbf{Top:} what each run did over time (hatched pink = steering in place, blue = driving, grey =
+still). The old method first steers $\approx 9.4$\,s in place, then drives; Detour Steer drives at once and
+steers less later. \textbf{Bottom:} the paths the robot measured (odometry), all six from one start, seen
+from above; dashed = the plan. (The robot steers counter-clockwise, so here the goal is to the right.)\par}
+\vspace{1mm}
 \noindent\rule{\linewidth}{1.1pt}\par
+
+
+
 
 \clearpage
 \section*{Appendix A. Code and Git repository}
@@ -485,7 +524,7 @@ All code, the simulators, the firmware and this report are in one public Git rep
 \end{center}
 \noindent{\small The clip shows the robot working in synchronize mode. There is no clip of the
 Detour Steer vs old method (Direct) comparison; that comparison comes from the robot's own record
-(Figure 1 and the table of results on the robot).}parmedskip
+(Figure 4 and the table of results on the robot).}\par\medskip
 
 \noindent\textbf{Where the decision algorithm lives}
 \begin{itemize}

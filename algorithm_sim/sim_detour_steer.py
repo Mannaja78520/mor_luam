@@ -25,9 +25,9 @@ import sys
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
-from detour_steer import (TAU, NoiseConfig, RobotConfig, bearing, steer_error,
+from detour_steer import (TAU, NoiseConfig, RealismConfig, RobotConfig, bearing, steer_error,
                           fixed_stop_errors, gaussian_stop_error, in_tolerance,
-                          plan_leg, run_goal, unit)
+                          plan_leg, real_times, run_goal, unit)
 
 # =====================================================================
 # Configuration (dataclasses, course house style)
@@ -74,6 +74,11 @@ class Phase:
     dx: float = 0.0      # drive direction (unit vector)
     dy: float = 0.0
     label: str = ""
+    real: bool = False   # robot-like drive: drift, early re-aim, coast at the end
+    qx: float = 0.0      # where this leg should end
+    qy: float = 0.0
+    rate: float = 0.0    # heading drift, rad per metre (+ = turns right)
+    moved: float = 0.0
 
 
 PHASE_TEXT = {"steer": "เลี้ยวล้อ (ทวนเข็ม)", "settle": "รอล้อนิ่ง",
@@ -86,6 +91,7 @@ class SimRobot:
 
     def __init__(self, use_detour: bool):
         self.use_detour = use_detour
+        self.real: Optional[RealismConfig] = None     # set = robot-like mode (drift, slip, coast)
         self.reset([], [], [])
 
     def reset(self, goals, seeds, scripted_deg) -> None:
@@ -108,6 +114,7 @@ class SimRobot:
         self.decision = None            # (phi, d, robot) of the last plan, for the info panel
         self.pending_stop = None        # where the wheel will stop vs the target: unknown to the robot
         self.last_stop = None           # ... until the wheel has stopped and the angle is read
+        self.driven = False             # robot-like mode: a steer after a drive pays t_b
         self.done = not self.goals
         self._start_goal()
 
@@ -121,7 +128,84 @@ class SimRobot:
             return self.scripted.pop(0)
         return self.rng.gauss(math.radians(noise.bias_deg), math.radians(noise.sd_deg))
 
+    def _real_drive(self, dist: float, label: str) -> Phase:
+        real = self.real
+        return Phase("drive", dist + 0.05, label=label, real=True,
+                     qx=self.x + dist * math.cos(self.h), qy=self.y + dist * math.sin(self.h),
+                     rate=math.radians(self.rng.gauss(real.drift_deg_per_m, real.drift_sd_deg_per_m)))
+
+    def _decide_real(self, robot: RobotConfig) -> None:
+        """Robot-like mode: the same decisions as detour_steer.run_route_real()."""
+        real = self.real
+        gx, gy = self.goals[self.goal_i]
+        dx, dy = gx - self.x, gy - self.y
+        dist = math.hypot(dx, dy)
+        if dist <= robot.goal_radius_m or self.decisions >= robot.max_phases:
+            self.goal_i += 1
+            self.done = self.goal_i >= len(self.goals)
+            self._start_goal()
+            return
+        self.decisions += 1
+        e = steer_error(bearing(dx, dy), self.h)
+        self.decision = (e, dist, robot)
+        if in_tolerance(e, math.radians(robot.tol_deg)):
+            self.queue = [self._real_drive(dist, "วิ่งเข้าเป้า")]
+            return
+        if self.use_detour:
+            plan = plan_leg(e, dist, robot)
+            if plan.kind == "detour":
+                self.queue = [self._real_drive(plan.a, "วิ่งขาแรก (ทางอ้อม)")]
+                self.n_detours += 1
+                self.plan_drawn = (self.x, self.y, self.h, plan.a, (gx, gy))
+                self.plan_text = (f"ทางอ้อม: วิ่ง a = {plan.a:.2f} m → เลี้ยว β* = {math.degrees(plan.beta):.0f}° "
+                                  f"→ วิ่ง b = {plan.b:.2f} m")
+                self.detour_goal = self.goal_i
+                return
+            self.plan_text = f"เลี้ยว {math.degrees(e):.0f}° แล้ววิ่ง {dist:.2f} m (วางแผนใหม่จากตำแหน่งจริง)"
+        else:
+            self.plan_text = f"เลี้ยวตรง: เลี้ยว {math.degrees(e):.0f}° แล้ววิ่ง {dist:.2f} m"
+        turn = max(0.0, e + self.rng.gauss(math.radians(real.bias_deg), math.radians(real.sd_deg)))
+        self.pending_stop = turn - e
+        self.queue = ([Phase("stop", robot.stop_s)] if self.driven else []) + \
+                     [Phase("steer", turn), Phase("settle", robot.settle_s + real.steer_overhead_s)]
+        self.driven = False
+        self.n_steers += 1
+
+    def _step_real_drive(self, ph: Phase, dt: float, robot: RobotConfig) -> float:
+        """Move a robot-like drive by up to dt seconds; returns the seconds used."""
+        real, v = self.real, robot.drive_speed_mps
+        used = 0.0
+        while used < dt - 1e-12:
+            ex, ey = ph.qx - self.x, ph.qy - self.y
+            f = ex * math.cos(self.h) + ey * math.sin(self.h)
+            s = -ex * math.sin(self.h) + ey * math.cos(self.h)
+            end = (math.hypot(ex, ey) <= robot.goal_radius_m or f <= 0.0 or ph.moved >= ph.left
+                   or (s > robot.goal_radius_m and f <= max(real.reaim_min_m, real.reaim_ratio * s)))
+            if end:
+                coast = max(-ph.moved, self.rng.gauss(real.drive_bias_m, real.drive_sd_m))
+                self.x += coast * math.cos(self.h)
+                self.y += coast * math.sin(self.h)
+                self.t += coast / v
+                self.h %= TAU
+                ph.left = 0.0
+                self.driven = True
+                return used
+            step = min(0.002, v * (dt - used))
+            self.h -= ph.rate * step / 2
+            self.x += step * math.cos(self.h)
+            self.y += step * math.sin(self.h)
+            self.h -= ph.rate * step / 2
+            ph.moved += step
+            if int(ph.moved / 0.01) != int((ph.moved - step) / 0.01):
+                self.trail.append((self.x, self.y))       # draw the curve every centimetre
+            self.t += step / v
+            used += step / v
+        return used
+
     def _decide(self, robot: RobotConfig, noise: NoiseConfig) -> None:
+        if self.real is not None:
+            self._decide_real(robot)
+            return
         gx, gy = self.goals[self.goal_i]
         dx, dy = gx - self.x, gy - self.y
         dist = math.hypot(dx, dy)
@@ -163,13 +247,20 @@ class SimRobot:
         self.n_steers += 1
 
     def step(self, dt: float, robot: RobotConfig, noise: NoiseConfig) -> None:
-        w = math.radians(robot.steer_speed_dps)
+        w = math.radians(self.real.steer_dps if self.real is not None and self.real.steer_dps > 0
+                         else robot.steer_speed_dps)
         v = robot.drive_speed_mps
         while dt > 1e-12 and not self.done:
             if not self.queue:
                 self._decide(robot, noise)
                 continue
             ph = self.queue[0]
+            if ph.kind == "drive" and ph.real:
+                dt -= self._step_real_drive(ph, dt, robot)
+                if ph.left <= 0.0:
+                    self.queue.pop(0)
+                    self.trail.append((self.x, self.y))
+                continue
             if ph.kind == "steer":
                 if self.steer_start is None:
                     self.steer_start = self.h
@@ -423,6 +514,9 @@ class App:
 
         self.result = tk.Label(self.root, text="", bg=BG, fg=INK, font=self.f_big)
         self.result.pack(pady=(6, 2))
+        self.avg = tk.Label(self.root, text="", bg=BG, fg=MUTED, font=self.f_body)
+        self.avg.pack(pady=(0, 2))
+        self.avg_cache = {}
 
         ctl = tk.Frame(self.root, bg=BG)
         ctl.pack(padx=12, pady=(2, 4), fill="x")
@@ -452,9 +546,42 @@ class App:
             tk.Scale(cell, from_=lo, to=hi, resolution=step, orient="horizontal", variable=var, length=int(250 * self.k),
                      bg=BG, fg=INK, highlightthickness=0, troughcolor=GRID, font=self.f_small,
                      command=lambda _v: self.redraw()).pack(anchor="w")
+        self.real_on = tk.BooleanVar(value=False)
+        tk.Checkbutton(sl, text="แบบใกล้หุ่นจริง: เบี่ยง ไถล ล้อไหล (สุ่มใหม่ทุกครั้งที่กดเริ่ม)",
+                       variable=self.real_on, command=self.toggle_real, bg=BG, fg=INK,
+                       activebackground=BG, font=self.f_small).grid(row=2, column=0, columnspan=3, sticky="w", padx=10)
 
         self.redraw()
         self.root.after(cfg.view.frame_ms, self.tick)
+
+    # ---- robot-like mode -------------------------------------------------
+    def toggle_real(self) -> None:
+        real = RealismConfig() if self.real_on.get() else None
+        for sim in self.all_sims():
+            sim.real = real
+        self._reset_robots()
+
+    def all_sims(self):
+        return (self.old, self.new)
+
+    def show_average(self) -> None:
+        """Mean and 5-95 % range of 1000 robot-like runs on the current goals."""
+        if not (self.real_on.get() and self.goals):
+            self.avg.config(text="")
+            return
+        robot = self.robot_cfg()
+        key = (tuple(self.goals), robot)
+        if key not in self.avg_cache:
+            self.avg.config(text="กำลังคำนวณค่าเฉลี่ย 1000 รอบ…")
+            self.root.update_idletasks()
+            self.avg_cache[key] = real_times(self.goals, robot, RealismConfig(), n=1000)
+        res = self.avg_cache[key]
+        self.avg.config(text=self.average_text(res))
+
+    def average_text(self, res) -> str:
+        o, n = res["old"], res["detour"]
+        return (f"เฉลี่ย 1000 รอบ (แบบใกล้หุ่นจริง): วิธีเดิม {o[0]:.1f} s ({o[1]:.1f}–{o[2]:.1f})  |  "
+                f"Detour {n[0]:.1f} s ({n[1]:.1f}–{n[2]:.1f})  →  เร็วกว่า {100 * (o[0] - n[0]) / o[0]:.1f}%")
 
     # ---- settings from the sliders -------------------------------------
     def robot_cfg(self) -> RobotConfig:
@@ -534,11 +661,14 @@ class App:
             self.result.config(text="ยังไม่มีเป้า — คลิกบนพื้นที่ หรือกด สุ่มเป้า")
             return
         if self.old.done and self.new.done:
+            if self.real_on.get():                     # robot-like: a new random run every press
+                self.seeds = [self.rng.randrange(2 ** 31) for _ in self.goals]
             self._reset_robots()
         self.running = not self.running
         self.btn_run.config(text="⏸ หยุดชั่วคราว" if self.running else "▶ เล่นต่อ")
         if self.running:
             self.result.config(text="กำลังวิ่ง…")
+            self.show_average()
 
     def restart(self) -> None:
         self._reset_robots()

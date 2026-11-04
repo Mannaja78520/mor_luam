@@ -19,8 +19,8 @@ import random
 import sys
 from typing import List, Tuple
 
-from detour_steer import (TAU, NoiseConfig, RobotConfig, detour_legs, fixed_stop_errors,
-                          gaussian_stop_error, in_tolerance, plan_leg, run_goal)
+from detour_steer import (TAU, NoiseConfig, RealismConfig, RobotConfig, detour_legs, fixed_stop_errors,
+                          gaussian_stop_error, in_tolerance, plan_leg, real_times, run_goal)
 from sim_detour_steer import (BG, C_NEW, GRID, INK, MUTED, Field, SimConfig, SimRobot,
                               run_to_end)
 
@@ -178,6 +178,9 @@ class OnlyApp:
 
         self.result = tk.Label(self.root, text="", bg=BG, fg=INK, font=self.f_big)
         self.result.pack(pady=(6, 2))
+        self.avg = tk.Label(self.root, text="", bg=BG, fg=MUTED, font=self.f_body)
+        self.avg.pack(pady=(0, 2))
+        self.avg_cache = {}
 
         ctl = tk.Frame(self.root, bg=BG)
         ctl.pack(padx=12, pady=(2, 4), fill="x")
@@ -207,9 +210,33 @@ class OnlyApp:
             tk.Scale(cell, from_=lo, to=hi, resolution=step, orient="horizontal", variable=var,
                      length=int(250 * self.k), bg=BG, fg=INK, highlightthickness=0, troughcolor=GRID,
                      font=self.f_small, command=lambda _v: self.redraw()).pack(anchor="w")
+        self.real_on = tk.BooleanVar(value=False)
+        tk.Checkbutton(sl, text="แบบใกล้หุ่นจริง: เบี่ยง ไถล ล้อไหล (สุ่มใหม่ทุกครั้งที่กดเริ่ม)",
+                       variable=self.real_on, command=self.toggle_real, bg=BG, fg=INK,
+                       activebackground=BG, font=self.f_small).grid(row=2, column=0, columnspan=3, sticky="w", padx=10)
 
         self.redraw()
         self.root.after(cfg.view.frame_ms, self.tick)
+
+    # ---- robot-like mode -------------------------------------------------
+    def toggle_real(self) -> None:
+        self.sim.real = RealismConfig() if self.real_on.get() else None
+        self._reset_robot()
+
+    def show_average(self) -> None:
+        """Mean and 5-95 % range of 1000 robot-like runs on the current goals."""
+        if not (self.real_on.get() and self.goals):
+            self.avg.config(text="")
+            return
+        robot = self.robot_cfg()
+        key = (tuple(self.goals), robot)
+        if key not in self.avg_cache:
+            self.avg.config(text="กำลังคำนวณค่าเฉลี่ย 1000 รอบ…")
+            self.root.update_idletasks()
+            self.avg_cache[key] = real_times(self.goals, robot, RealismConfig(), n=1000)
+        o, n = self.avg_cache[key]["old"], self.avg_cache[key]["detour"]
+        self.avg.config(text=f"เฉลี่ย 1000 รอบ (แบบใกล้หุ่นจริง): Detour {n[0]:.1f} s ({n[1]:.1f}–{n[2]:.1f})  |  "
+                             f"วิธีเดิม {o[0]:.1f} s ({o[1]:.1f}–{o[2]:.1f})  →  เร็วกว่า {100 * (o[0] - n[0]) / o[0]:.1f}%")
 
     # ---- settings from the sliders -------------------------------------
     def robot_cfg(self) -> RobotConfig:
@@ -287,11 +314,14 @@ class OnlyApp:
             self.result.config(text="ยังไม่มีเป้า — คลิกบนพื้นที่ หรือกด สุ่มเป้า")
             return
         if self.sim.done:
+            if self.real_on.get():                     # robot-like: a new random run every press
+                self.seeds = [self.rng.randrange(2 ** 31) for _ in self.goals]
             self._reset_robot()
         self.running = not self.running
         self.btn_run.config(text="⏸ หยุดชั่วคราว" if self.running else "▶ เล่นต่อ")
         if self.running:
             self.result.config(text="กำลังวิ่ง…")
+            self.show_average()
 
     def restart(self) -> None:
         self._reset_robot()
