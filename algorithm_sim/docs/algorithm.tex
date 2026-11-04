@@ -13,6 +13,7 @@
 \usepackage{booktabs}
 \usepackage[linesnumbered,lined]{algorithm2e}
 \usepackage{graphicx}
+\usepackage{url}
 
 % ---------------------------------------------------------------- styling ---
 \RestyleAlgo{boxed}                         % frame around the body only
@@ -355,4 +356,19 @@ The ideal model gives Direct 137.82 s / 2.00 m and Detour 110.52 s / 2.17 m,
 with four detours. These are model predictions, not new real-robot measurements.
 The return to start (about 1.96 m) is additional and untimed.
 Three paired rounds contain six runs. No autonomous motion follows from saving settings.
+
+\clearpage
+\section*{Code and Git repository}
+The code of this algorithm (Python planner, simulators, and the robot firmware) is on Git:
+
+\begin{center}
+\large\url{https://github.com/Mannaja78520/mor_luam}
+\end{center}
+
+\noindent Branch \texttt{main}. Where things are:
+\begin{itemize}
+\item Planner and simulators: \texttt{algorithm\_sim/}
+\item Robot version: \texttt{firmware/src/algorithm/DetourSteer.cpp}
+\item How to install and run: \texttt{algorithm\_sim/README.md} (Docker is the recommended install)
+\end{itemize}
 \end{document}
