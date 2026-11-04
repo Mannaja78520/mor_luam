@@ -33,12 +33,14 @@ Start with [Safety](safety.md) before powering the motors. Use [Testing](testing
 | เดินรวม 2 m แบ่ง 7 ช่วง: เปรียบเทียบ Direct / Detour, ตั้งค่า, ระยะกลับ และผลจำลอง | [compare_2m_th.md](compare_2m_th.md) |
 | Steering power ramp, trace checks and missing-response diagnosis | [Tuning](tuning.md) |
 | Windows setup, Docker, Wi-Fi, browser tabs and ROS tools | [Windows guide](../docker/README.md) |
-| Latest state, 27 October 2026: polling recovery and transient-loss handling; actual robot currently unavailable | [Codex V9](../HANDOFF_MORLUAM_CODEX_V9.md) |
-| Portable setup and automatic subnet discovery | [Codex V8](../HANDOFF_MORLUAM_CODEX_V8.md) |
-| PC web, editable simulation and multi-leg comparison implementation | [Codex V4](../HANDOFF_MORLUAM_CODEX_V4.md) |
-| Previous documentation verification, 26 October 2026 | [Codex V2](../HANDOFF_MORLUAM_CODEX_V2.md) |
-| Latest firmware history and attended tests, 8–10 October 2026 | [Claude V2](../HANDOFF_MORLUAM_CLAUDE_V2.md) |
-| Earlier IMU, steering and drive evidence | [Codex V1](../HANDOFF_MORLUAM_CODEX_V1.md), [Claude V1](../HANDOFF_MORLUAM_CLAUDE_V1.md) |
+| **Live state and open items (only live handoff)** | [HANDOFF.md](../HANDOFF.md) |
+| Old handoffs (history, evidence) | [handoff_history/](handoff_history/README.md) |
+| Latest state, 27 October 2026: polling recovery and transient-loss handling; actual robot currently unavailable | [Codex V9](handoff_history/HANDOFF_MORLUAM_CODEX_V9.md) |
+| Portable setup and automatic subnet discovery | [Codex V8](handoff_history/HANDOFF_MORLUAM_CODEX_V8.md) |
+| PC web, editable simulation and multi-leg comparison implementation | [Codex V4](handoff_history/HANDOFF_MORLUAM_CODEX_V4.md) |
+| Previous documentation verification, 26 October 2026 | [Codex V2](handoff_history/HANDOFF_MORLUAM_CODEX_V2.md) |
+| Latest firmware history and attended tests, 8–10 October 2026 | [Claude V2](handoff_history/HANDOFF_MORLUAM_CLAUDE_V2.md) |
+| Earlier IMU, steering and drive evidence | [Codex V1](handoff_history/HANDOFF_MORLUAM_CODEX_V1.md), [Claude V1](handoff_history/HANDOFF_MORLUAM_CLAUDE_V1.md) |
 | Source files and commands for development | [Source map](../CLAUDE.md), [agent rules](../AGENTS.md) |
 | Direct steering, Detour Steer and coast prediction | [Algorithm guide](../firmware/src/algorithm/README.md) |
 
@@ -91,4 +93,4 @@ Build web changes from `firmware/web/`. The firmware build generates `firmware/s
 
 Keep Wi-Fi and OTA passwords out of logs, screenshots and handoffs. Never print `firmware/config/network_secrets.h` or responses from `GET /api/wifi` and `GET /api/settings`. The robot's Wi-Fi page displays saved passwords, so use a trusted network.
 
-Do not commit or push without the owner's instruction. Do not change `firmware/config/esp32_hardware.h` without asking the owner. Read [Codex V2](../HANDOFF_MORLUAM_CODEX_V2.md) for documentation verification and [Claude V2](../HANDOFF_MORLUAM_CLAUDE_V2.md) for firmware history. Historical installed-build records do not confirm what is running today.
+Do not commit or push without the owner's instruction. Do not change `firmware/config/esp32_hardware.h` without asking the owner. Read [Codex V2](handoff_history/HANDOFF_MORLUAM_CODEX_V2.md) for documentation verification and [Claude V2](handoff_history/HANDOFF_MORLUAM_CLAUDE_V2.md) for firmware history. Historical installed-build records do not confirm what is running today.

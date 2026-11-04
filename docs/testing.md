@@ -96,7 +96,7 @@ Trace flags use bit 1 for steering, bit 2 for driving, bit 4 for coasting and bi
 
 ## Verified baseline: 8 October 2026
 
-The following historical record applies to the drive-learning update, running build `Oct 8 2026 07:53:28`. The next section records the later steering and browser checks. The [handoff](../HANDOFF_MORLUAM_CODEX_V1.md) is the current state record.
+The following historical record applies to the drive-learning update, running build `Oct 8 2026 07:53:28`. The next section records the later steering and browser checks. The [handoff](handoff_history/HANDOFF_MORLUAM_CODEX_V1.md) is the current state record.
 
 | Check | Result | Evidence or limit |
 |---|---|---|
@@ -179,7 +179,7 @@ Result 2026-10-08 (2.5 mm radius, 3 runs each): Direct mean 25.84 s, Detour mean
 
 ## Polling recovery follow-up (27 October 2026)
 
-PC web tests now9/9 PASS, including transient target loss and old-target isolation. The browser API test rejects incomplete status and verifies polling continues after a callback error. Route-test UI checks and firmware build PASS. No freshness threshold or motor watchdog was relaxed. The new binary is1213664 bytes; it was not uploaded in this follow-up. The actual robot was absent from hotspot clients and a1270-address local-network scan, so sustained physical reliability remains unverified. See [Codex V9](../HANDOFF_MORLUAM_CODEX_V9.md) and [PC web guide](pc_web_th.md).
+PC web tests now9/9 PASS, including transient target loss and old-target isolation. The browser API test rejects incomplete status and verifies polling continues after a callback error. Route-test UI checks and firmware build PASS. No freshness threshold or motor watchdog was relaxed. The new binary is1213664 bytes; it was not uploaded in this follow-up. The actual robot was absent from hotspot clients and a1270-address local-network scan, so sustained physical reliability remains unverified. See [Codex V9](handoff_history/HANDOFF_MORLUAM_CODEX_V9.md) and [PC web guide](pc_web_th.md).
 
 ## PC web and two-metre model (27 October 2026)
 
@@ -187,4 +187,4 @@ PC web tests now9/9 PASS, including transient target loss and old-target isolati
 
 Checked without hardware motion: `python tools/test_pc_web.py` (3 HTTP contracts), `node firmware/web/test_simulation_route.cjs` (editing/isolation/examples), route-test UI and planner tests (1,000 geometries), Docker host suite (0 failures; 40 runner scenarios), and firmware build. An actual browser opened the offline page, placed a point and ran the 2 m / 7-leg example.
 
-Current ideal model: Direct 137.82 s / 2.00 m; Detour 110.52 s / 2.17 m with four detours. Three paired rounds contain six runs plus returns. These are predictions, not replacement measurements for the historical runs above. No physical two-metre trial was performed in this session. Later Wi-Fi recovery: after restarting the PC hotspot, the robot rejoined at 192.168.137.123; whoami, ping, status and mor-luam.local resolved/responded. PC browser showed live state, halt/PWM 0. Intermittent HTTP reads still occurred; the PC companion now retries GET once, never retries POST, and shares in-flight status across tabs (5 contract tests PASS). See [Codex V5](../HANDOFF_MORLUAM_CODEX_V5.md). The PC simulator remains usable offline.
+Current ideal model: Direct 137.82 s / 2.00 m; Detour 110.52 s / 2.17 m with four detours. Three paired rounds contain six runs plus returns. These are predictions, not replacement measurements for the historical runs above. No physical two-metre trial was performed in this session. Later Wi-Fi recovery: after restarting the PC hotspot, the robot rejoined at 192.168.137.123; whoami, ping, status and mor-luam.local resolved/responded. PC browser showed live state, halt/PWM 0. Intermittent HTTP reads still occurred; the PC companion now retries GET once, never retries POST, and shares in-flight status across tabs (5 contract tests PASS). See [Codex V5](handoff_history/HANDOFF_MORLUAM_CODEX_V5.md). The PC simulator remains usable offline.

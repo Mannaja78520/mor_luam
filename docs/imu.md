@@ -40,4 +40,4 @@ At 50 reports per second, this check covers frequencies below about 25 Hz. Faste
 
 The IMU cannot prove that a wheel touches the floor. A robot held still in the air can have the same orientation and acceleration as a robot resting on the floor. It also cannot read a physical emergency switch without a wired input. Motor feedback, IMU measurements and operator checks answer different questions.
 
-The current measured results and installed build are in the [Codex handoff](../HANDOFF_MORLUAM_CODEX_V1.md).
+The current measured results and installed build are in the [Codex handoff](handoff_history/HANDOFF_MORLUAM_CODEX_V1.md).

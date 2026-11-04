@@ -3,6 +3,7 @@
 Single-wheel steer-drive robot. ESP32 firmware (PlatformIO, micro-ROS over Wi-Fi,
 own web app, OTA) + ROS 2 Jazzy nodes on the PC + Docker tooling for Windows.
 Read this file first; open only the files the task needs.
+Live state + open items: `HANDOFF.md` (the ONLY handoff; update it when you stop, never add `HANDOFF_*_V<n>.md`; old ones are history in `docs/handoff_history/`).
 
 ## Where things are
 
@@ -72,7 +73,7 @@ docker\mor_luam.bat wifi | logs | topics | run <prog> | shell | stop     ROS sid
 - ROS feedback is reliable QoS (PC nodes subscribe reliable); publishers don't wait for ACKs
   (`rmw_uros_set_publisher_session_timeout(..., 0)`), stream history 16 (`firmware/microros.meta`).
   Changing `microros.meta` needs `docker\mor_luam.bat fw-clean-ros` then `fw-build`.
-- Web routes/tests use a 3 s watchdog in the 10 ms control task, fed by heartbeat and status polling. Any open robot page can keep it alive. Attended checks are recorded in `HANDOFF_MORLUAM_CLAUDE_V2.md`; button demos use their own moving-time limit. `docker\mor_luam.bat stop` stops containers, not the robot.
+- Web routes/tests use a 3 s watchdog in the 10 ms control task, fed by heartbeat and status polling. Any open robot page can keep it alive. Attended checks are recorded in `docs/handoff_history/HANDOFF_MORLUAM_CLAUDE_V2.md`; button demos use their own moving-time limit. `docker\mor_luam.bat stop` stops containers, not the robot.
 - No wired emergency-switch input or ground-contact sensor exists. Status shows `hardwareEstop: not-wired` and `groundContact: unknown`; missing motor feedback cannot identify the cause.
 - The browser simulator sends no motor commands. Its constant-speed model does not measure slip, battery drop, shaking or physical stop distance.
 - OTA and pose reset are refused while the robot moves.

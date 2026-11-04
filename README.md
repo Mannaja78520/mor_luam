@@ -199,10 +199,12 @@ ROS domain **10**, agent UDP **8888** หากคอมไม่ใช่ gatew
 | รวมเอกสาร เทคนิค หลักฐานทดสอบ | [Documentation map](docs/README.md) |
 | Direct/Detour และการเพิ่ม planner | [Algorithm README](firmware/src/algorithm/README.md) |
 | แผนที่ source | [CLAUDE.md](CLAUDE.md) |
-| สถานะล่าสุด 27 ต.ค. 2026: อ่านสถานะต่อหลังข้อมูลผิดรูป และไม่ทิ้ง IP จากคำตอบหายครั้งเดียว | [Codex V9](HANDOFF_MORLUAM_CODEX_V9.md) |
-| ติดตั้งหลายเครื่องและค้นหาเครือข่ายอัตโนมัติ | [Codex V8](HANDOFF_MORLUAM_CODEX_V8.md) |
-| งานเอกสาร 26 ต.ค. 2026 | [Codex V2](HANDOFF_MORLUAM_CODEX_V2.md) |
-| ประวัติเฟิร์มแวร์/ทดสอบจริง 8–10 ต.ค. | [Claude V2](HANDOFF_MORLUAM_CLAUDE_V2.md) |
+| **สถานะล่าสุดและงานที่เหลือ (handoff ไฟล์เดียว)** | [HANDOFF.md](HANDOFF.md) |
+| handoff เก่า (ประวัติ หลักฐานทดสอบ) | [docs/handoff_history/](docs/handoff_history/README.md) |
+| 27 ต.ค. 2026: อ่านสถานะต่อหลังข้อมูลผิดรูป และไม่ทิ้ง IP จากคำตอบหายครั้งเดียว | [Codex V9](docs/handoff_history/HANDOFF_MORLUAM_CODEX_V9.md) |
+| ติดตั้งหลายเครื่องและค้นหาเครือข่ายอัตโนมัติ | [Codex V8](docs/handoff_history/HANDOFF_MORLUAM_CODEX_V8.md) |
+| งานเอกสาร 26 ต.ค. 2026 | [Codex V2](docs/handoff_history/HANDOFF_MORLUAM_CODEX_V2.md) |
+| ประวัติเฟิร์มแวร์/ทดสอบจริง 8–10 ต.ค. | [Claude V2](docs/handoff_history/HANDOFF_MORLUAM_CLAUDE_V2.md) |
 
 แก้เว็บที่ `firmware/web/`; `firmware/src/web/WebPage.h` สร้างอัตโนมัติตอน build
 หลังแก้ firmware/เว็บ: `fw-test` → `fw-build` → หยุดหุ่น → `fw-ota`
