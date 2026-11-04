@@ -30,7 +30,8 @@ Source map: `CLAUDE.md`. Install: `docs/INSTALL_TH.md`. Safety: `docs/safety.md`
 **Algorithm / homework (271401)**
 - `algorithm_sim/`: Python planner + simulators (no Docker), `docs/algorithm.pdf` (last page =
   Git link only), `docs/report.pdf` (report + Appendix A: Git link page, then code listings),
-  `docs/explain_th.md` (Thai talk guide). Tests: `python -m unittest test_current_robot`,
+  `docs/660610840_DetourSteer.pdf` (Thai report, `xelatex` twice, font Leelawadee UI),
+  `docs/explain_th.md` (Thai talk guide). Video link (Google Drive) is on every Git page. Tests: `python -m unittest test_current_robot`,
   `python detour_steer.py --no-bench` (T1-T4 PASS).
 - Rebuild PDFs after code changes: `cd algorithm_sim/docs && pdflatex report.tex` (twice).
   The Python listing uses fixed lines 241-299 of `detour_steer.py`; re-check after editing it.
@@ -58,6 +59,7 @@ Source map: `CLAUDE.md`. Install: `docs/INSTALL_TH.md`. Safety: `docs/safety.md`
 - Compiling is not proof of an installed build; check `sys.build` on the robot.
 
 ## Log (newest first, one line per session)
+- 2026-11-04 Claude: Thai report 660610840_DetourSteer.pdf; video link added to all PDFs.
 - 2026-11-04 Claude: added `algorithm_sim/` + report PDF with Git page; merged all handoffs into this file.
 - 2026-10-27 Codex V2-V9: PC web/simulator, 2 m multi-leg comparison, Wi-Fi/status fixes, portable setup.
 - 2026-10-08..10 Claude V1-V2, Codex V1: firmware v2, real-robot checks, demos, series, steering fixes.

@@ -1,0 +1,413 @@
+% รายงานอัลกอริทึม Detour Steer ฉบับภาษาไทย (Thai version of report.tex)
+% Build (XeLaTeX, Thai font):  xelatex 660610840_DetourSteer.tex   (run twice, inside algorithm_sim/docs)
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[top=1.5cm,bottom=1.5cm,left=1.9cm,right=1.9cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathpazo}
+\usepackage{fontspec}
+\setmainfont{Leelawadee UI}[Scale=0.92, BoldFont={Leelawadee UI Bold}]
+\setmonofont{Consolas}[Scale=0.9]
+\XeTeXlinebreaklocale "th"
+\XeTeXlinebreakskip = 0pt plus 1pt
+\linespread{1.12}
+\usepackage{needspace}
+\usepackage{booktabs}
+\usepackage[linesnumbered,lined]{algorithm2e}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\lstset{basicstyle=\ttfamily\scriptsize,numbers=left,numberstyle=\tiny\color{gray},frame=single,breaklines=true,columns=fullflexible,keepspaces=true,showstringspaces=false,commentstyle=\color{gray}}
+
+% ---------------------------------------------------------------- styling ---
+\RestyleAlgo{boxed}
+\SetAlgoNlRelativeSize{-1}
+\newcommand{\algcommentfont}[1]{\footnotesize\textnormal{#1}}
+\SetCommentSty{algcommentfont}
+\SetKwComment{tcp}{/\kern-0.12em/\ }{}
+\SetFuncSty{textit}
+\SetArgSty{textnormal}
+
+\newcommand{\algohead}[3][62mm]{%
+  \Needspace*{#1}%
+  \par\addvspace{2mm}%
+  \noindent\rule{\linewidth}{1.1pt}\par
+  \vspace{1.4mm}%
+  \noindent\textbf{อัลกอริทึม #2:} #3\par
+  \vspace{1.4mm}%
+  \noindent\rule{\linewidth}{0.5pt}\par
+  \vspace{0.8mm}%
+}
+\newcommand{\algofoot}{%
+  \par\vspace{0.8mm}%
+  \noindent\rule{\linewidth}{1.1pt}\par
+  \addvspace{4.5mm}%
+}
+
+% ------------------------------------------------------------- keywords -----
+\SetKwProg{Pro}{Procedure :}{}{end}
+\SetKwFunction{FOpt}{OptimalDetourAngle}
+\SetKwFunction{FPlan}{PlanLeg}
+\SetKwFunction{FDetourSteer}{DetourSteer}
+\SetKwFunction{FFollow}{FollowRouteDetour}
+\SetKwFunction{FCwError}{SteeringError}
+\SetKwFunction{FInTol}{InTolerance}
+\SetKwFunction{FBearing}{Bearing}
+\SetKwFunction{FDrive}{Drive}
+\SetKwFunction{FStop}{Stop}
+\SetKwFunction{FPos}{MeasurePosition}
+\SetKwFunction{FHead}{MeasureHeading}
+\SetKwFunction{FSteerOne}{SteerOneWay}
+\SetKwFunction{FDriveReaim}{DriveReaim}
+\SetKw{KwDisplay}{แสดง}
+\SetKw{KwAnd}{and}
+\SetKw{KwOr}{or}
+\SetKw{KwNone}{None}
+
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{flushright}
+  {\small\bfseries Phuthiphong Wongchantib 660610840}
+\end{flushright}
+\vspace{-2mm}
+
+\begin{center}
+  {\large\bfseries หุ่นยนต์ที่เลี้ยวได้ทางเดียว (ทวนเข็มนาฬิกา) --- อัลกอริทึม Detour Steer}\\[1.2mm]
+  วิ่งไปก่อน เลี้ยวให้น้อยลง แล้วค่อยเข้าเป้า
+\end{center}
+\vspace{1mm}
+
+\noindent{\small\textbf{ตัวหุ่น} มีมอเตอร์ DC ตัวเดียว หมุนทางหนึ่งเป็นการ\emph{เลี้ยว}ชุดล้อ
+ได้\emph{ทวนเข็มนาฬิกาเท่านั้น} (มีคลัตช์ทางเดียว) หมุนอีกทางเป็นการ\emph{วิ่ง}ไปข้างหน้า
+หุ่นจึงเลี้ยวกับวิ่งพร้อมกันไม่ได้
+วิธีเดิมคือเลี้ยวตรงไปหาเป้าก่อนแล้วค่อยวิ่ง ถ้าเป้าอยู่ทาง\emph{ขวา}นิดเดียว ($\varphi$ ใกล้ $360^\circ$)
+ล้อต้องหมุนเกือบรอบ
+\textbf{แนวคิด} เส้นตรงสองช่วงที่ทิศต่างกันเกิน $180^\circ$ ไปถึงได้\emph{ทุก}ทิศ
+หุ่นจึงเลือกได้ว่าจะวิ่งตรงไปก่อน $a$ เมตร เลี้ยวแค่ $\beta^\ast$ ($180^\circ < \beta^\ast < \varphi$)
+แล้ววิ่งอีก $b$ เมตรถึงเป้า มุม $\beta^\ast$ ที่ดีที่สุดมีสูตรปิดคำนวณได้ทันที
+มุมทุกมุมวัดทวนเข็มนาฬิกาจากแกน $+x$ ;
+$\omega$ = ความเร็วเลี้ยว, $v$ = ความเร็ววิ่ง, $t_s$ = เวลารอล้อนิ่ง,
+$t_b$ = เวลาหยุดเปลี่ยนจากวิ่งเป็นเลี้ยว, $tol$ = ค่าคลาดเคลื่อนที่ยอมได้, $r_{goal}$ = รัศมีถือว่าถึงเป้า
+\textbf{บนหุ่นจริง} (\texttt{mor\_luam}, ESP32) ชุดล้อเลี้ยวทวนเข็มเมื่อมองจากด้านบน ตรงกับระบบมุมในหน้านี้
+(ชื่อฟังก์ชัน cwErrorDeg ในเฟิร์มแวร์เป็นชื่อเก่า แต่ค่าที่ได้คือมุมทวนเข็ม)
+อัลกอริทึม 1.1--1.5 คือการวางแผน ส่วน 1.6--1.7 คือวิธีที่หุ่นเลี้ยวและวิ่งแต่ละช่วงจริง}
+\vspace{1mm}
+
+% ============================================================ Algorithm 1.1 ==
+\algohead{1.1}{ฟังก์ชันช่วยเรื่องมุม (ทวนเข็มนาฬิกา)}
+{\small
+\begin{algorithm}[H]
+\Pro(\tcp*[f]{มุมทวนเข็มของทิศ $(\Delta x, \Delta y)$}){\FBearing{$\Delta x$, $\Delta y$}}{
+  \KwRet{$\operatorname{atan2}(\Delta y, \Delta x) \bmod 2\pi$}\;
+}
+\BlankLine
+\Pro(\tcp*[f]{ล้อต้องเลี้ยวทวนเข็มอีกเท่าไร: $0 \ldots 2\pi$}){\FCwError{$\theta$, $h$}}{
+  \KwRet{$(\theta - h) \bmod 2\pi$}\;
+}
+\BlankLine
+\Pro(\tcp*[f]{ใกล้พอ ไม่ว่าจะขาดหรือเกิน}){\FInTol{$e$}}{
+  \KwRet{$e \le tol$ \KwOr $e \ge 2\pi - tol$}\tcp*[r]{เลย\emph{เกิน}เป้านิดเดียวจะอ่านได้ $e \approx 2\pi$}
+}
+\end{algorithm}
+}
+\algofoot
+
+% ============================================================ Algorithm 1.2 ==
+\algohead{1.2}{มุมอ้อมที่ดีที่สุดด้วยสูตรปิด, $O(1)$}
+{\small
+\begin{algorithm}[H]
+\Pro(\tcp*[f]{$\varphi$: มุมทวนเข็มไปหาเป้า, $d$: ระยะ}){\FOpt{$\varphi$, $d$}}{
+  \lIf(\tcp*[f]{ทฤษฎีบท 1: เลี้ยวตรงไปหาเป้าดีที่สุด}){$\varphi \le \pi$}{\KwRet{\KwNone}}
+  $k \leftarrow (d\,\omega / v)\,\lvert \sin\varphi \rvert$\tcp*[r]{ตัวเลขตัวเดียวตัดสินทุกอย่าง}
+  \lIf(\tcp*[f]{ทฤษฎีบท 3: เวลาลดลงเรื่อย ๆ จนถึง $\beta = \varphi$}){$k \ge 2$}{\KwRet{\KwNone}}
+  $\beta^\ast \leftarrow 2\pi - \arccos(k - 1)$\tcp*[r]{รากเดียวของ $dT/d\beta = 0$ ในช่วง $(\pi, 2\pi)$}
+  \lIf(\tcp*[f]{มุมที่ดีที่สุดไม่ใช่การอ้อม}){$\beta^\ast \ge \varphi$}{\KwRet{\KwNone}}
+  \KwRet{$\beta^\ast$}\;
+}
+\end{algorithm}
+}
+\algofoot
+
+% ============================================================ Algorithm 1.3 ==
+\algohead[58mm]{1.3}{วางแผนหนึ่งช่วง: ไปตรงหรืออ้อม, $O(1)$}
+{\small
+\begin{algorithm}[H]
+\Pro(\tcp*[f]{คืนค่า (แบบ, $a$, $\beta$, $b$, เวลา)}){\FPlan{$\varphi$, $d$}}{
+  $T_D \leftarrow \varphi / \omega + t_s + d / v$\tcp*[r]{วิธีเดิม: เลี้ยว $\varphi$ แล้ววิ่ง $d$}
+  $\beta^\ast \leftarrow$ \FOpt{$\varphi$, $d$}\;
+  \lIf{$\beta^\ast =$ \KwNone}{\KwRet{(DIRECT, $0$, $\varphi$, $d$, $T_D$)}}
+  $a \leftarrow d \sin(\beta^\ast - \varphi) / \sin\beta^\ast$\tcp*[r]{ช่วงที่ 1: ทิศเดิม ไม่เลี้ยว}
+  $b \leftarrow d \sin\varphi / \sin\beta^\ast$\tcp*[r]{ช่วงที่ 2: ทิศ $\beta^\ast$ จบที่เป้า}
+  $T_R \leftarrow a/v + t_b + \beta^\ast/\omega + t_s + b/v$\tcp*[r]{หยุดเพิ่มหนึ่งครั้งระหว่างสองช่วง}
+  \lIf(\tcp*[f]{อ้อมเฉพาะเมื่อเร็วกว่าจริง}){$T_R < T_D$}{\KwRet{(DETOUR, $a$, $\beta^\ast$, $b$, $T_R$)}}
+  \KwRet{(DIRECT, $0$, $\varphi$, $d$, $T_D$)}\;
+}
+\end{algorithm}
+}
+\algofoot
+
+% ============================================================ Algorithm 1.4 ==
+\algohead[95mm]{1.4}{Detour Steer แบบวงปิดไปหาเป้าหนึ่งจุด (วางแผนใหม่หลังขยับทุกครั้ง)}
+{\small
+\begin{algorithm}[H]
+\Pro(\tcp*[f]{$p$: ตำแหน่ง, $h$: ทิศของล้อ, $g$: เป้า}){\FDetourSteer{$p$, $h$, $g$}}{
+  \While{$\lVert g - p \rVert > r_{goal}$}{
+    $d \leftarrow \lVert g - p \rVert$; \quad $e \leftarrow$ \FCwError{\FBearing{$g - p$}, $h$}\;
+    \uIf(\tcp*[f]{เล็งตรงอยู่แล้ว: วิ่งไปหาเป้า}){\FInTol{$e$}}{
+      \FDriveReaim{$d$}\tcp*[r]{อัลกอริทึม 1.7}
+    }
+    \Else{
+      $plan \leftarrow$ \FPlan{$e$, $d$}\;
+      \eIf{$plan.kind =$ DETOUR}{
+        \FDriveReaim{$plan.a$}\tcp*[r]{ช่วงที่ 1: วิ่งตรงไปก่อน ไม่เลี้ยว}
+        \FStop{}\tcp*[r]{$t_b$: สลับมอเตอร์จากวิ่งเป็นเลี้ยว}
+      }{
+        \FSteerOne{\FBearing{$g - p$}}\tcp*[r]{อัลกอริทึม 1.6: ตั้งใจหยุดก่อนถึงมุมนิดหนึ่ง}
+      }
+    }
+    $p \leftarrow$ \FPos{}; \quad $h \leftarrow$ \FHead{}\tcp*[r]{มุมล้อ AS5600 + ทิศตัวหุ่น IMU; T4}
+    \tcp{ขาด $\varepsilon$: $e = \varepsilon$ เลี้ยวเพิ่มนิดเดียว  เกิน $\varepsilon$: $e = 2\pi - \varepsilon$ ให้ PlanLeg เลือกอ้อม}
+  }
+  \KwRet{$(p, h)$}\;
+}
+\end{algorithm}
+}
+\algofoot
+
+% ============================================================ Algorithm 1.5 ==
+\algohead[48mm]{1.5}{วิ่งตามเส้นทางทั้งหมดด้วย Detour Steer}
+{\small
+\begin{algorithm}[H]
+\Pro(\tcp*[f]{ฟังก์ชันหลัก: ไปตามเป้า $W$ ทีละจุดตามลำดับ}){\FFollow{$W$}}{
+  $p \leftarrow (0, 0)$; \quad $h \leftarrow 0$\tcp*[r]{ท่าเริ่มต้น}
+  \ForEach{$g \in W$}{
+    $(p, h) \leftarrow$ \FDetourSteer{$p$, $h$, $g$}\;
+  }
+  \KwDisplay{เวลารวม}\tcp*[r]{เป้า 1\,m ที่ $350^\circ$: $a{=}1.03$\,m, $\beta^\ast{=}254^\circ$, $b{=}0.18$\,m, 9.34\,s (วิธีเดิม 9.88\,s)}
+}
+\end{algorithm}
+}
+\algofoot
+
+% ============================================================ Algorithm 1.6 ==
+\algohead[78mm]{1.6}{เลี้ยวทางเดียว: ตั้งใจหยุดก่อนถึงมุมนิดหนึ่ง (บนหุ่น ทุก 10\,ms)}
+{\small
+\begin{algorithm}[H]
+\Pro(\tcp*[f]{$\theta$: ทิศที่ต้องการ}){\FSteerOne{$\theta$}}{
+  \While(\tcp*[f]{ทุกรอบควบคุม 10\,ms}){true}{
+    $h \leftarrow$ \FHead{}\tcp*[r]{ล้อ (AS5600) + ตัวหุ่น (IMU): ตัวหุ่นบิดตามตอนเลี้ยว}
+    $e \leftarrow$ \FCwError{$\theta$, $h$}; \quad $r \leftarrow$ ความเร็วเลี้ยวในช่วง 50\,ms\;
+    \lIf(\tcp*[f]{ตัดไฟก่อน: ล้อไหลต่อไปหยุดที่ขาด $\approx e_{land}$}){$e < \pi$ \KwAnd $e \le e_{land} + r\,c$}{\textbf{break}}
+    \lIf(\tcp*[f]{เกินแล้ว หรือล้อนิ่ง: ดันจากนิ่งจะกระโดดเกิน}){\FInTol{$e$} \KwAnd ($e > \pi$ \KwOr $r < r_{min}$)}{\textbf{break}}
+    เปิดมอเตอร์เลี้ยว\;
+  }
+  ปิดมอเตอร์เลี้ยว; รอจนล้อหยุดและตัวหุ่นหมุน $< 5^\circ$/s (นานสุด 0.4\,s)\;
+  $c \leftarrow (1 - \lambda)\,c + \lambda\,(\text{มุมที่ไหลต่อ}/r_{cut})$\tcp*[r]{เรียนรู้เวลาไหลต่อ $c$}
+}
+\end{algorithm}
+}
+\algofoot
+
+% ============================================================ Algorithm 1.7 ==
+\algohead[72mm]{1.7}{วิ่งพร้อมเล็งใหม่ก่อนถึง (มอเตอร์ตัวเดียว เลี้ยวขณะวิ่งไม่ได้)}
+{\small
+\begin{algorithm}[H]
+\Pro(\tcp*[f]{$\ell$: ความยาวช่วงในทิศปัจจุบัน $h$}){\FDriveReaim{$\ell$}}{
+  $q \leftarrow p + \ell\,(\cos h, \sin h)$\tcp*[r]{จุดปลายของช่วงนี้}
+  \While(\tcp*[f]{ทุกรอบควบคุม 10\,ms}){true}{
+    $(f, s) \leftarrow q - p$ มองจากล้อ\tcp*[r]{$f$ ระยะข้างหน้า, $s$ ระยะด้านข้าง (+: ฝั่งที่เลี้ยว)}
+    \lIf(\tcp*[f]{ถึงแล้ว หรือมาเสมอจุดแล้ว}){$\lVert q - p \rVert \le r_{goal}$ \KwOr $f \le 0$}{\textbf{break}}
+    \lIf(\tcp*[f]{จากนั้นเล็งใหม่แค่ $\arctan(1/R)$}){$s > r_{goal}$ \KwAnd $f \le \max(m, R\,s)$}{\textbf{break}}
+    เปิดมอเตอร์วิ่ง\;
+  }
+  ปิดมอเตอร์วิ่ง; \quad $p \leftarrow$ \FPos{}\tcp*[r]{อัลกอริทึม 1.4 วางแผนใหม่จากตรงนี้}
+}
+\end{algorithm}
+}
+\algofoot
+
+% ================================================================ Properties ==
+\newpage
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{ความถูกต้อง ความซับซ้อน ผลลัพธ์ และงานที่ใกล้เคียง}\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{1mm}
+{\small
+\noindent ถ้าเป้าอยู่ที่มุมทวนเข็ม $\varphi > \pi$ ระยะ $d$ การอ้อมที่จบด้วยทิศ $\beta$ ใช้เวลา
+\[
+  T(\beta) = \frac{\beta}{\omega} + t_s + t_b + \frac{d}{v}\,g(\beta), \qquad
+  g(\beta) = \frac{\sin(\beta-\varphi) + \sin\varphi}{\sin\beta}, \qquad
+  g'(\beta) = \frac{\sin\varphi}{1 + \cos\beta}.
+\]
+\begin{enumerate}\setlength\itemsep{0.4mm}
+\item[\textbf{T1.}] ถ้า $\varphi \le 180^\circ$ การเลี้ยวตรงไปหาเป้าดีที่สุด
+  ทิศสองทิศที่ห่างกันไม่ถึง $180^\circ$ ไปได้แค่ทิศที่อยู่ระหว่างกัน ทุกเส้นทางจึงต้องเลี้ยวอย่างน้อย $\varphi$
+  และต้องวิ่งอย่างน้อย $d$ เส้นทางตรงทำได้ทั้งสองอย่างพอดี
+\item[\textbf{T2.}] ถ้า $\varphi > 180^\circ$ เส้นทางที่ดีที่สุดมีไม่เกิน 2 ช่วง ทิศ $0$ และ $\beta$
+  การเขียนเวกเตอร์ไปเป้าให้สั้นที่สุดด้วยทิศในช่วง $[0, \beta]$ ใช้สองทิศที่อยู่คนละข้างของ $\varphi$
+  (คำตอบที่ดีที่สุดของ linear program 2 แถว มีตัวแปรไม่เป็นศูนย์แค่ 2 ตัว)
+\item[\textbf{T3.}] บนช่วง $(\pi, 2\pi)$ อนุพันธ์ $T'(\beta) = 1/\omega - (d/v)\lvert\sin\varphi\rvert/(1+\cos\beta)$ เพิ่มขึ้นตลอด
+  $T$ จึงมีจุดต่ำสุดจุดเดียว: $\cos\beta^\ast = k - 1$ เมื่อ $k = (d\omega/v)\lvert\sin\varphi\rvert$
+  ถ้า $k \ge 2$ เวลา $T$ ลดลงเรื่อย ๆ จนถึง $\beta = \varphi$ ซึ่งก็คือการไปตรง
+\item[\textbf{T4.}] หลังวิ่งช่วงที่ 1 แล้ว \FPlan{$\beta^\ast$, $b$} จะได้ ``เลี้ยว $\beta^\ast$ แล้ววิ่ง $b$'' เสมอ
+  การอ้อมแบบอื่นจากจุดนั้นเท่ากับช่วงที่ 1 ยาวขึ้นบวกการหยุดเพิ่มอีก $t_b$ ซึ่ง T3 ชนะไปแล้ว
+  จึงวางแผนใหม่หลังขยับทุกครั้ง (วงปิด) ได้โดยแผนไม่เปลี่ยน
+\item[\textbf{O.}] \FPlan{} ใช้เวลาและหน่วยความจำ $O(1)$: 0.54\,$\mu$s ต่อครั้งใน Python เทียบกับ 505\,$\mu$s
+  ของการค้นหา $\beta$ 3600 จุด (เร็วกว่า $944\times$) T1--T4 ตรวจแบบ brute force ใน
+  \texttt{detour\_steer.py} ด้วย: สูตรปิดเทียบตาราง 20\,000 จุด, เทียบทุกเส้นทาง 2 ช่วงบนตารางทุก
+  $2^\circ$ และวางแผนซ้ำ 2000 ครั้ง ผ่านทั้งหมด
+\end{enumerate}
+
+\noindent\textbf{ความคลาดเคลื่อนตอนหยุดที่ไม่รู้ล่วงหน้า} ไม่มีใครรู้ก่อนว่าล้อจะหยุดเกินหรือขาดไปนิดหนึ่ง
+หุ่นอ่านมุมล้อจริง (AS5600) และทิศตัวหุ่น (IMU) หลังหยุด แล้ว \FDetourSteer{} วางแผนใหม่จากตรงนั้น
+\FPlan{} ไม่ใช้ค่าความคลาดเคลื่อนเลย ถ้าอยู่ใน $\pm tol$ หุ่นวิ่งไปตามทิศจริงของมัน
+และถ้าพลาดเป้าเกิน $r_{goal}$ ก็วางแผนใหม่
+
+\smallskip
+\noindent\textbf{ทำไมตั้งใจหยุดก่อนถึงมุม (อัลกอริทึม 1.6)} ล้อที่เลี้ยวได้ทางเดียว ถ้าเกินมุมไปมากกว่า $tol$
+ต้องหมุนอีกเกือบรอบ แต่ถ้าขาดก็เลี้ยวเพิ่มนิดเดียว หุ่นจึงตัดไฟมอเตอร์ก่อนแล้วให้ล้อไหลต่อไปหยุดที่
+$e_{land} = 2^\circ$ ก่อนถึงมุม ($c$ คือเวลาไหลต่อ เรียนรู้ใหม่ทุกครั้งที่เลี้ยว)
+ล้อที่นิ่งอยู่ในช่วงยอมรับแล้วจะไม่ถูกดันอีก เพราะดันจากนิ่งมอเตอร์ต้องเร่งกำลังขึ้น แล้วล้อกระโดดเกิน
+(วัดได้ $9^\circ$) การหยุดขาดยังทำให้เป้าอยู่\emph{ฝั่งที่เลี้ยว}ของเส้นที่หุ่นวิ่งเสมอ
+\FDriveReaim{} จึงแก้ได้ด้วยการเลี้ยวนิดเดียว ($\arctan(1/R) = 18^\circ$ เมื่อ $R = 3$, $m = 2$\,cm)
+แทนการเลี้ยว $90^\circ$ หลังวิ่งเลยเป้า
+
+\smallskip
+\noindent\textbf{ผลจากซิม} (เป้าสุ่ม 5000 จุด, $d \in [0.3, 2]$\,m, $v = 0.25$\,m/s, $t_b = 0.2$\,s,
+$\omega = 60^\circ$/s ใช้เป้าและความคลาดเคลื่อนชุดเดียวกันทั้งสองวิธี, เวลาเฉลี่ยต่อเป้า):
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+ล้อหยุด & bias & sd & วิธีเดิม (s) & Detour (s) & ประหยัด \\
+\midrule
+ตรงมุมพอดี         & $0^\circ$  & $0^\circ$ &  7.56 & 7.53 &  0.4\,\% \\
+สุ่มได้ทั้งสองทาง    & $0^\circ$  & $2^\circ$ &  8.42 & 8.23 &  2.3\,\% \\
+สุ่มได้ทั้งสองทาง    & $0^\circ$  & $3^\circ$ &  9.43 & 8.78 &  6.9\,\% \\
+ส่วนใหญ่ขาด        & $-2^\circ$ & $2^\circ$ &  8.08 & 8.03 &  0.7\,\% \\
+ส่วนใหญ่เกิน        & $+2^\circ$ & $2^\circ$ & 10.74 & 9.36 & 12.8\,\% \\
+ส่วนใหญ่เกิน        & $+2^\circ$ & $3^\circ$ & 11.87 & 9.70 & 18.3\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent ทุกกรณี Detour Steer ไม่ช้ากว่าวิธีเดิมเลย (0\,\% ของเป้า) ถ้าล้อหยุดตรงพอดี
+ค่าเฉลี่ยดีขึ้นไม่มาก แต่เป้าที่อยู่ทางขวานิดเดียวเร็วขึ้นได้ถึง 28\,\%
+ยิ่งล้อหยุดเกินบ่อย ยิ่งได้ประโยชน์ เพราะการเกินไม่ต้องเสียเวลาหมุนอีกรอบแล้ว
+เลี้ยวช้าลงก็ได้ประโยชน์มากขึ้น (ที่ $30^\circ$/s, sd $2^\circ$: 4.8\,\%)
+
+\medskip
+\noindent\textbf{ผลบนหุ่นจริง} (\texttt{mor\_luam}: $v = 0.03$\,m/s, $\omega = 35^\circ$/s ซึ่งเป็นความเร็วเลี้ยวที่วัดได้,
+$t_b = 0.2$\,s, $r_{goal} = 2.5$\,mm) งานเดียวกันทั้งสองวิธี: ก่อนเริ่มจับเวลา ล้อถูกหมุนไปทิศเริ่มต้นและนิ่งแล้ว
+จากนั้นวางเป้าห่าง $d = 0.30$\,m ที่มุม $\varphi = 354^\circ$ จากทิศที่ล้อชี้อยู่จริง
+หุ่นจับเวลาเองทุกรอบและวิ่งกลับจุดเริ่ม (ไม่จับเวลาขากลับ) ทำ 3 รอบ ลำดับ เดิม--Detour, Detour--เดิม, เดิม--Detour:
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+รอบ & วิธีเดิม (s) & Detour Steer (s) & ประหยัด (s) \\
+\midrule
+1 & 24.17 & 20.83 & 3.34 \\
+2 & 22.94 & 20.77 & 2.17 \\
+3 & 23.36 & 22.33 & 1.03 \\
+\midrule
+เฉลี่ย & 23.49 & 21.31 & 2.18 (9.3\,\%) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent Detour Steer เร็วกว่าทั้ง 3 รอบ เลี้ยวน้อยลง 3.8\,s (8.5 เทียบ 12.4\,s) และวิ่งนานขึ้น 1.2\,s
+(11.8 เทียบ 10.6\,s) แผนทำนายไว้ 18.8 เทียบ 20.2\,s แต่บนพื้นจริงต่างกันมากกว่า
+เพราะวิธีเดิมที่หมุนเกือบรอบต้องแก้ทิศตอนท้ายมากกว่าด้วย ทั้ง 6 รอบหยุดห่างเป้าไม่เกิน 2.5\,mm
+
+\medskip
+\noindent\textbf{งานที่ใกล้เคียงที่สุด และความต่าง}
+กลไกมอเตอร์ตัวเดียวทั้งเลี้ยวและวิ่ง (US~8,424,627~B2, 2013; Sekine \& Mizuuchi, ICINCO 2022) ไม่มีตัววางแผน
+รถแบบ Dubins ที่เลี้ยวได้ทางเดียว (Bakolas \& Tsiotras, JOTA 2011; Patsko \& Fedotov, 2018--2019)
+เลี้ยว\emph{ขณะเคลื่อนที่} การวางเส้นทางที่คิดต้นทุนการเลี้ยว (angular-metric และ quadratic TSP)
+ใช้จัดลำดับจุด และการหยุดล่วงหน้าแบบทำนายการไหล (US~8,571,394~B2) แค่หยุดก่อน
+ยังไม่พบงานใดที่ให้สูตรปิดของการอ้อมแบบนี้ สำหรับหุ่นที่ต้อง\emph{หยุดก่อนเลี้ยว และเลี้ยวได้แค่ทวนเข็ม}
+ทั้งนี้ ``ไม่พบ'' ไม่ได้พิสูจน์ว่าไม่มีใครเคยทำ
+}
+\par\vspace{1mm}
+\noindent\rule{\linewidth}{1.1pt}\par
+
+\vspace{4mm}
+\noindent\rule{\linewidth}{1.1pt}\par\vspace{1.4mm}
+\noindent\textbf{รูปที่ 1} ผล 3 รอบบนหุ่นจริง จากข้อมูลที่หุ่นบันทึกเอง\par\vspace{1.4mm}
+\noindent\rule{\linewidth}{0.5pt}\par\vspace{2mm}
+\begin{center}
+\includegraphics[width=0.93\linewidth]{robot_3rounds.png}
+\end{center}
+{\small
+\noindent\textbf{บน:} สิ่งที่แต่ละรอบทำตามเวลา (ลายชมพู = เลี้ยวอยู่กับที่, น้ำเงิน = วิ่ง, เทา = นิ่ง)
+วิธีเดิมเลี้ยวอยู่กับที่ก่อน $\approx 9.4$\,s แล้วค่อยวิ่ง ส่วน Detour Steer วิ่งทันทีและเลี้ยวน้อยกว่าในภายหลัง
+\textbf{ล่าง:} เส้นทางที่หุ่นวัดได้ (odometry) ทั้ง 6 รอบจากจุดเริ่มเดียวกัน มองจากด้านบน เส้นประ = แผน
+(หุ่นเลี้ยวทวนเข็ม ในรูปนี้เป้าจึงอยู่ทางขวา)\par}
+\vspace{1mm}
+\noindent\rule{\linewidth}{1.1pt}\par
+
+\clearpage
+\section*{ค่าของหุ่นปัจจุบัน และการเปรียบเทียบระยะ 2 เมตร (27 ตุลาคม 2026)}
+ผล benchmark ด้านบนใช้ความเร็วอ้างอิงทางทฤษฎี 0.25 m/s ไม่ใช่ความเร็วของหุ่นจริง
+ค่าที่วัดได้ซึ่งใช้วางแผนคือ $v=0.03$ m/s, $\omega=35^\circ$/s และรัศมีถึงเป้า 0.0025 m
+สำหรับการเปรียบเทียบระยะยาว แบ่งระยะขาไปรวม 2 m เป็น 7 ช่วงเท่ากัน ช่วงละ 2/7 m
+แต่ละช่วงหักไปทางตามเข็ม $6^\circ$ จากทิศของช่วงก่อน ทั้งสองวิธีไปจุดเดียวกัน และหุ่นยังเลี้ยวทวนเข็มเหมือนเดิม
+แบบจำลองอุดมคติให้ Direct 137.82 s / 2.00 m และ Detour 110.52 s / 2.17 m โดยอ้อม 4 ครั้ง
+ค่านี้เป็นค่าทำนายจากแบบจำลอง ไม่ใช่ผลวัดใหม่บนหุ่นจริง ขากลับจุดเริ่ม (ประมาณ 1.96 m) ไม่นับเวลา
+ทดสอบ 3 คู่ รวม 6 รอบ การบันทึกค่าตั้งค่าไม่ทำให้หุ่นเริ่มวิ่งเอง
+
+% =========================================================== Git page =======
+\clearpage
+\section*{ภาคผนวก ก. โค้ดและ Git}
+โค้ดทั้งหมดของอัลกอริทึมนี้ (ตัววางแผน Python, ซิม, เฟิร์มแวร์บนหุ่น และรายงานนี้) อยู่บน Git:
+
+\begin{center}
+\large\url{https://github.com/Mannaja78520/mor_luam} \quad {\normalsize(branch \texttt{main})}
+\end{center}
+
+\noindent\textbf{วิดีโอการทำงานของหุ่น:}
+\begin{center}
+\url{https://drive.google.com/drive/folders/11qOM6UoeH2c4nEuM0a0JO6eXTnr0eDud}
+\end{center}
+
+\noindent\textbf{อัลกอริทึมตัดสินใจอยู่ที่ไหน}
+\begin{itemize}
+\item \texttt{algorithm\_sim/detour\_steer.py} -- ตัววางแผนต้นแบบ ตรวจทฤษฎีบท T1--T4 benchmark และสร้างรูป
+\item \texttt{algorithm\_sim/sim\_detour\_steer.py}, \texttt{sim\_detour\_only.py} -- หน้าต่างซิมบนคอม
+\item \texttt{firmware/src/algorithm/DetourSteer.\{h,cpp\}} -- ตัววางแผนเดียวกันในภาษา C++ บน ESP32
+\item \texttt{firmware/src/nav/WaypointRunner.cpp} -- สั่งหุ่นวิ่งตามแผนทีละช่วง;
+\texttt{FinalApproach.h} และ \texttt{SteerApproach.h} -- อัลกอริทึม 1.6 และ 1.7
+\end{itemize}
+
+\noindent\textbf{ดาวน์โหลดโค้ดและรันซิม (ไม่ต้องใช้ Docker)}
+\begin{lstlisting}[numbers=none]
+git clone https://github.com/Mannaja78520/mor_luam.git
+cd mor_luam/algorithm_sim
+pip install matplotlib
+python detour_steer.py --no-bench      # theorem checks T1-T4 + figures
+python sim_detour_steer.py             # old method vs Detour Steer
+python -m unittest test_current_robot
+\end{lstlisting}
+
+\noindent\textbf{Build และอัปโหลดเฟิร์มแวร์ลงหุ่น (แนะนำติดตั้งแบบ Docker)}
+\begin{lstlisting}[numbers=none]
+docker\mor_luam.bat fw-build              # Windows, Docker Desktop running
+docker\mor_luam.bat fw-flash -Port COM9   # first time, over USB
+docker\mor_luam.bat fw-ota -Host <IP>     # later, over Wi-Fi
+./docker/mor_luam.sh fw-build             # Ubuntu, same commands
+\end{lstlisting}
+วิธีติดตั้งทีละขั้น: \texttt{docs/INSTALL\_TH.md} ใน repository
+
+% =========================================================== Code ===========
+\clearpage
+\subsection*{ก.1 ตัววางแผนใน Python (\texttt{algorithm\_sim/detour\_steer.py})}
+\lstinputlisting[language=Python,firstline=241,lastline=299,firstnumber=241]{../detour_steer.py}
+
+\subsection*{ก.2 ตัววางแผนบนหุ่น (\texttt{firmware/src/algorithm/DetourSteer.h})}
+\lstinputlisting[language=C++]{../../firmware/src/algorithm/DetourSteer.h}
+
+\subsection*{ก.3 ตัววางแผนบนหุ่น (\texttt{firmware/src/algorithm/DetourSteer.cpp})}
+\lstinputlisting[language=C++]{../../firmware/src/algorithm/DetourSteer.cpp}
+\end{document}

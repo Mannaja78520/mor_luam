@@ -6,6 +6,7 @@
 
 | ไฟล์ | คืออะไร |
 |---|---|
+| `docs/660610840_DetourSteer.pdf` (`.tex`, XeLaTeX) | **รายงานฉบับภาษาไทย**: อัลกอริทึม + ผลบนหุ่นจริง + หน้า Git/วิดีโอ + ภาคผนวกโค้ด |
 | `docs/report.pdf` (`report.tex`) | **รายงานส่งอาจารย์**: อัลกอริทึมตัดสินใจ + ผลบนหุ่นจริง + ภาคผนวก code และลิงก์ git |
 | `docs/algorithm.pdf` (`.tex`, `.html`) | pseudo-code Algorithm 1.1–1.7 + พิสูจน์ + ผลซิม + ผลบนหุ่นจริง |
 | `docs/explain_th.md` | อธิบายแบบเข้าใจง่ายสำหรับนำเสนอ (ลำดับการพูด + คำถามที่อาจโดนถาม) |
@@ -52,6 +53,8 @@ python -m unittest test_current_robot
 4. `docker\mor_luam.bat fw-flash -Port COM9` (ครั้งแรกผ่าน USB) หรือ `docker\mor_luam.bat fw-ota -Host <IP>` (ผ่าน Wi-Fi)
 
 Ubuntu ใช้ `./docker/mor_luam.sh` แทน `docker\mor_luam.bat` ด้วยคำสั่งเดียวกัน
+
+วิดีโอการทำงานของหุ่น: https://drive.google.com/drive/folders/11qOM6UoeH2c4nEuM0a0JO6eXTnr0eDud
 
 ## ผลบนหุ่นจริง (ทดสอบ 3 รอบ)
 
