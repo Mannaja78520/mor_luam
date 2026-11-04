@@ -59,6 +59,7 @@ Source map: `CLAUDE.md`. Install: `docs/INSTALL_TH.md`. Safety: `docs/safety.md`
 - Compiling is not proof of an installed build; check `sys.build` on the robot.
 
 ## Log (newest first, one line per session)
+- 2026-11-04 Claude: summaries 660610840_DetourSteer_summary_TH.pdf (xelatex) and _EN.pdf (pdflatex), 3 pages each.
 - 2026-11-04 Claude: Thai report 660610840_DetourSteer.pdf; video link added to all PDFs.
 - 2026-11-04 Claude: added `algorithm_sim/` + report PDF with Git page; merged all handoffs into this file.
 - 2026-10-27 Codex V2-V9: PC web/simulator, 2 m multi-leg comparison, Wi-Fi/status fixes, portable setup.
